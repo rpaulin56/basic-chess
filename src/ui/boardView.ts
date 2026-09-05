@@ -14,7 +14,7 @@ import { positionAt, legalDests, type GameState } from '../core/game.js';
 export type MoveHandler = (from: Key, to: Key) => void;
 
 export interface BoardView {
-  render(state: GameState, orientation: 'white' | 'black'): void;
+  render(state: GameState, orientation: 'white' | 'black', humanColor: 'w' | 'b'): void;
   setArrows(arrows: readonly { orig: Key; dest: Key; brush: string }[]): void;
   destroy(): void;
 }
@@ -30,16 +30,20 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
   });
 
   return {
-    render(state, orientation) {
+    render(state, orientation, humanColor) {
       const chess = positionAt(state);
       const turn: 'white' | 'black' = chess.turn() === 'w' ? 'white' : 'black';
       const lastPly = state.cursor > 0 ? state.plies[state.cursor - 1] : undefined;
-      // Muove solo chi ha il tratto; in fase 2 diventera' "solo il colore dell'umano",
-      // quando dall'altra parte ci sara' il bot. A partita finita nessuno muove:
-      // con exactOptionalPropertyTypes la chiave va OMESSA, non messa a undefined.
-      const movable = chess.isGameOver()
-        ? { free: false, dests: new Map<Key, Key[]>(), showDests: true }
-        : { free: false, color: turn, dests: legalDests(state) as Map<Key, Key[]>, showDests: true };
+      // Muove solo l'umano, solo quando e' il suo turno, e solo se stiamo guardando la
+      // posizione finale: durante un rewind la scacchiera e' in sola lettura, altrimenti
+      // un click distratto cancellerebbe il seguito della partita.
+      // A partita finita nessuno muove: con exactOptionalPropertyTypes la chiave
+      // `color` va OMESSA, non messa a undefined.
+      const atEnd = state.cursor === state.plies.length;
+      const humanTurn = atEnd && !chess.isGameOver() && chess.turn() === humanColor;
+      const movable = humanTurn
+        ? { free: false, color: turn, dests: legalDests(state) as Map<Key, Key[]>, showDests: true }
+        : { free: false, dests: new Map<Key, Key[]>(), showDests: true };
       api.set({
         fen: chess.fen(),
         orientation,

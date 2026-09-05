@@ -8,33 +8,120 @@ import {
   playMove,
   positionAt,
   truncateHere,
+  type Color,
   type GameState,
 } from '../core/game.js';
 import { parseGameInput } from '../core/import.js';
 import { toPgn } from '../core/pgn.js';
+import { BOT_LEVELS, levelById, selectBotMove, type BotLevel } from '../bot/bot.js';
+import { formatScore } from '../engine/winProb.js';
+import type { EngineLine } from '../engine/types.js';
 import { createBoardView, type BoardView } from './boardView.js';
+import { createEngineSession } from './engineSession.js';
 import { renderMoveList } from './moveList.js';
 import { locale, setLocale, t, type LocaleCode } from '../i18n/index.js';
 
 type Promotion = 'q' | 'r' | 'b' | 'n';
 
+/** Profondita' dell'analisi mostrata all'utente. Non e' la profondita' del bot: qui
+ *  vogliamo la verita' sulla posizione, non una valutazione indebolita. */
+const ANALYSIS_DEPTH = 14;
+
 export function mountApp(root: HTMLElement): void {
   let state: GameState = newGame();
   let orientation: 'white' | 'black' = 'white';
+  let humanColor: Color = 'w';
+  let level: BotLevel = levelById(localStorage.getItem('basic-chess:level') ?? 'medio');
+
+  /** Analisi della posizione attualmente mostrata (null = non ancora disponibile). */
+  let evaluation: { line: EngineLine; depth: number; sideToMove: Color } | null = null;
+  let botThinking = false;
+  /**
+   * Contatore di versione dello stato. Ogni analisi lo cattura prima di partire e lo
+   * ricontrolla al ritorno: se nel frattempo l'utente ha mosso o navigato, il
+   * risultato riguarda una posizione che non e' piu' quella mostrata e va buttato.
+   * Senza questo, un'analisi lenta sovrascrive quella di una posizione successiva.
+   */
+  let generation = 0;
 
   root.replaceChildren();
-  const { boardWrap, statusEl, movesEl, controlsEl } = buildLayout(root);
-
+  const { boardWrap, statusEl, movesEl, controlsEl, evalEl } = buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
+  const engine = createEngineSession(() => renderEnginePanel());
 
   function refresh(): void {
-    board.render(state, orientation);
+    generation++;
+    board.render(state, orientation, humanColor);
     renderMoveList(movesEl, state, (cursor) => {
       state = goTo(state, cursor);
+      evaluation = null;
       refresh();
     });
     renderStatus();
     renderControls();
+    renderEnginePanel();
+    void driveEngine();
+  }
+
+  // --- motore ------------------------------------------------------------
+
+  /**
+   * Decide cosa deve fare il motore per lo stato corrente: far muovere il bot se e'
+   * il suo turno, altrimenti valutare la posizione mostrata.
+   */
+  async function driveEngine(): Promise<void> {
+    if (engine.error()) return;
+    const atEnd = state.cursor === state.plies.length;
+    const chess = positionAt(state);
+    if (chess.isGameOver()) return;
+
+    const botTurn = atEnd && chess.turn() !== humanColor;
+    if (botTurn) {
+      if (botThinking) return;
+      await playBotMove();
+      return;
+    }
+    await updateEvaluation();
+  }
+
+  async function playBotMove(): Promise<void> {
+    const mine = generation;
+    botThinking = true;
+    renderStatus();
+    const fen = currentFen(state);
+    const analysis = await engine.analyse(fen, { depth: level.depth, multiPV: level.multiPV });
+    botThinking = false;
+    // La posizione e' cambiata mentre il bot pensava (l'utente ha ritirato una mossa o
+    // ha navigato indietro): la mossa calcolata non c'entra piu' nulla.
+    if (mine !== generation || !analysis) {
+      renderStatus();
+      return;
+    }
+    const uci = selectBotMove(analysis, level);
+    if (!uci) return;
+    const next = playMove(
+      state,
+      uci.slice(0, 2) as Square,
+      uci.slice(2, 4) as Square,
+      (uci.slice(4) || undefined) as Promotion | undefined,
+    );
+    if (!next) return;
+    state = next;
+    evaluation = null;
+    refresh();
+  }
+
+  async function updateEvaluation(): Promise<void> {
+    const mine = generation;
+    const fen = currentFen(state);
+    const analysis = await engine.analyse(fen, { depth: ANALYSIS_DEPTH, multiPV: 1 });
+    if (mine !== generation || !analysis || analysis.lines.length === 0) return;
+    evaluation = {
+      line: analysis.lines[0]!,
+      depth: analysis.depth,
+      sideToMove: fen.split(' ')[1] === 'b' ? 'b' : 'w',
+    };
+    renderEnginePanel();
   }
 
   // --- mosse -------------------------------------------------------------
@@ -70,6 +157,7 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     state = next;
+    evaluation = null;
     refresh();
   }
 
@@ -86,7 +174,30 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     statusEl.className = 'status';
+    if (botThinking) {
+      statusEl.textContent = t('thinking');
+      return;
+    }
     statusEl.textContent = positionAt(state).turn() === 'w' ? t('turnWhite') : t('turnBlack');
+  }
+
+  function renderEnginePanel(): void {
+    evalEl.replaceChildren();
+    const failure = engine.error();
+    if (failure) {
+      evalEl.append(text(t('engineFailed', { error: failure }), 'eval-note'));
+      return;
+    }
+    if (engine.loading()) {
+      evalEl.append(text(t('engineLoading'), 'eval-note'));
+      return;
+    }
+    if (!evaluation) {
+      evalEl.append(text(t('analysing'), 'eval-note'));
+      return;
+    }
+    const score = formatScore(evaluation.line, evaluation.sideToMove);
+    evalEl.append(text(score, 'eval-score'), text(t('evalDepth', { depth: evaluation.depth }), 'eval-note'));
   }
 
   function renderControls(): void {
@@ -103,16 +214,14 @@ export function mountApp(root: HTMLElement): void {
     controlsEl.append(nav);
 
     controlsEl.append(
-      button(t('takeBack'), t('takeBack'), state.cursor === 0, () => {
-        state = truncateHere(goTo(state, state.cursor - 1));
-        refresh();
-      }),
+      button(t('takeBack'), t('takeBack'), state.cursor === 0, takeBack),
       button(t('flipBoard'), t('flipBoard'), false, () => {
         orientation = orientation === 'white' ? 'black' : 'white';
         refresh();
       }),
       button(t('newGame'), t('newGame'), false, () => {
         state = newGame();
+        evaluation = null;
         refresh();
       }),
       button(t('importPosition'), t('importTitle'), false, importPosition),
@@ -122,8 +231,59 @@ export function mountApp(root: HTMLElement): void {
       button(t('copyFen'), t('copyFen'), false, () => {
         void copy(currentFen(state));
       }),
+      levelSelect(),
+      colorSelect(),
       languageSelect(),
     );
+  }
+
+  /**
+   * Ritira la mossa. Se il bot ha gia' risposto ne toglie DUE: ritirarne una sola
+   * lascerebbe il turno all'avversario, che rigiocherebbe subito — l'utente si
+   * ritroverebbe al punto di prima senza capire perche'.
+   */
+  function takeBack(): void {
+    const chess = positionAt(goTo(state, state.plies.length));
+    const back = chess.turn() === humanColor ? 2 : 1;
+    state = truncateHere(goTo(state, Math.max(0, state.plies.length - back)));
+    evaluation = null;
+    refresh();
+  }
+
+  function levelSelect(): HTMLElement {
+    const select = document.createElement('select');
+    select.title = t('levelTitle');
+    for (const option of BOT_LEVELS) {
+      const element = document.createElement('option');
+      element.value = option.id;
+      element.textContent = `${option.id} · ${option.nominalElo}`;
+      element.selected = option.id === level.id;
+      select.append(element);
+    }
+    select.addEventListener('change', () => {
+      level = levelById(select.value);
+      localStorage.setItem('basic-chess:level', level.id);
+      refresh();
+    });
+    return select;
+  }
+
+  function colorSelect(): HTMLElement {
+    const select = document.createElement('select');
+    select.title = t('playAs');
+    for (const color of ['w', 'b'] as const) {
+      const element = document.createElement('option');
+      element.value = color;
+      element.textContent = t(color === 'w' ? 'white' : 'black');
+      element.selected = color === humanColor;
+      select.append(element);
+    }
+    select.addEventListener('change', () => {
+      humanColor = select.value === 'b' ? 'b' : 'w';
+      orientation = humanColor === 'w' ? 'white' : 'black';
+      refresh();
+    });
+    return select;
   }
 
   function languageSelect(): HTMLElement {
@@ -153,9 +313,10 @@ export function mountApp(root: HTMLElement): void {
     try {
       const imported = parseGameInput(text);
       state = imported.state;
-      // Se la posizione importata ha il Nero al tratto, girare la scacchiera evita
-      // all'utente di doverlo fare a mano ogni volta che carica un finale.
-      orientation = state.startFen.split(' ')[1] === 'b' ? 'black' : 'white';
+      evaluation = null;
+      // Chi importa un finale vuole quasi sempre giocarlo dal lato che deve muovere.
+      humanColor = state.startFen.split(' ')[1] === 'b' ? 'b' : 'w';
+      orientation = humanColor === 'b' ? 'black' : 'white';
       refresh();
       toast(
         imported.kind === 'fen'
@@ -169,6 +330,7 @@ export function mountApp(root: HTMLElement): void {
 
   function seek(cursor: number): void {
     state = goTo(state, cursor);
+    evaluation = null;
     refresh();
   }
 
@@ -209,6 +371,15 @@ function buildLayout(root: HTMLElement) {
   boardColumn.append(boardWrap, statusEl, controlsEl);
 
   const side = document.createElement('aside');
+
+  const evalPanel = document.createElement('section');
+  evalPanel.className = 'panel';
+  const evalTitle = document.createElement('h2');
+  evalTitle.textContent = t('evaluation');
+  const evalEl = document.createElement('div');
+  evalEl.className = 'evaluation';
+  evalPanel.append(evalTitle, evalEl);
+
   const movesPanel = document.createElement('section');
   movesPanel.className = 'panel';
   const movesTitle = document.createElement('h2');
@@ -216,11 +387,18 @@ function buildLayout(root: HTMLElement) {
   const movesEl = document.createElement('div');
   movesEl.className = 'movelist';
   movesPanel.append(movesTitle, movesEl);
-  side.append(movesPanel);
 
+  side.append(evalPanel, movesPanel);
   layout.append(boardColumn, side);
   root.append(header, layout);
-  return { boardWrap, statusEl, movesEl, controlsEl };
+  return { boardWrap, statusEl, movesEl, controlsEl, evalEl };
+}
+
+function text(content: string, className: string): HTMLElement {
+  const element = document.createElement('div');
+  element.className = className;
+  element.textContent = content;
+  return element;
 }
 
 function button(label: string, title: string, disabled: boolean, onClick: () => void): HTMLElement {
@@ -274,14 +452,14 @@ function askPromotion(container: HTMLElement, done: (piece: Promotion | null) =>
   container.append(overlay);
 }
 
-async function copy(text: string): Promise<void> {
+async function copy(content: string): Promise<void> {
   try {
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(content);
     toast(t('copied'));
   } catch {
     // Alcuni browser negano la clipboard senza gesto diretto o fuori da HTTPS:
     // meglio mostrare il testo che perdere il PGN.
-    prompt(t('copied'), text);
+    prompt(t('copied'), content);
   }
 }
 

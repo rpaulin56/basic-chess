@@ -31,4 +31,13 @@ export const it = {
   black: 'il Nero',
   promotionTitle: 'Scegli il pezzo di promozione',
   language: 'Lingua',
+  level: 'Livello',
+  levelTitle: 'Forza del bot (Elo misurato)',
+  playAs: 'Giochi con',
+  engineLoading: 'Carico il motore…',
+  engineFailed: 'Motore non disponibile: {error}',
+  thinking: 'Il bot sta pensando…',
+  evaluation: 'Valutazione',
+  evalDepth: 'profondità {depth}',
+  analysing: 'analisi…',
 } as const;

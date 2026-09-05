@@ -33,4 +33,13 @@ export const en: Record<keyof typeof it, string> = {
   black: 'Black',
   promotionTitle: 'Choose promotion piece',
   language: 'Language',
+  level: 'Level',
+  levelTitle: 'Bot strength (measured Elo)',
+  playAs: 'You play',
+  engineLoading: 'Loading engine…',
+  engineFailed: 'Engine unavailable: {error}',
+  thinking: 'The bot is thinking…',
+  evaluation: 'Evaluation',
+  evalDepth: 'depth {depth}',
+  analysing: 'analysing…',
 };
