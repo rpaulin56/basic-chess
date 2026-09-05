@@ -21,6 +21,7 @@ import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect
 import { classifyConsequence, type Consequence } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findOpening, type Opening } from '../openings/openings.js';
+import { moveNumberOf } from '../core/game.js';
 import { createBoardView, type BoardView } from './boardView.js';
 import { createEngineSession } from './engineSession.js';
 import { renderMoveList } from './moveList.js';
@@ -54,6 +55,9 @@ const ANALYSIS_MULTIPV = 3;
  */
 const REVIEW_DEPTH = 17;
 
+/** Pausa prima di riprovare dopo un guasto del motore. */
+const RETRY_DELAY_MS = 1500;
+
 export function mountApp(root: HTMLElement): void {
   let state: GameState = newGame();
   let orientation: 'white' | 'black' = 'white';
@@ -72,7 +76,7 @@ export function mountApp(root: HTMLElement): void {
     consequence: Consequence | null;
     /** Perche' la posizione peggiora: solo per l'errore strategico. */
     positional: readonly Explanation[];
-    bestSan: string | null;
+    betterSans: readonly string[] | null;
     /** Posizione da cui parte la confutazione: serve a ricostruire il diagramma. */
     fenAfterMistake: string;
   } | null = null;
@@ -93,9 +97,13 @@ export function mountApp(root: HTMLElement): void {
    * Senza questo, un'analisi lenta sovrascrive quella di una posizione successiva.
    */
   let generation = 0;
+  /** Timer del tentativo successivo quando il motore ha avuto un guasto. */
+  let retryTimer: number | null = null;
+  /** Gli errori segnalati in questa partita, per il riepilogo. */
+  const mistakeLog: MistakeEntry[] = [];
 
   root.replaceChildren();
-  const { boardWrap, statusEl, movesEl, controlsEl, evalEl, tutorEl, previewEl, openingEl } =
+  const { boardWrap, statusEl, movesEl, controlsEl, evalEl, tutorEl, previewEl, openingEl, recapEl } =
     buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
   const engine = createEngineSession(() => renderEnginePanel());
@@ -113,6 +121,7 @@ export function mountApp(root: HTMLElement): void {
     renderControls();
     renderEnginePanel();
     renderOpening();
+    renderRecap();
     void updateOpening();
     renderPreviewControls();
     renderTutorPanel(
@@ -122,6 +131,9 @@ export function mountApp(root: HTMLElement): void {
       onTakeBack: () => {
         // Si toglie una sola semi-mossa: il bot non ha ancora risposto, perche' il
         // tutor lo tiene fermo finche' l'utente non decide.
+        const last = mistakeLog[mistakeLog.length - 1];
+        if (last) last.corrected = true;
+        renderRecap();
         review = null;
         preview = null;
         state = truncateHere(goTo(state, Math.max(0, state.plies.length - 1)));
@@ -134,8 +146,13 @@ export function mountApp(root: HTMLElement): void {
         refresh();
       },
       onReveal: () => {
-        if (!review?.verdict.bestMove) return;
-        review = { ...review, bestSan: sanOfBestMove(review.verdict.bestMove) };
+        if (!review) return;
+        const moves = review.verdict.betterMoves.length
+          ? review.verdict.betterMoves
+          : review.verdict.bestMove
+            ? [review.verdict.bestMove]
+            : [];
+        review = { ...review, betterSans: moves.map(sanOfBestMove).filter((san) => san !== null) };
         refresh();
       },
       onShowConsequence: () => {
@@ -157,6 +174,24 @@ export function mountApp(root: HTMLElement): void {
       },
     );
     void driveEngine();
+  }
+
+  // --- riepilogo ---------------------------------------------------------
+
+  function renderRecap(): void {
+    recapEl.replaceChildren();
+    if (mistakeLog.length === 0) {
+      recapEl.append(text(t('recapEmpty'), 'eval-note'));
+      return;
+    }
+    const list = document.createElement('ul');
+    for (const entry of mistakeLog) {
+      const item = document.createElement('li');
+      item.className = entry.corrected ? 'recap-corrected' : '';
+      item.textContent = recapLine(entry);
+      list.append(item);
+    }
+    recapEl.append(list);
   }
 
   // --- apertura ----------------------------------------------------------
@@ -264,7 +299,6 @@ export function mountApp(root: HTMLElement): void {
    * il suo turno, altrimenti valutare la posizione mostrata.
    */
   async function driveEngine(): Promise<void> {
-    if (engine.error()) return;
     // Finche' un verdetto e' sullo schermo il bot resta fermo: l'utente deve poter
     // ritirare la mossa senza che la partita gli scappi avanti.
     if (review) return;
@@ -306,12 +340,22 @@ export function mountApp(root: HTMLElement): void {
             depth: REVIEW_DEPTH,
             multiPV: ANALYSIS_MULTIPV,
           });
-    if (mine !== generation || !before) return;
+    // Se l'analisi fallisce si rinuncia al giudizio ma NON alla partita: si torna a
+    // disegnare, cosi' il bot riprende a muovere.
+    if (!before) {
+      refresh();
+      return;
+    }
+    if (mine !== generation) return;
     const after = await engine.analyse(pending.fenAfter, {
       depth: REVIEW_DEPTH,
       multiPV: ANALYSIS_MULTIPV,
     });
-    if (mine !== generation || !after) return;
+    if (!after) {
+      refresh();
+      return;
+    }
+    if (mine !== generation) return;
     const verdict = detectMistake(before, after);
     if (isImportant(verdict)) {
       // La confutazione e' il seguito previsto dopo la mossa giocata: e' la risposta
@@ -332,9 +376,21 @@ export function mountApp(root: HTMLElement): void {
                 humanColor,
               )
             : [],
-        bestSan: null,
+        betterSans: null,
         fenAfterMistake: pending.fenAfter,
       };
+      // Il riepilogo si costruisce durante la partita: a fine partita le posizioni
+      // intermedie non ci sono piu' e ricostruirlo costerebbe una rianalisi completa.
+      mistakeLog.push({
+        number: moveNumberOf(state, state.plies.length - 1),
+        color: humanColor,
+        san: state.plies[state.plies.length - 1]?.san ?? '?',
+        severity: verdict.severity,
+        category: consequence?.category ?? null,
+        drop: verdict.drop,
+        corrected: false,
+      });
+      renderRecap();
     }
     refresh();
   }
@@ -379,22 +435,46 @@ export function mountApp(root: HTMLElement): void {
     botThinking = false;
     // La posizione e' cambiata mentre il bot pensava (l'utente ha ritirato una mossa o
     // ha navigato indietro): la mossa calcolata non c'entra piu' nulla.
-    if (mine !== generation || !analysis) {
+    if (mine !== generation) {
       renderStatus();
       return;
     }
+    if (!analysis) {
+      renderStatus();
+      scheduleRetry();
+      return;
+    }
     const uci = selectBotMove(analysis, level);
-    if (!uci) return;
-    const next = playMove(
-      state,
-      uci.slice(0, 2) as Square,
-      uci.slice(2, 4) as Square,
-      (uci.slice(4) || undefined) as Promotion | undefined,
-    );
-    if (!next) return;
+    const next = uci
+      ? playMove(
+          state,
+          uci.slice(0, 2) as Square,
+          uci.slice(2, 4) as Square,
+          (uci.slice(4) || undefined) as Promotion | undefined,
+        )
+      : null;
+    // Se il bot non e' riuscito a muovere (motore ripartito, analisi vuota, mossa
+    // rifiutata) si riprova invece di restare fermi: prima si aspettava in silenzio
+    // per sempre, ed e' il guasto che l'utente ha incontrato in partita.
+    if (!next) {
+      scheduleRetry();
+      return;
+    }
     state = next;
     evaluation = null;
     refresh();
+  }
+
+  /**
+   * Ritenta fra poco. La pausa serve a non trasformare un guasto persistente in un
+   * ciclo stretto che consuma la macchina.
+   */
+  function scheduleRetry(): void {
+    if (retryTimer !== null) return;
+    retryTimer = window.setTimeout(() => {
+      retryTimer = null;
+      refresh();
+    }, RETRY_DELAY_MS);
   }
 
   async function updateEvaluation(): Promise<void> {
@@ -531,6 +611,7 @@ export function mountApp(root: HTMLElement): void {
       button(t('newGame'), t('newGame'), false, () => {
         state = newGame();
         evaluation = null;
+        mistakeLog.length = 0;
         clearTutor();
         refresh();
       }),
@@ -540,6 +621,9 @@ export function mountApp(root: HTMLElement): void {
       }),
       button(t('copyFen'), t('copyFen'), false, () => {
         void copy(currentFen(state));
+      }),
+      button(t('recapCopy'), t('recapCopy'), mistakeLog.length === 0, () => {
+        void copy(recapText(mistakeLog));
       }),
       button(tutorEnabled ? t('tutorOn') : t('tutorOff'), t('tutorOn'), false, () => {
         tutorEnabled = !tutorEnabled;
@@ -722,6 +806,14 @@ function buildLayout(root: HTMLElement) {
   evalEl.className = 'evaluation';
   evalPanel.append(evalTitle, evalEl);
 
+  const recapPanel = document.createElement('section');
+  recapPanel.className = 'panel';
+  const recapTitle = document.createElement('h2');
+  recapTitle.textContent = t('recap');
+  const recapEl = document.createElement('div');
+  recapEl.className = 'recap';
+  recapPanel.append(recapTitle, recapEl);
+
   const movesPanel = document.createElement('section');
   movesPanel.className = 'panel';
   const movesTitle = document.createElement('h2');
@@ -734,10 +826,20 @@ function buildLayout(root: HTMLElement) {
   movesEl.className = 'movelist';
   movesPanel.append(movesTitle, openingEl, movesEl);
 
-  side.append(tutorEl, evalPanel, movesPanel);
+  side.append(tutorEl, evalPanel, recapPanel, movesPanel);
   layout.append(boardColumn, side);
   root.append(header, layout);
-  return { boardWrap, statusEl, movesEl, controlsEl, evalEl, tutorEl, previewEl, openingEl };
+  return {
+    boardWrap,
+    statusEl,
+    movesEl,
+    controlsEl,
+    evalEl,
+    tutorEl,
+    previewEl,
+    openingEl,
+    recapEl,
+  };
 }
 
 function text(content: string, className: string): HTMLElement {
@@ -815,4 +917,50 @@ function toast(message: string): void {
   element.textContent = message;
   document.body.append(element);
   setTimeout(() => element.remove(), 1800);
+}
+
+/** Una riga del riepilogo: un errore segnalato durante la partita. */
+interface MistakeEntry {
+  number: number;
+  color: 'w' | 'b';
+  san: string;
+  severity: string;
+  category: string | null;
+  drop: number;
+  /** Vero se l'utente ha ritirato la mossa e ne ha giocata un'altra. */
+  corrected: boolean;
+}
+
+const RECAP_SEVERITY: Record<string, string> = {
+  blunder: 'tutorBlunder',
+  mistake: 'tutorMistake',
+  inaccuracy: 'tutorInaccuracy',
+};
+const RECAP_CATEGORY: Record<string, string> = {
+  banale: 'headBanale',
+  tattico: 'headTattico',
+  strategico: 'headStrategico',
+};
+
+function recapLine(entry: MistakeEntry): string {
+  const number = `${entry.number}${entry.color === 'w' ? '.' : '...'}`;
+  return t('recapLine', {
+    number,
+    san: toFigurine(entry.san),
+    kind: entry.category ? t(RECAP_CATEGORY[entry.category] ?? 'headStrategico') : '—',
+    severity: t(RECAP_SEVERITY[entry.severity] ?? 'tutorMistake'),
+    what: `-${Math.round(entry.drop)}`,
+    state: t(entry.corrected ? 'recapCorrected' : 'recapKept'),
+  });
+}
+
+/** Il riepilogo in testo semplice, da incollare accanto al PGN. */
+function recapText(entries: readonly MistakeEntry[]): string {
+  const corrected = entries.filter((entry) => entry.corrected).length;
+  return [
+    t('recapTitle'),
+    ...entries.map((entry) => `  ${recapLine(entry)}`),
+    '',
+    t('recapTotals', { count: entries.length, corrected }),
+  ].join('\n');
 }

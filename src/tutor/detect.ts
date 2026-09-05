@@ -35,6 +35,11 @@ export interface MistakeVerdict {
    * quella, e non e' onesto rimproverare un principiante per non averla trovata.
    */
   readonly betterAlternatives: number;
+  /**
+   * Le mosse che tenevano la posizione, in UCI, dalla migliore. Contarle non basta:
+   * l'utente che legge "erano 3 le mosse che tenevano" vuole poter chiedere QUALI.
+   */
+  readonly betterMoves: readonly string[];
   /** Se il verdetto e' `none`, perche'. Utile per capire il comportamento del tutor. */
   readonly skipped: SkipReason | null;
 }
@@ -115,9 +120,11 @@ export function detectMistake(
   const winPercentAfter = bestAfter ? 100 - winPercentOf(bestAfter) : 50;
   const drop = winPercentBefore - winPercentAfter;
 
-  const betterAlternatives = before.lines.filter(
+  const better = before.lines.filter(
     (line) => winPercentOf(line) >= winPercentAfter + options.alternativeMargin,
-  ).length;
+  );
+  const betterAlternatives = better.length;
+  const betterMoves = better.map((line) => line.pv[0]).filter((move): move is string => !!move);
 
   const base = {
     drop,
@@ -127,6 +134,7 @@ export function detectMistake(
     bestMove: bestBefore?.pv[0] ?? before.bestMove,
     bestLine: bestBefore?.pv ?? [],
     betterAlternatives,
+    betterMoves,
   };
   const quiet = (skipped: SkipReason): MistakeVerdict => ({ ...base, severity: 'none', skipped });
 

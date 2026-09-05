@@ -158,3 +158,15 @@ describe('la qualità', () => {
     expect(result!.lossKind).toBe('named');
   });
 });
+
+describe('il matto', () => {
+  // Matto del barbiere: dopo 3...Cf6?? il Bianco matta con Dxf7.
+  const SCHOLAR = 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4';
+
+  it('riconosce il matto e lo antepone al conteggio del materiale', () => {
+    const result = classifyConsequence(SCHOLAR, ['h5f7']);
+    expect(result!.matesIn).toBe(1);
+    // La variante si ferma al matto, non prosegue per contare i pedoni.
+    expect(result!.manifestAt).toBe(1);
+  });
+});

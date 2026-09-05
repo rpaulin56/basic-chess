@@ -78,6 +78,12 @@ export interface Consequence {
   readonly lossKind: 'named' | 'exchange' | 'count';
   /** Vero se la linea e' fatta quasi solo di scacchi e catture: l'utente non aveva scampo. */
   readonly forcing: boolean;
+  /**
+   * In quante MOSSE arriva il matto, se la confutazione e' un matto forzato. null
+   * altrimenti. Va detto prima di ogni conto sul materiale: a chi viene mattato non
+   * interessa quale pedone ha perso per strada.
+   */
+  readonly matesIn: number | null;
 }
 
 const VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -150,6 +156,9 @@ export function classifyConsequence(
 
   const line: string[] = [];
   const san: string[] = [];
+  let matesIn: number | null = null;
+  /** Semi-mossa in cui arriva il matto: e' li' che la variante si ferma. */
+  let mateAtPly = 0;
   const balances: number[] = [materialBalance(chess, victim)];
   let forcingMoves = 0;
 
@@ -166,6 +175,10 @@ export function classifyConsequence(
     }
     line.push(uci);
     san.push(move.san);
+    if (chess.isCheckmate() && matesIn === null) {
+      matesIn = Math.ceil(line.length / 2);
+      mateAtPly = line.length;
+    }
     balances.push(materialBalance(chess, victim));
     // "Forzante" e' approssimato con scacchi e catture. Il criterio rigoroso
     // (chiedere al motore quante alternative c'erano in ogni nodo) costerebbe
@@ -182,7 +195,11 @@ export function classifyConsequence(
   // Dove si manifesta: la prima semi-mossa dopo la quale il materiale e' gia' quello
   // peggiore. E' il momento in cui "si capisce", non la fine della variante.
   let manifestAt = line.length;
-  if (materialLoss >= MATERIAL_THRESHOLD) {
+  // Il matto e' la conseguenza definitiva: la variante si ferma li', qualunque cosa
+  // dica il conteggio del materiale.
+  if (matesIn !== null) {
+    manifestAt = mateAtPly;
+  } else if (materialLoss >= MATERIAL_THRESHOLD) {
     for (let i = 1; i < balances.length; i++) {
       if (balances[i]! <= worst) {
         manifestAt = i;
@@ -211,6 +228,7 @@ export function classifyConsequence(
     lost: lossKind === 'named' ? lost : [],
     lossKind,
     forcing: forcingMoves * 2 >= manifestAt,
+    matesIn,
   };
 }
 

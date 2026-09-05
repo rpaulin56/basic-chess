@@ -2,7 +2,7 @@ import type { MistakeVerdict } from '../tutor/detect.js';
 import type { Consequence, LostPiece } from '../tutor/classify.js';
 import type { Explanation } from '../tutor/positional.js';
 import { toFigurine } from '../core/notation.js';
-import { t } from '../i18n/index.js';
+import { locale, t } from '../i18n/index.js';
 
 /**
  * Il pannello del tutor.
@@ -31,8 +31,11 @@ export interface TutorPanelState {
   readonly verdict: MistakeVerdict;
   /** Che tipo di errore e' e cosa mostrare. null se non e' stato possibile stabilirlo. */
   readonly consequence: Consequence | null;
-  /** SAN della mossa migliore, gia' calcolato dal chiamante (null = non ancora chiesto). */
-  readonly bestSan: string | null;
+  /**
+   * Le mosse che tenevano, in SAN, gia' tradotte dal chiamante. null finche' l'utente
+   * non le chiede: mostrarle subito toglierebbe il senso di cercarle.
+   */
+  readonly betterSans: readonly string[] | null;
   /**
    * Perche' la posizione peggiora, quando non c'e' materiale da mostrare. Vuoto se le
    * euristiche non hanno trovato niente da dire: e' un esito legittimo, e tacere e'
@@ -86,7 +89,7 @@ export function renderTutorPanel(
   }
   container.hidden = false;
 
-  const { verdict, consequence, bestSan, positional, previewing } = state;
+  const { verdict, consequence, betterSans, positional, previewing } = state;
   const severity = verdict.severity as 'blunder' | 'mistake' | 'inaccuracy';
   container.className = `panel tutor tutor-${severity}`;
 
@@ -118,7 +121,7 @@ export function renderTutorPanel(
   lines.push(
     t('tutorWinChange', {
       before: Math.round(verdict.winPercentBefore),
-      after: Math.round(verdict.winPercentAfter),
+      to: toPercent(Math.round(verdict.winPercentAfter)),
     }),
   );
   // Quante alternative andavano bene orienta la ricerca: se erano cinque, la mossa
@@ -135,10 +138,14 @@ export function renderTutorPanel(
     container.append(paragraph);
   }
 
-  if (bestSan) {
+  if (betterSans && betterSans.length > 0) {
     const best = document.createElement('p');
     best.className = 'tutor-best';
-    best.textContent = t('tutorBestWas', { move: toFigurine(bestSan) });
+    const figurine = betterSans.map(toFigurine);
+    best.textContent =
+      figurine.length === 1
+        ? t('tutorBestWas', { move: figurine[0]! })
+        : t('tutorBetterWere', { moves: figurine.join(', '), best: figurine[0]! });
     container.append(best);
   }
 
@@ -152,13 +159,18 @@ export function renderTutorPanel(
       action(t('tutorContinue'), actions.onContinue),
     );
     if (consequence) buttons.append(action(t('tutorShowConsequence'), actions.onShowConsequence));
-    if (!bestSan) buttons.append(action(t('tutorShowBest'), actions.onReveal));
+    if (!betterSans) buttons.append(action(t('tutorShowBest'), actions.onReveal));
   }
   container.append(buttons);
 }
 
 /** La frase che spiega la categoria. E' il testo che l'utente legge per primo. */
 function describe(consequence: Consequence): string {
+  // Il matto viene prima di qualunque conto sul materiale: a chi viene mattato non
+  // interessa quale pedone ha perso per strada.
+  if (consequence.matesIn !== null) {
+    return consequence.matesIn <= 1 ? t('mateNow') : t('mateIn', { moves: consequence.matesIn });
+  }
   const moves = Math.ceil(consequence.manifestAt / 2);
   // "perdi la qualita'" e "perdi il pedone passato in c6" reggono la stessa frase;
   // solo il saldo nudo ("l'equivalente di due pedoni") ha bisogno di una forma sua.
@@ -203,4 +215,18 @@ function action(label: string, onClick: () => void, className = ''): HTMLElement
   if (className) button.className = className;
   button.addEventListener('click', onClick);
   return button;
+}
+
+/**
+ * "al 64%", "allo 0%", "all'8%".
+ *
+ * In italiano l'articolo davanti a un numero dipende da come il numero si PRONUNCIA:
+ * "lo zero", "l'uno", "l'otto", "l'undici", "l'ottanta". Scrivere sempre "al" produce
+ * "al 0%", che nessuno direbbe. In inglese il problema non esiste e si usa "to".
+ */
+function toPercent(value: number): string {
+  if (locale() !== 'it') return `to ${value}%`;
+  if (value === 0) return `allo ${value}%`;
+  const vowelStart = [1, 8, 11, 18].includes(value) || (value >= 80 && value <= 89);
+  return vowelStart ? `all’${value}%` : `al ${value}%`;
 }

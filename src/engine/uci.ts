@@ -41,6 +41,15 @@ export function parseInfoLine(line: string): EngineLine | (EngineLine & { depth:
   };
 }
 
+/** Quanto si aspetta l'avvio del motore prima di dichiararlo morto. */
+const HANDSHAKE_TIMEOUT_MS = 30_000;
+/**
+ * Quanto si aspetta una singola ricerca. Le nostre profondita' si risolvono in meno
+ * di un secondo: trenta secondi non e' una soglia di pazienza, e' un rilevatore di
+ * guasti.
+ */
+const SEARCH_TIMEOUT_MS = 30_000;
+
 /**
  * Crea un motore sopra un canale qualsiasi.
  *
@@ -65,15 +74,30 @@ export async function createEngine(
   let onLineHandler: ((line: string) => void) | null = null;
   transport.onLine((line) => onLineHandler?.(line));
 
-  /** Aspetta una riga che soddisfi il predicato, raccogliendo tutto nel frattempo. */
+  /**
+   * Aspetta una riga che soddisfi il predicato, raccogliendo tutto nel frattempo.
+   *
+   * Con scadenza, e non per eccesso di zelo: se il worker muore (o smette di
+   * rispondere per qualunque ragione) senza scadenza questa Promise resta appesa per
+   * sempre, e con lei tutto cio' che la aspetta — la valutazione resta su "analisi…"
+   * e il bot non muove mai piu'. E' un guasto osservato in partita, non un'ipotesi.
+   */
   function collectUntil(
     done: (line: string) => boolean,
     onEach?: (line: string) => void,
+    timeoutMs = 0,
   ): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      const timer = timeoutMs
+        ? setTimeout(() => {
+            onLineHandler = null;
+            reject(new Error('il motore non risponde'));
+          }, timeoutMs)
+        : null;
       onLineHandler = (line) => {
         onEach?.(line);
         if (done(line)) {
+          if (timer) clearTimeout(timer);
           onLineHandler = null;
           resolve();
         }
@@ -82,7 +106,7 @@ export async function createEngine(
   }
 
   transport.send('uci');
-  await collectUntil((line) => line.startsWith('uciok'));
+  await collectUntil((line) => line.startsWith('uciok'), undefined, HANDSHAKE_TIMEOUT_MS);
 
   if (options.threads && options.threads > 1) {
     transport.send(`setoption name Threads value ${options.threads}`);
@@ -92,7 +116,7 @@ export async function createEngine(
     transport.send(`setoption name ${name} value ${value}`);
   }
   transport.send('isready');
-  await collectUntil((line) => line.startsWith('readyok'));
+  await collectUntil((line) => line.startsWith('readyok'), undefined, HANDSHAKE_TIMEOUT_MS);
 
   let running: Promise<unknown> = Promise.resolve();
   let pending = 0;
@@ -142,6 +166,7 @@ export async function createEngine(
         if (!previous || withDepth.depth >= previous.depth) best.set(withDepth.multipv, withDepth);
         if (withDepth.depth > depth) depth = withDepth.depth;
       },
+      SEARCH_TIMEOUT_MS,
     );
 
     const lines = [...best.values()].sort((a, b) => a.multipv - b.multipv);
