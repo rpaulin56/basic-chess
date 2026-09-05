@@ -1,7 +1,11 @@
 import type { EngineLine } from './types.js';
 
 /**
- * Conversione valutazione -> probabilita' di vittoria.
+ * Conversione valutazione -> ASPETTATIVA di vittoria.
+ *
+ * Sul nome: "probabilita'" sarebbe scorretto. Questa sigmoide restituisce il
+ * punteggio atteso su una partita (vittoria = 1, patta = 0.5), non la frequenza di
+ * vittorie su molte ripetizioni — e di partite se ne gioca una sola.
  *
  * E' il pezzo concettualmente piu' importante di tutto il progetto, ed e' il motivo
  * per cui NON misureremo mai gli errori in centipawn: passare da +900 a +700 e'

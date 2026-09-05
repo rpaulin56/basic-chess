@@ -19,6 +19,8 @@ import { formatScore } from '../engine/winProb.js';
 import type { Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
 import { classifyConsequence, type Consequence } from '../tutor/classify.js';
+import { explainPositional, type Explanation } from '../tutor/positional.js';
+import { findOpening, type Opening } from '../openings/openings.js';
 import { createBoardView, type BoardView } from './boardView.js';
 import { createEngineSession } from './engineSession.js';
 import { renderMoveList } from './moveList.js';
@@ -68,6 +70,8 @@ export function mountApp(root: HTMLElement): void {
   let review: {
     verdict: MistakeVerdict;
     consequence: Consequence | null;
+    /** Perche' la posizione peggiora: solo per l'errore strategico. */
+    positional: readonly Explanation[];
     bestSan: string | null;
     /** Posizione da cui parte la confutazione: serve a ricostruire il diagramma. */
     fenAfterMistake: string;
@@ -79,6 +83,8 @@ export function mountApp(root: HTMLElement): void {
    */
   let preview: { consequence: Consequence; index: number; fenAfterMistake: string } | null = null;
   let tutorEnabled = localStorage.getItem('basic-chess:tutor') !== 'off';
+  /** Apertura riconosciuta per la posizione mostrata (null = nessuna, o non ancora). */
+  let opening: Opening | null = null;
   let botThinking = false;
   /**
    * Contatore di versione dello stato. Ogni analisi lo cattura prima di partire e lo
@@ -89,7 +95,7 @@ export function mountApp(root: HTMLElement): void {
   let generation = 0;
 
   root.replaceChildren();
-  const { boardWrap, statusEl, movesEl, controlsEl, evalEl, tutorEl, previewEl } =
+  const { boardWrap, statusEl, movesEl, controlsEl, evalEl, tutorEl, previewEl, openingEl } =
     buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
   const engine = createEngineSession(() => renderEnginePanel());
@@ -106,6 +112,8 @@ export function mountApp(root: HTMLElement): void {
     renderStatus();
     renderControls();
     renderEnginePanel();
+    renderOpening();
+    void updateOpening();
     renderPreviewControls();
     renderTutorPanel(
       tutorEl,
@@ -149,6 +157,41 @@ export function mountApp(root: HTMLElement): void {
       },
     );
     void driveEngine();
+  }
+
+  // --- apertura ----------------------------------------------------------
+
+  /**
+   * Riconosce l'apertura fino alla posizione MOSTRATA, non fino alla fine della
+   * partita: scorrendo indietro le mosse si vede il nome cambiare, ed e' cosi' che si
+   * capisce dove una variante prende il suo nome.
+   */
+  async function updateOpening(): Promise<void> {
+    const mine = generation;
+    const san = state.plies.slice(0, state.cursor).map((ply) => ply.san);
+    try {
+      const found = await findOpening(san);
+      if (mine !== generation) return;
+      if (found?.name !== opening?.name || found?.plies !== opening?.plies) {
+        opening = found;
+        renderOpening();
+      }
+    } catch {
+      // Il file delle aperture non e' essenziale: se manca, si gioca lo stesso.
+      opening = null;
+    }
+  }
+
+  function renderOpening(): void {
+    openingEl.replaceChildren();
+    openingEl.hidden = !opening;
+    if (!opening) return;
+    const eco = document.createElement('span');
+    eco.className = 'opening-eco';
+    eco.textContent = opening.eco;
+    const name = document.createElement('span');
+    name.textContent = opening.name;
+    openingEl.append(eco, name);
   }
 
   // --- diagramma della conseguenza ---------------------------------------
@@ -271,16 +314,46 @@ export function mountApp(root: HTMLElement): void {
     if (mine !== generation || !after) return;
     const verdict = detectMistake(before, after);
     if (isImportant(verdict)) {
+      // La confutazione e' il seguito previsto dopo la mossa giocata: e' la risposta
+      // alla domanda "perche' e' un errore".
+      const consequence = classifyConsequence(pending.fenAfter, after.lines[0]?.pv ?? []);
       review = {
         verdict,
-        // La confutazione e' il seguito previsto dopo la mossa giocata: e' la
-        // risposta alla domanda "perche' e' un errore".
-        consequence: classifyConsequence(pending.fenAfter, after.lines[0]?.pv ?? []),
+        consequence,
+        // Le ragioni posizionali si calcolano confrontando la posizione PRIMA
+        // dell'errore con quella futura in cui la conseguenza si manifesta: e'
+        // il confronto che mostra cosa ha causato la mossa.
+        positional:
+          consequence?.category === 'strategico'
+            ? explainPositional(
+                pending.fenBefore,
+                futureFen(pending.fenAfter, consequence.line),
+                // Chi ha sbagliato e' l'utente: il tutor giudica solo le sue mosse.
+                humanColor,
+              )
+            : [],
         bestSan: null,
         fenAfterMistake: pending.fenAfter,
       };
     }
     refresh();
+  }
+
+  /** La posizione raggiunta rigiocando `line` a partire da `fen`. */
+  function futureFen(fen: string, line: readonly string[]): string {
+    const chess = new Chess(fen);
+    for (const uci of line) {
+      try {
+        chess.move({
+          from: uci.slice(0, 2),
+          to: uci.slice(2, 4),
+          ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
+        });
+      } catch {
+        break;
+      }
+    }
+    return chess.fen();
   }
 
   /** Traduce la mossa migliore da UCI a SAN, nella posizione in cui andava giocata. */
@@ -643,14 +716,18 @@ function buildLayout(root: HTMLElement) {
   movesPanel.className = 'panel';
   const movesTitle = document.createElement('h2');
   movesTitle.textContent = t('moves');
+  // Il nome dell'apertura sta in cima alla lista mosse, dove si guarda comunque.
+  const openingEl = document.createElement('div');
+  openingEl.className = 'opening';
+  openingEl.hidden = true;
   const movesEl = document.createElement('div');
   movesEl.className = 'movelist';
-  movesPanel.append(movesTitle, movesEl);
+  movesPanel.append(movesTitle, openingEl, movesEl);
 
   side.append(tutorEl, evalPanel, movesPanel);
   layout.append(boardColumn, side);
   root.append(header, layout);
-  return { boardWrap, statusEl, movesEl, controlsEl, evalEl, tutorEl, previewEl };
+  return { boardWrap, statusEl, movesEl, controlsEl, evalEl, tutorEl, previewEl, openingEl };
 }
 
 function text(content: string, className: string): HTMLElement {

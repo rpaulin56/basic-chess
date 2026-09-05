@@ -36,8 +36,9 @@ export function setLocale(code: LocaleCode): void {
  * riferimento del progetto), e in ultima istanza sulla chiave stessa: un testo
  * brutto e' meglio di una schermata vuota.
  */
-export function t(key: keyof Dict, params: Record<string, string | number> = {}): string {
-  const template = DICTS[current][key] ?? it[key] ?? String(key);
+export function t(key: keyof Dict | string, params: Record<string, string | number> = {}): string {
+  const template =
+    DICTS[current][key as keyof Dict] ?? it[key as keyof Dict] ?? String(key);
   return template.replace(/\{(\w+)\}/g, (whole, name: string) =>
     name in params ? String(params[name]) : whole,
   );

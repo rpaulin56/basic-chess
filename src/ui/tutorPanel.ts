@@ -1,5 +1,6 @@
 import type { MistakeVerdict } from '../tutor/detect.js';
 import type { Consequence, LostPiece } from '../tutor/classify.js';
+import type { Explanation } from '../tutor/positional.js';
 import { toFigurine } from '../core/notation.js';
 import { t } from '../i18n/index.js';
 
@@ -32,6 +33,12 @@ export interface TutorPanelState {
   readonly consequence: Consequence | null;
   /** SAN della mossa migliore, gia' calcolato dal chiamante (null = non ancora chiesto). */
   readonly bestSan: string | null;
+  /**
+   * Perche' la posizione peggiora, quando non c'e' materiale da mostrare. Vuoto se le
+   * euristiche non hanno trovato niente da dire: e' un esito legittimo, e tacere e'
+   * meglio che inventare.
+   */
+  readonly positional: readonly Explanation[];
   /** Vero mentre il diagramma delle conseguenze e' sulla scacchiera. */
   readonly previewing: boolean;
 }
@@ -79,7 +86,7 @@ export function renderTutorPanel(
   }
   container.hidden = false;
 
-  const { verdict, consequence, bestSan, previewing } = state;
+  const { verdict, consequence, bestSan, positional, previewing } = state;
   const severity = verdict.severity as 'blunder' | 'mistake' | 'inaccuracy';
   container.className = `panel tutor tutor-${severity}`;
 
@@ -101,6 +108,12 @@ export function renderTutorPanel(
 
   const lines: string[] = [];
   if (consequence) lines.push(describe(consequence));
+  // Per l'errore strategico la frase generica ("la posizione peggiora") non insegna
+  // nulla da sola: subito dopo vengono le ragioni misurate.
+  if (consequence?.category === 'strategico') {
+    for (const explanation of positional) lines.push(t(explanation.key, explanation.params));
+    if (positional.length === 0) lines.push(t('posNothing'));
+  }
   if (verdict.crossing) lines.push(t(CROSSING_LABEL[verdict.crossing]));
   lines.push(
     t('tutorWinChange', {

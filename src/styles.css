@@ -215,3 +215,24 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   vertical-align: middle;
   opacity: 0.75;
 }
+
+/* --- nome dell'apertura --- */
+.opening {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.opening-eco {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}

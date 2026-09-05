@@ -10,7 +10,7 @@ server, nessun account, nessun dato raccolto.
 - **Fase 2** — motore Stockfish nel browser, valutazione continua, bot calibrato ✅
 - **Fase 3** — rilevamento degli errori importanti (in probabilità di vittoria) ✅
 - **Fase 4** — classificazione banale/tattico/strategico e visualizzazione ✅
-- **Fase 5** — euristiche posizionali, nomi delle aperture, libreria di finali
+- **Fase 5** — euristiche posizionali ✅, nomi delle aperture ✅, libreria di finali (da fare)
 
 ## Come si usa
 
