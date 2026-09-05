@@ -1,0 +1,26 @@
+# Blocco da AGGIUNGERE al Caddyfile della VPS (/etc/caddy/Caddyfile), accanto a quelli
+# degli altri progetti: non li sostituisce.
+#
+# A differenza degli altri progetti su questa macchina qui NON c'e' nessun processo da
+# proxare: l'applicazione e' un sito statico e tutto il calcolo (Stockfish) avviene nel
+# browser di chi gioca. Niente backend, niente porta, niente systemd.
+#
+# Nessun header COOP/COEP: usiamo la build single-thread di Stockfish, che non ha
+# bisogno di SharedArrayBuffer (vedi src/engine/browserTransport.ts).
+
+scacchi.riccardopaulin.com {
+	root * /srv/basic-chess/dist
+	encode zstd gzip
+
+	# I file in assets/ hanno l'hash del contenuto nel nome: cambiano nome ad ogni
+	# build, quindi si possono tenere in cache per sempre.
+	header /assets/* Cache-Control "public, max-age=31536000, immutable"
+
+	# Motore (7 MB) e dizionario delle aperture (340 KB) NON hanno l'hash nel nome, ma
+	# cambiano solo quando si aggiorna Stockfish o il dataset ECO: una settimana di
+	# cache evita di riscaricarli ad ogni visita senza incastrare nessuno a lungo.
+	header /engine/* Cache-Control "public, max-age=604800"
+	header /openings.json Cache-Control "public, max-age=604800"
+
+	file_server
+}

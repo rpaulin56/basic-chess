@@ -15,6 +15,17 @@
 
 * { box-sizing: border-box; }
 
+/*
+ * L'attributo `hidden` deve vincere sempre.
+ *
+ * Il foglio di stile del browser lo implementa con `display: none`, che ha la stessa
+ * specificita' di qualunque nostra regola: dare `display: flex` o `display: grid` a un
+ * elemento lo rende impossibile da nascondere con `hidden`. Si vedeva come un
+ * rettangolo vuoto sotto la scacchiera (la barra del diagramma) e come una riga vuota
+ * sopra la lista mosse (il nome dell'apertura non ancora riconosciuta).
+ */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);

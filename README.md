@@ -12,6 +12,11 @@ server, nessun account, nessun dato raccolto.
 - **Fase 4** — classificazione banale/tattico/strategico e visualizzazione ✅
 - **Fase 5** — euristiche posizionali ✅, nomi delle aperture ✅, libreria di finali (da fare)
 
+## Online
+
+https://scacchi.riccardopaulin.com — sito statico sul VPS personale, nessun account,
+nessun dato raccolto. Per pubblicare una nuova versione: `sh deploy/publish.sh`.
+
 ## Come si usa
 
 ```
