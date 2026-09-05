@@ -17,7 +17,7 @@ import { parsePgn } from '../src/core/pgn.js';
 import { createEngine } from '../src/engine/uci.js';
 import { detectMistake } from '../src/tutor/detect.js';
 import { moveNumberOf, positionAt } from '../src/core/game.js';
-import { formatScore } from '../src/engine/winProb.js';
+import { formatScore, winPercentOf } from '../src/engine/winProb.js';
 import { createNodeTransport } from './nodeTransport.js';
 
 function arg(name: string, fallback: string): string {
@@ -41,12 +41,57 @@ const engine = await createEngine(createNodeTransport(), { hashMb: 64 });
 
 console.log(`${state.plies.length} semi-mosse, analisi a profondita' ${depth}, MultiPV ${multiPV}\n`);
 
+/**
+ * Statistiche GREZZE, senza i filtri del tutor.
+ *
+ * Servono a una domanda diversa da quella del tutor: non "cosa vale la pena
+ * segnalare" ma "quanto bene ha giocato". I filtri anti-rumore (posizione gia' persa,
+ * si vince comunque) sono giusti per non tormentare chi gioca e sbagliati per
+ * misurare la forza — in una partita vinta comodamente silenziano quasi tutto.
+ */
+interface Stats {
+  plies: number;
+  totalLoss: number;
+  inaccuracies: number;
+  mistakes: number;
+  blunders: number;
+}
+/** Fascia in cui la partita e' ancora in gioco, in punti di aspettativa. */
+const ALIVE_FROM = 10;
+const ALIVE_TO = 90;
+
+const stats: Record<'w' | 'b', Stats> = {
+  w: { plies: 0, totalLoss: 0, inaccuracies: 0, mistakes: 0, blunders: 0 },
+  b: { plies: 0, totalLoss: 0, inaccuracies: 0, mistakes: 0, blunders: 0 },
+};
+
 for (let i = 0; i < state.plies.length; i++) {
   const ply = state.plies[i]!;
   if (side && ply.color !== side) continue;
 
   const before = await engine.analyse(ply.fenBefore, { depth, multiPV });
   const after = await engine.analyse(ply.fenAfter, { depth, multiPV });
+
+  const bestBefore = before.lines[0];
+  const bestAfter = after.lines[0];
+  // Si contano solo le mosse giocate mentre la partita era ancora VIVA. Quando
+  // l'aspettativa e' a 0 non si puo' perdere di piu': continuare a mediare su una
+  // posizione morta abbassa artificialmente la media di chi sta perdendo e fa
+  // sembrare bravi tutti. E' l'errore in cui si cade misurando l'accuratezza su
+  // partite decise presto.
+  if (bestBefore && bestAfter) {
+    const winPercent = winPercentOf(bestBefore);
+    if (winPercent >= ALIVE_FROM && winPercent <= ALIVE_TO) {
+      const loss = Math.max(0, winPercent - (100 - winPercentOf(bestAfter)));
+      const entry = stats[ply.color];
+      entry.plies++;
+      entry.totalLoss += loss;
+      if (loss >= 30) entry.blunders++;
+      else if (loss >= 18) entry.mistakes++;
+      else if (loss >= 10) entry.inaccuracies++;
+    }
+  }
+
   const verdict = detectMistake(before, after);
 
   const number = moveNumberOf(state, i);
@@ -90,6 +135,21 @@ for (let i = 0; i < state.plies.length; i++) {
     }
   }
   console.log(`  confutazione: ${punishment.join(' ')}`);
+}
+
+for (const color of ['w', 'b'] as const) {
+  const entry = stats[color];
+  if (entry.plies === 0) continue;
+  const average = entry.totalLoss / entry.plies;
+  console.log('');
+  console.log(
+    `${color === 'w' ? 'Bianco' : 'Nero'}: ${entry.plies} mosse a partita aperta, ` +
+      `perdita media ${average.toFixed(1)} punti di aspettativa per mossa`,
+  );
+  console.log(
+    `  gravi ${entry.blunders}, errori ${entry.mistakes}, imprecisioni ${entry.inaccuracies} ` +
+      `(conteggio GREZZO, senza i filtri del tutor)`,
+  );
 }
 
 engine.quit();

@@ -56,14 +56,23 @@ export interface BotLevel {
  * Attenzione all'attendibilita': sotto i 1320 la stima e' un'estrapolazione dal
  * punteggio, e piu' il livello e' debole meno e' precisa (il livello "principiante"
  * perde praticamente tutte le partite contro l'ancoraggio, quindi il suo Elo e'
- * misurato per confronto interno con "facile", non contro Stockfish).
+ * misurato per confronto interno con "facile", non contro Stockfish). Sopra i 1320
+ * vale il problema simmetrico: i livelli forti vanno misurati contro un ancoraggio
+ * piu' alto, altrimenti vincono tutto e la stima e' aria fritta.
+ *
+ * Quanto e' ripetibile: "medio" misurato due volte a distanza ha dato 1105 e 1051.
+ * Venti partite bastano per collocare un livello, non per distinguerne due vicini.
  */
 export const BOT_LEVELS: readonly BotLevel[] = [
   { id: 'principiante', nominalElo: 600, depth: 2, multiPV: 8, temperature: 35, blunderRate: 0.2 },
   { id: 'facile', nominalElo: 810, depth: 3, multiPV: 6, temperature: 28, blunderRate: 0.15 },
-  { id: 'medio', nominalElo: 1105, depth: 4, multiPV: 5, temperature: 22, blunderRate: 0.14 },
+  { id: 'medio', nominalElo: 1080, depth: 4, multiPV: 5, temperature: 22, blunderRate: 0.14 },
   { id: 'discreto', nominalElo: 1230, depth: 5, multiPV: 5, temperature: 16, blunderRate: 0.07 },
   { id: 'club', nominalElo: 1470, depth: 6, multiPV: 4, temperature: 12, blunderRate: 0.035 },
+  { id: 'esperto', nominalElo: 1700, depth: 7, multiPV: 3, temperature: 9, blunderRate: 0.02 },
+  // Misurato contro l'ancoraggio a 1800, non a 1320: contro il piu' debole vinceva
+  // tutte le partite e la stima sarebbe stata solo un'estrapolazione senza senso.
+  { id: 'forte', nominalElo: 2180, depth: 8, multiPV: 3, temperature: 6, blunderRate: 0.01 },
 ];
 
 export function levelById(id: string): BotLevel {

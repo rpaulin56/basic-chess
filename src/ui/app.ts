@@ -491,6 +491,16 @@ export function mountApp(root: HTMLElement): void {
       evalEl.append(text(t('engineLoading'), 'eval-note'));
       return;
     }
+    // A partita finita nessuna analisi partira' mai (non c'e' niente da analizzare):
+    // senza questo ramo il pannello restava a "analisi…" per sempre dopo il matto.
+    const over = state.cursor === state.plies.length ? gameOver(state) : null;
+    if (over) {
+      evalEl.append(
+        text(over.winner ? (over.winner === 'w' ? '1-0' : '0-1') : '½-½', 'eval-score'),
+        text(t(over.reason, { winner: over.winner ? t(over.winner === 'w' ? 'white' : 'black') : '' }), 'eval-note'),
+      );
+      return;
+    }
     if (!evaluation) {
       evalEl.append(text(t('analysing'), 'eval-note'));
       return;
