@@ -20,6 +20,22 @@ export type Category =
   /** Nessuna perdita di materiale all'orizzonte: la posizione peggiora e basta. */
   | 'strategico';
 
+/**
+ * Un pezzo che si perde lungo la variante.
+ *
+ * Serve a NOMINARLO invece di contarlo: "perdi il pedone passato in c6" dice a un
+ * principiante qualcosa che "perdi un pedone" non dice, e "perdi materiale" ancora
+ * meno. (In italiano, oltretutto, "pezzo" esclude il pedone: chiamare "pezzo" un
+ * pedone e' proprio sbagliato.)
+ */
+export interface LostPiece {
+  /** Casa da cui il pezzo e' partito, cioe' dove l'utente lo vede adesso. */
+  readonly square: Square;
+  readonly type: 'p' | 'n' | 'b' | 'r' | 'q';
+  /** Vero solo per un pedone passato: e' una perdita di natura diversa. */
+  readonly passed: boolean;
+}
+
 /** Una freccia "di trasporto": da dove sta un pezzo ADESSO a dove finira'. */
 export interface Arrow {
   readonly orig: Square;
@@ -43,6 +59,12 @@ export interface Consequence {
   readonly materialLoss: number;
   /** Frecce di trasporto verso la posizione di manifestazione. */
   readonly arrows: readonly Arrow[];
+  /**
+   * I pezzi che si perdono, con il loro nome. Vuoto se la perdita e' il saldo di uno
+   * scambio (prendo e mi riprendono) invece che di pezzi lasciati per strada: in quel
+   * caso nominarli sarebbe fuorviante e si ripiega sul conteggio.
+   */
+  readonly lost: readonly LostPiece[];
   /** Vero se la linea e' fatta quasi solo di scacchi e catture: l'utente non aveva scampo. */
   readonly forcing: boolean;
 }
@@ -154,15 +176,40 @@ export function classifyConsequence(
   const category: Category =
     materialLoss < MATERIAL_THRESHOLD ? 'strategico' : manifestAt <= 1 ? 'banale' : 'tattico';
 
+  const { arrows, lost } = replay(fenAfterMistake, line.slice(0, manifestAt));
+  // I pezzi si nominano solo se spiegano DA SOLI tutta la perdita. Se abbiamo perso
+  // una torre ma catturato un cavallo, dire "perdi la torre" e' vero ma fuorviante:
+  // meglio il conteggio netto.
+  const named = lost.reduce((sum, piece) => sum + (VALUE[piece.type] ?? 0), 0);
+
   return {
     category,
     line: line.slice(0, manifestAt),
     san: san.slice(0, manifestAt),
     manifestAt,
     materialLoss: Math.max(0, materialLoss),
-    arrows: transportArrows(fenAfterMistake, line.slice(0, manifestAt)),
+    arrows,
+    lost: named === materialLoss ? lost : [],
     forcing: forcingMoves * 2 >= manifestAt,
   };
+}
+
+/**
+ * Un pedone e' passato se davanti a lui non c'e' nessun pedone avversario, ne' sulla
+ * sua colonna ne' su quelle adiacenti. E' la definizione standard, e vale la pena
+ * calcolarla perche' perdere un pedone passato non e' perdere "un pedone".
+ */
+function isPassedPawn(chess: Chess, square: Square, color: 'w' | 'b'): boolean {
+  const file = square.charCodeAt(0) - 97;
+  const rank = Number(square[1]);
+  const forward = color === 'w' ? 1 : -1;
+  for (let f = Math.max(0, file - 1); f <= Math.min(7, file + 1); f++) {
+    for (let r = rank + forward; r >= 1 && r <= 8; r += forward) {
+      const piece = chess.get((String.fromCharCode(97 + f) + r) as Square);
+      if (piece && piece.type === 'p' && piece.color !== color) return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -174,13 +221,21 @@ export function classifyConsequence(
  * permette di leggere il diagramma futuro senza rigiocare le mosse a mente.
  */
 export function transportArrows(fen: string, line: readonly string[]): Arrow[] {
+  return replay(fen, line).arrows;
+}
+
+export function replay(
+  fen: string,
+  line: readonly string[],
+): { arrows: Arrow[]; lost: LostPiece[] } {
   const chess = new Chess(fen);
+  const start = new Chess(fen);
   const victim: 'w' | 'b' = chess.turn() === 'w' ? 'b' : 'w';
 
   /** casa attuale -> (casa di partenza, colore) */
   const origin = new Map<string, { from: string; color: 'w' | 'b' }>();
-  /** case da cui un nostro pezzo e' sparito perche' catturato */
-  const lost: string[] = [];
+  /** i nostri pezzi spariti perche' catturati, con il nome che avevano all'inizio */
+  const lost: LostPiece[] = [];
 
   for (const uci of line) {
     const from = uci.slice(0, 2);
@@ -198,9 +253,20 @@ export function transportArrows(fen: string, line: readonly string[]): Arrow[] {
     }
     if (move.captured) {
       // Il pezzo catturato: se era nostro, e' una perdita da evidenziare. La casa da
-      // mostrare e' quella di PARTENZA del pezzo perduto, non quella di cattura.
+      // mostrare e' quella di PARTENZA del pezzo perduto, non quella di cattura:
+      // l'utente lo cerca dove lo vede adesso.
       const capturedAt = origin.get(to);
-      if (move.color !== victim) lost.push(capturedAt?.from ?? to);
+      if (move.color !== victim) {
+        const square = (capturedAt?.from ?? to) as Square;
+        const type = move.captured as LostPiece['type'];
+        lost.push({
+          square,
+          type,
+          // Il "passato" si valuta nella posizione di PARTENZA, quella che l'utente
+          // ha davanti: e' li' che la parola deve avere senso.
+          passed: type === 'p' && isPassedPawn(start, square, victim),
+        });
+      }
       origin.delete(to);
     }
     const previous = origin.get(from);
@@ -215,8 +281,8 @@ export function transportArrows(fen: string, line: readonly string[]): Arrow[] {
   }
   // I pezzi perduti si segnano con una freccia "su se stessi": chessground disegna un
   // cerchio sulla casa, che e' esattamente il modo giusto di dire "questo sparisce".
-  for (const square of lost) {
-    arrows.push({ orig: square as Square, dest: square as Square, brush: 'yellow' });
+  for (const piece of lost) {
+    arrows.push({ orig: piece.square, dest: piece.square, brush: 'yellow' });
   }
-  return arrows;
+  return { arrows, lost };
 }

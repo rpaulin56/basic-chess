@@ -105,3 +105,31 @@ describe('transportArrows', () => {
     expect(circle!.brush).toBe('yellow');
   });
 });
+
+describe('nomi dei pezzi perduti', () => {
+  it('riconosce un pedone passato e lo distingue da un pedone qualunque', () => {
+    // Il pedone in c6 e' passato (nessun pedone nero su b, c o d davanti a lui):
+    // "perdi il pedone passato in c6" dice molto piu' di "perdi un pedone".
+    const result = classifyConsequence(AFTER_CASTLING, ['b8c6']);
+    expect(result!.lost).toHaveLength(1);
+    expect(result!.lost[0]!.type).toBe('p');
+    expect(result!.lost[0]!.square).toBe('c6');
+    expect(result!.lost[0]!.passed).toBe(true);
+  });
+
+  it('nomina tutti i pezzi persi quando non c\'e\' compenso', () => {
+    // Cxc6 (via il pedone passato) e poi Ad6 Axd6 (via l'alfiere): il Bianco non
+    // riprende niente, quindi entrambe le perdite si possono nominare.
+    const result = classifyConsequence(AFTER_CASTLING, ['b8c6', 'f4d6', 'f8d6']);
+    expect(result!.lost.map((piece) => piece.type)).toEqual(['p', 'b']);
+    expect(result!.materialLoss).toBe(4);
+  });
+
+  it('non nomina i pezzi quando la perdita e\' il saldo di uno scambio', () => {
+    // L'alfiere nero prende in d3 e il pedone ricattura: il Bianco perde un pedone ma
+    // guadagna un alfiere. Dire "perdi il pedone in d3" sarebbe vero e fuorviante
+    // insieme, quindi la lista dei nomi resta vuota e si ripiega sul conteggio.
+    const result = classifyConsequence(AFTER_CASTLING, ['f5d3', 'c2d3']);
+    expect(result!.lost).toEqual([]);
+  });
+});
