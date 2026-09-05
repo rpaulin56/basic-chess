@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "calibrate": "tsx scripts/calibrate.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "review": "tsx scripts/review.ts"
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {
