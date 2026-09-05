@@ -10,7 +10,8 @@ import {
   truncateHere,
   type GameState,
 } from '../core/game.js';
-import { parsePgn, toPgn } from '../core/pgn.js';
+import { parseGameInput } from '../core/import.js';
+import { toPgn } from '../core/pgn.js';
 import { createBoardView, type BoardView } from './boardView.js';
 import { renderMoveList } from './moveList.js';
 import { locale, setLocale, t, type LocaleCode } from '../i18n/index.js';
@@ -114,7 +115,7 @@ export function mountApp(root: HTMLElement): void {
         state = newGame();
         refresh();
       }),
-      button(t('importPgn'), t('importPgn'), false, importPgn),
+      button(t('importPosition'), t('importTitle'), false, importPosition),
       button(t('exportPgn'), t('exportPgn'), state.plies.length === 0, () => {
         void copy(toPgn(state));
       }),
@@ -142,14 +143,27 @@ export function mountApp(root: HTMLElement): void {
     return select;
   }
 
-  function importPgn(): void {
-    const text = prompt(t('pgnPrompt'));
+  /**
+   * Importa indifferentemente un FEN (una posizione: e' la forma in cui circolano le
+   * raccolte di finali) o un PGN (una partita). Il riconoscimento lo fa core/import.
+   */
+  function importPosition(): void {
+    const text = prompt(t('importPrompt'));
     if (!text) return;
     try {
-      state = parsePgn(text).state;
+      const imported = parseGameInput(text);
+      state = imported.state;
+      // Se la posizione importata ha il Nero al tratto, girare la scacchiera evita
+      // all'utente di doverlo fare a mano ogni volta che carica un finale.
+      orientation = state.startFen.split(' ')[1] === 'b' ? 'black' : 'white';
       refresh();
+      toast(
+        imported.kind === 'fen'
+          ? t('importedFen')
+          : t('importedPgn', { count: state.plies.length }),
+      );
     } catch (error) {
-      alert(t('pgnInvalid', { error: error instanceof Error ? error.message : String(error) }));
+      alert(t('importInvalid', { error: error instanceof Error ? error.message : String(error) }));
     }
   }
 
