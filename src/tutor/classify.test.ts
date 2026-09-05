@@ -34,6 +34,10 @@ describe('classifyConsequence', () => {
     expect(result!.manifestAt).toBeGreaterThan(1);
     // Torre (5) contro il pedone c7 (1) che l'avversario perde per strada.
     expect(result!.materialLoss).toBeGreaterThanOrEqual(4);
+    // Il compenso e' un pedone soltanto, quindi la torre si puo' nominare: "perdi la
+    // torre in a8" si legge meglio di "l'equivalente di quattro pedoni".
+    expect(result!.lossKind).toBe('named');
+    expect(result!.lost.map((piece) => `${piece.type}${piece.square}`)).toEqual(['ra8']);
   });
 
   it('resta BANALE anche se il materiale viene recuperato altrove piu\' avanti', () => {
@@ -131,5 +135,26 @@ describe('nomi dei pezzi perduti', () => {
     // insieme, quindi la lista dei nomi resta vuota e si ripiega sul conteggio.
     const result = classifyConsequence(AFTER_CASTLING, ['f5d3', 'c2d3']);
     expect(result!.lost).toEqual([]);
+  });
+});
+
+describe('la qualità', () => {
+  // Torre contro pezzo leggero ha un nome che ogni giocatore usa: "perdi la qualità"
+  // dice molto piu' di "l'equivalente di due pedoni".
+  const ROOK_VS_BISHOP = '4k3/8/8/8/8/1b6/8/3RK3 b - - 0 1';
+
+  it('riconosce torre contro alfiere come perdita della qualità', () => {
+    const result = classifyConsequence(ROOK_VS_BISHOP, ['b3d1', 'e1d1']);
+    expect(result!.lossKind).toBe('exchange');
+    expect(result!.materialLoss).toBe(2);
+    // I nomi non si usano: dire "perdi la torre" nasconderebbe che un alfiere lo
+    // abbiamo preso.
+    expect(result!.lost).toEqual([]);
+  });
+
+  it('non chiama qualità uno scambio sbilanciato piu\' complesso', () => {
+    // Due pezzi leggeri per la torre non ha un nome breve: resta il conteggio.
+    const result = classifyConsequence(ROOK_VS_BISHOP, ['b3d1']);
+    expect(result!.lossKind).toBe('named');
   });
 });

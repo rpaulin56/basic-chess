@@ -48,10 +48,15 @@ const CROSSING_LABEL = {
   drawToLoss: 'crossDrawToLoss',
 } as const;
 
-const CATEGORY_LABEL = {
-  banale: 'catBanale',
-  tattico: 'catTattico',
-  strategico: 'catStrategico',
+/**
+ * Il titolo del pannello. Non e' "Errore" + categoria: "Errore svista" non si puo'
+ * leggere. Ogni categoria ha il suo nome completo, e la gravita' diventa
+ * un'etichetta accanto quando serve.
+ */
+const HEADING_LABEL = {
+  banale: 'headBanale',
+  tattico: 'headTattico',
+  strategico: 'headStrategico',
 } as const;
 
 const PIECE_LABEL = {
@@ -78,14 +83,18 @@ export function renderTutorPanel(
   const severity = verdict.severity as 'blunder' | 'mistake' | 'inaccuracy';
   container.className = `panel tutor tutor-${severity}`;
 
-  // Titolo: la GRAVITA'. La categoria (banale/tattico/strategico) sta in
-  // un'etichetta accanto, perche' e' una classificazione utile ma non e' la notizia.
+  // Titolo: il nome della categoria ("Svista", "Errore tattico", "Errore
+  // strategico"). Se la classificazione non e' riuscita si ripiega sulla gravita'.
+  // L'etichetta accanto compare solo quando l'errore e' grave: dirlo sempre la
+  // renderebbe rumore.
   const heading = document.createElement('h2');
-  heading.textContent = t(SEVERITY_LABEL[severity]);
-  if (consequence) {
+  heading.textContent = consequence
+    ? t(HEADING_LABEL[consequence.category])
+    : t(SEVERITY_LABEL[severity]);
+  if (consequence && severity === 'blunder') {
     const tag = document.createElement('span');
     tag.className = 'tutor-tag';
-    tag.textContent = t(CATEGORY_LABEL[consequence.category]);
+    tag.textContent = t('severeTag');
     heading.append(' ', tag);
   }
   container.append(heading);
@@ -138,8 +147,15 @@ export function renderTutorPanel(
 /** La frase che spiega la categoria. E' il testo che l'utente legge per primo. */
 function describe(consequence: Consequence): string {
   const moves = Math.ceil(consequence.manifestAt / 2);
-  const named = consequence.lost.length > 0;
-  const what = named ? nameLost(consequence.lost) : equivalent(consequence.materialLoss);
+  // "perdi la qualita'" e "perdi il pedone passato in c6" reggono la stessa frase;
+  // solo il saldo nudo ("l'equivalente di due pedoni") ha bisogno di una forma sua.
+  const named = consequence.lossKind !== 'count';
+  const what =
+    consequence.lossKind === 'named'
+      ? nameLost(consequence.lost)
+      : consequence.lossKind === 'exchange'
+        ? t('lossExchange')
+        : equivalent(consequence.materialLoss);
   switch (consequence.category) {
     case 'banale':
       return t(named ? 'catBanaleText' : 'catBanaleCount', { what });

@@ -60,11 +60,22 @@ export interface Consequence {
   /** Frecce di trasporto verso la posizione di manifestazione. */
   readonly arrows: readonly Arrow[];
   /**
-   * I pezzi che si perdono, con il loro nome. Vuoto se la perdita e' il saldo di uno
-   * scambio (prendo e mi riprendono) invece che di pezzi lasciati per strada: in quel
-   * caso nominarli sarebbe fuorviante e si ripiega sul conteggio.
+   * I pezzi che si perdono, con il loro nome. Vuoto quando la perdita e' il saldo di
+   * uno scambio invece che di pezzi lasciati per strada: in quel caso nominarli
+   * sarebbe fuorviante (vedi `lossKind`).
    */
   readonly lost: readonly LostPiece[];
+  /**
+   * Come va DETTA la perdita:
+   *  - 'named'    si possono nominare i pezzi ("perdi il pedone passato in c6")
+   *  - 'exchange' e' la qualita', cioe' torre contro pezzo leggero: ha un nome suo e
+   *               un giocatore lo usa, quindi va usato invece del conteggio
+   *  - 'count'    resta solo il saldo ("l'equivalente di due pedoni"). Gli scambi
+   *               sbilanciati piu' complessi (due leggeri per una torre, donna per
+   *               torre e alfiere) non hanno un nome breve e finiscono qui — ma sono
+   *               anche i casi in cui il giudizio e' quasi sempre posizionale.
+   */
+  readonly lossKind: 'named' | 'exchange' | 'count';
   /** Vero se la linea e' fatta quasi solo di scacchi e catture: l'utente non aveva scampo. */
   readonly forcing: boolean;
 }
@@ -113,11 +124,18 @@ const MATERIAL_THRESHOLD = 1;
  * finisce davvero li' (non quando l'abbiamo troncata noi all'orizzonte): in quel caso
  * non c'e' nessuna ricattura in sospeso.
  */
-function settledWorst(balances: readonly number[], plies: number): number {
+function settledWorst(balances: readonly number[], plies: number): { worst: number; at: number } {
   let worst = balances[0]!;
-  for (let i = 2; i < balances.length; i += 2) worst = Math.min(worst, balances[i]!);
-  if (plies % 2 === 1 && plies < HORIZON) worst = Math.min(worst, balances[plies]!);
-  return worst;
+  let at = 0;
+  const consider = (i: number) => {
+    if (balances[i]! < worst) {
+      worst = balances[i]!;
+      at = i;
+    }
+  };
+  for (let i = 2; i < balances.length; i += 2) consider(i);
+  if (plies % 2 === 1 && plies < HORIZON) consider(plies);
+  return { worst, at };
 }
 
 export function classifyConsequence(
@@ -158,7 +176,7 @@ export function classifyConsequence(
   if (line.length === 0) return null;
 
   const start = balances[0]!;
-  const worst = settledWorst(balances, line.length);
+  const { worst, at: settledAt } = settledWorst(balances, line.length);
   const materialLoss = start - worst;
 
   // Dove si manifesta: la prima semi-mossa dopo la quale il materiale e' gia' quello
@@ -176,11 +194,12 @@ export function classifyConsequence(
   const category: Category =
     materialLoss < MATERIAL_THRESHOLD ? 'strategico' : manifestAt <= 1 ? 'banale' : 'tattico';
 
-  const { arrows, lost } = replay(fenAfterMistake, line.slice(0, manifestAt));
-  // I pezzi si nominano solo se spiegano DA SOLI tutta la perdita. Se abbiamo perso
-  // una torre ma catturato un cavallo, dire "perdi la torre" e' vero ma fuorviante:
-  // meglio il conteggio netto.
-  const named = lost.reduce((sum, piece) => sum + (VALUE[piece.type] ?? 0), 0);
+  // Le FRECCE si fermano dove la conseguenza si vede; il CONTO di cosa si perde
+  // arriva invece fino alla posizione assestata, altrimenti una ricattura che avviene
+  // una semi-mossa dopo resterebbe fuori e uno scambio sembrerebbe una perdita secca.
+  const { arrows } = replay(fenAfterMistake, line.slice(0, manifestAt));
+  const { lost, won } = replay(fenAfterMistake, line.slice(0, Math.max(manifestAt, settledAt)));
+  const lossKind = describeLoss(lost, won, materialLoss);
 
   return {
     category,
@@ -189,9 +208,38 @@ export function classifyConsequence(
     manifestAt,
     materialLoss: Math.max(0, materialLoss),
     arrows,
-    lost: named === materialLoss ? lost : [],
+    lost: lossKind === 'named' ? lost : [],
+    lossKind,
     forcing: forcingMoves * 2 >= manifestAt,
   };
+}
+
+/**
+ * Decide COME va detta la perdita.
+ *
+ * I pezzi si nominano solo se spiegano DA SOLI tutto il saldo: se abbiamo perso una
+ * torre ma catturato un cavallo, dire "perdi la torre" e' vero e fuorviante insieme.
+ *
+ * Quel caso pero' ha un nome che ogni giocatore conosce — la QUALITA' — e usarlo dice
+ * molto piu' di "l'equivalente di due pedoni". Vale solo per torre contro pezzo
+ * leggero: gli scambi sbilanciati piu' complessi non hanno un nome breve, e restano
+ * al conteggio.
+ */
+function describeLoss(
+  lost: readonly LostPiece[],
+  won: readonly LostPiece['type'][],
+  materialLoss: number,
+): 'named' | 'exchange' | 'count' {
+  const isMinor = (type: LostPiece['type']) => type === 'n' || type === 'b';
+  if (lost.length === 1 && lost[0]!.type === 'r' && won.length === 1 && isMinor(won[0]!)) {
+    return 'exchange';
+  }
+  // Si nominano i pezzi quando il compenso e' al massimo un pedone: "perdi la torre in
+  // a8" resta vero e leggibile anche se per strada hai preso un pedone. Con un
+  // compenso piu' sostanzioso il nome nasconderebbe meta' della storia.
+  const compensation = won.reduce((sum, type) => sum + (VALUE[type] ?? 0), 0);
+  if (lost.length > 0 && compensation <= 1 && materialLoss > 0) return 'named';
+  return 'count';
 }
 
 /**
@@ -227,7 +275,7 @@ export function transportArrows(fen: string, line: readonly string[]): Arrow[] {
 export function replay(
   fen: string,
   line: readonly string[],
-): { arrows: Arrow[]; lost: LostPiece[] } {
+): { arrows: Arrow[]; lost: LostPiece[]; won: LostPiece['type'][] } {
   const chess = new Chess(fen);
   const start = new Chess(fen);
   const victim: 'w' | 'b' = chess.turn() === 'w' ? 'b' : 'w';
@@ -236,6 +284,8 @@ export function replay(
   const origin = new Map<string, { from: string; color: 'w' | 'b' }>();
   /** i nostri pezzi spariti perche' catturati, con il nome che avevano all'inizio */
   const lost: LostPiece[] = [];
+  /** cosa abbiamo catturato noi: serve a riconoscere uno scambio da una perdita secca */
+  const won: LostPiece['type'][] = [];
 
   for (const uci of line) {
     const from = uci.slice(0, 2);
@@ -256,6 +306,7 @@ export function replay(
       // mostrare e' quella di PARTENZA del pezzo perduto, non quella di cattura:
       // l'utente lo cerca dove lo vede adesso.
       const capturedAt = origin.get(to);
+      if (move.color === victim) won.push(move.captured as LostPiece['type']);
       if (move.color !== victim) {
         const square = (capturedAt?.from ?? to) as Square;
         const type = move.captured as LostPiece['type'];
@@ -284,5 +335,5 @@ export function replay(
   for (const piece of lost) {
     arrows.push({ orig: piece.square, dest: piece.square, brush: 'yellow' });
   }
-  return { arrows, lost };
+  return { arrows, lost, won };
 }
