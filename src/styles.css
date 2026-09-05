@@ -1,0 +1,157 @@
+@import 'chessground/assets/chessground.base.css';
+@import 'chessground/assets/chessground.brown.css';
+@import 'chessground/assets/chessground.cburnett.css';
+
+:root {
+  --bg: #f6f4ef;
+  --panel: #ffffff;
+  --ink: #23201c;
+  --ink-soft: #6d675f;
+  --line: #ddd7cc;
+  --accent: #7a5c3e;
+  --accent-soft: #f0e6d8;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+#app { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
+
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px; }
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 780px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+.board-column { display: flex; flex-direction: column; gap: 12px; }
+
+/* chessground si dimensiona sul contenitore: deve essere quadrato. */
+.board-wrap {
+  position: relative;
+  width: 100%;
+  /* Limite in vh oltre che in px: la scacchiera deve stare in una schermata senza
+     scroll anche su portatili bassi, dove la larghezza disponibile non e' il vincolo. */
+  max-width: min(100%, 68vh);
+  aspect-ratio: 1 / 1;
+}
+
+.status {
+  font-size: 14px;
+  color: var(--ink-soft);
+  min-height: 22px;
+}
+.status.over { color: var(--accent); font-weight: 600; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.panel h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+/* --- lista mosse --- */
+.movelist { max-height: 420px; overflow-y: auto; }
+.movelist .empty { color: var(--ink-soft); font-size: 14px; }
+.movelist ol { list-style: none; margin: 0; padding: 0; }
+.movelist li {
+  display: grid;
+  grid-template-columns: 2.6em 1fr 1fr;
+  gap: 4px;
+  align-items: center;
+}
+.movelist .num { color: var(--ink-soft); font-variant-numeric: tabular-nums; font-size: 13px; }
+.movelist button {
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 2px 6px;
+  cursor: pointer;
+  color: inherit;
+}
+.movelist button:hover { background: var(--accent-soft); }
+.movelist button.current { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.movelist .placeholder { padding: 2px 6px; color: var(--ink-soft); }
+
+/* --- comandi --- */
+.controls { display: flex; flex-wrap: wrap; gap: 6px; }
+.controls button, select {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.controls button:hover:not(:disabled) { border-color: var(--accent); }
+.controls button:disabled { opacity: 0.4; cursor: default; }
+.nav { display: flex; gap: 4px; }
+.nav button { min-width: 40px; }
+
+/* --- scelta della promozione --- */
+.promotion {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+.promotion .choices { display: flex; gap: 8px; background: var(--panel); padding: 10px; border-radius: 10px; }
+.promotion button {
+  width: 56px;
+  height: 56px;
+  font-size: 38px;
+  line-height: 1;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.promotion button:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+}

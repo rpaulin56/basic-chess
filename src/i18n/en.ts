@@ -1,0 +1,33 @@
+import type { it } from './it.js';
+
+export const en: Record<keyof typeof it, string> = {
+  appTitle: 'Basic Chess',
+  newGame: 'New game',
+  moves: 'Moves',
+  noMoves: 'No moves played yet.',
+  flipBoard: 'Flip board',
+  first: 'Start',
+  previous: 'Back',
+  next: 'Forward',
+  last: 'End',
+  takeBack: 'Take back',
+  importPgn: 'Import PGN',
+  exportPgn: 'Export PGN',
+  copyFen: 'Copy FEN',
+  copied: 'Copied to clipboard.',
+  pgnPrompt: 'Paste the PGN of the game:',
+  pgnInvalid: 'Unrecognised PGN: {error}',
+  overwriteFuture:
+    'You are viewing an earlier position. Playing here discards the following {count} half-moves. Continue?',
+  turnWhite: 'White to move',
+  turnBlack: 'Black to move',
+  checkmate: 'Checkmate: {winner} wins.',
+  stalemate: 'Stalemate: draw.',
+  insufficient: 'Insufficient material: draw.',
+  threefold: 'Threefold repetition: draw.',
+  fiftyMoves: 'Fifty-move rule: draw.',
+  white: 'White',
+  black: 'Black',
+  promotionTitle: 'Choose promotion piece',
+  language: 'Language',
+};
