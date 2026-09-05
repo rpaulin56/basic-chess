@@ -164,3 +164,25 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   font-variant-numeric: tabular-nums;
 }
 .eval-note { font-size: 12px; color: var(--ink-soft); }
+
+/* --- pannello del tutor --- */
+.tutor { border-left: 4px solid var(--accent); }
+.tutor h2 { color: var(--ink); font-size: 14px; text-transform: none; letter-spacing: 0; }
+.tutor p { margin: 0 0 6px; font-size: 14px; }
+.tutor .tutor-best { font-weight: 600; }
+.tutor-blunder { border-left-color: #b23c2e; }
+.tutor-blunder h2 { color: #b23c2e; }
+.tutor-mistake { border-left-color: #c07a1e; }
+.tutor-mistake h2 { color: #c07a1e; }
+.tutor-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.tutor-actions button {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tutor-actions button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tutor-actions button:hover { border-color: var(--accent); }

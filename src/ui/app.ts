@@ -15,10 +15,12 @@ import { parseGameInput } from '../core/import.js';
 import { toPgn } from '../core/pgn.js';
 import { BOT_LEVELS, levelById, selectBotMove, type BotLevel } from '../bot/bot.js';
 import { formatScore } from '../engine/winProb.js';
-import type { EngineLine } from '../engine/types.js';
+import type { Analysis, EngineLine } from '../engine/types.js';
+import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
 import { createBoardView, type BoardView } from './boardView.js';
 import { createEngineSession } from './engineSession.js';
 import { renderMoveList } from './moveList.js';
+import { renderTutorPanel } from './tutorPanel.js';
 import { locale, setLocale, t, type LocaleCode } from '../i18n/index.js';
 
 type Promotion = 'q' | 'r' | 'b' | 'n';
@@ -26,6 +28,13 @@ type Promotion = 'q' | 'r' | 'b' | 'n';
 /** Profondita' dell'analisi mostrata all'utente. Non e' la profondita' del bot: qui
  *  vogliamo la verita' sulla posizione, non una valutazione indebolita. */
 const ANALYSIS_DEPTH = 14;
+
+/**
+ * Quante linee chiedere nell'analisi di controllo. Servono al tutor, non alla
+ * valutazione: senza alternative non si puo' sapere se la mossa giusta era una sola
+ * (e allora non e' colpa dell'utente) o se ce n'erano cinque. Il costo e' modesto.
+ */
+const ANALYSIS_MULTIPV = 3;
 
 export function mountApp(root: HTMLElement): void {
   let state: GameState = newGame();
@@ -35,6 +44,13 @@ export function mountApp(root: HTMLElement): void {
 
   /** Analisi della posizione attualmente mostrata (null = non ancora disponibile). */
   let evaluation: { line: EngineLine; depth: number; sideToMove: Color } | null = null;
+  /** L'analisi completa dell'ultima posizione valutata: e' il "prima" per il tutor. */
+  let lastAnalysis: Analysis | null = null;
+  /** Mossa dell'utente in attesa di giudizio (con l'analisi della posizione di partenza). */
+  let pendingReview: { before: Analysis; fenAfter: string } | null = null;
+  /** Verdetto da mostrare; finche' c'e', il bot NON risponde e si aspetta l'utente. */
+  let review: { verdict: MistakeVerdict; bestSan: string | null } | null = null;
+  let tutorEnabled = localStorage.getItem('basic-chess:tutor') !== 'off';
   let botThinking = false;
   /**
    * Contatore di versione dello stato. Ogni analisi lo cattura prima di partire e lo
@@ -45,7 +61,7 @@ export function mountApp(root: HTMLElement): void {
   let generation = 0;
 
   root.replaceChildren();
-  const { boardWrap, statusEl, movesEl, controlsEl, evalEl } = buildLayout(root);
+  const { boardWrap, statusEl, movesEl, controlsEl, evalEl, tutorEl } = buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
   const engine = createEngineSession(() => renderEnginePanel());
 
@@ -60,6 +76,25 @@ export function mountApp(root: HTMLElement): void {
     renderStatus();
     renderControls();
     renderEnginePanel();
+    renderTutorPanel(tutorEl, review, {
+      onTakeBack: () => {
+        // Si toglie una sola semi-mossa: il bot non ha ancora risposto, perche' il
+        // tutor lo tiene fermo finche' l'utente non decide.
+        review = null;
+        state = truncateHere(goTo(state, Math.max(0, state.plies.length - 1)));
+        evaluation = null;
+        refresh();
+      },
+      onContinue: () => {
+        review = null;
+        refresh();
+      },
+      onReveal: () => {
+        if (!review?.verdict.bestMove) return;
+        review = { ...review, bestSan: sanOfBestMove(review.verdict.bestMove) };
+        refresh();
+      },
+    });
     void driveEngine();
   }
 
@@ -71,6 +106,13 @@ export function mountApp(root: HTMLElement): void {
    */
   async function driveEngine(): Promise<void> {
     if (engine.error()) return;
+    // Finche' un verdetto e' sullo schermo il bot resta fermo: l'utente deve poter
+    // ritirare la mossa senza che la partita gli scappi avanti.
+    if (review) return;
+    if (pendingReview) {
+      await runReview();
+      return;
+    }
     const atEnd = state.cursor === state.plies.length;
     const chess = positionAt(state);
     if (chess.isGameOver()) return;
@@ -82,6 +124,42 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     await updateEvaluation();
+  }
+
+  /**
+   * Giudica la mossa appena giocata dall'utente.
+   *
+   * L'analisi del "prima" non viene ricalcolata: e' quella che il pannello di
+   * valutazione aveva gia' prodotto mentre l'utente pensava. Ricalcolarla
+   * raddoppierebbe l'attesa per un risultato identico.
+   */
+  async function runReview(): Promise<void> {
+    const pending = pendingReview;
+    pendingReview = null;
+    if (!pending) return;
+    const mine = generation;
+    const after = await engine.analyse(pending.fenAfter, {
+      depth: ANALYSIS_DEPTH,
+      multiPV: ANALYSIS_MULTIPV,
+    });
+    if (mine !== generation || !after) return;
+    const verdict = detectMistake(pending.before, after);
+    if (isImportant(verdict)) review = { verdict, bestSan: null };
+    refresh();
+  }
+
+  /** Traduce la mossa migliore da UCI a SAN, nella posizione in cui andava giocata. */
+  function sanOfBestMove(uci: string): string | null {
+    const chess = positionAt(goTo(state, Math.max(0, state.plies.length - 1)));
+    try {
+      return chess.move({
+        from: uci.slice(0, 2),
+        to: uci.slice(2, 4),
+        ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
+      }).san;
+    } catch {
+      return null;
+    }
   }
 
   async function playBotMove(): Promise<void> {
@@ -114,8 +192,12 @@ export function mountApp(root: HTMLElement): void {
   async function updateEvaluation(): Promise<void> {
     const mine = generation;
     const fen = currentFen(state);
-    const analysis = await engine.analyse(fen, { depth: ANALYSIS_DEPTH, multiPV: 1 });
+    const analysis = await engine.analyse(fen, {
+      depth: ANALYSIS_DEPTH,
+      multiPV: ANALYSIS_MULTIPV,
+    });
     if (mine !== generation || !analysis || analysis.lines.length === 0) return;
+    lastAnalysis = analysis;
     evaluation = {
       line: analysis.lines[0]!,
       depth: analysis.depth,
@@ -151,13 +233,21 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function commit(from: Square, to: Square, promotion?: Promotion): void {
+    const fenBefore = currentFen(state);
+    const mover = positionAt(state).turn();
     const next = playMove(state, from, to, promotion);
     if (!next) {
       refresh(); // mossa illegale: annulla il movimento visivo
       return;
     }
+    // Il tutor giudica solo le mosse dell'UTENTE, e solo se ha in mano l'analisi
+    // giusta della posizione di partenza (puo' mancare se si e' mosso in fretta).
+    const judgeable = tutorEnabled && mover === humanColor && lastAnalysis?.fen === fenBefore;
+    const before = lastAnalysis;
     state = next;
+    pendingReview = judgeable && before ? { before, fenAfter: currentFen(state) } : null;
     evaluation = null;
+    review = null;
     refresh();
   }
 
@@ -230,6 +320,12 @@ export function mountApp(root: HTMLElement): void {
       }),
       button(t('copyFen'), t('copyFen'), false, () => {
         void copy(currentFen(state));
+      }),
+      button(tutorEnabled ? t('tutorOn') : t('tutorOff'), t('tutorOn'), false, () => {
+        tutorEnabled = !tutorEnabled;
+        localStorage.setItem('basic-chess:tutor', tutorEnabled ? 'on' : 'off');
+        if (!tutorEnabled) review = null;
+        refresh();
       }),
       levelSelect(),
       colorSelect(),
@@ -372,6 +468,12 @@ function buildLayout(root: HTMLElement) {
 
   const side = document.createElement('aside');
 
+  // Il pannello del tutor sta in cima: quando compare e' la cosa piu' importante
+  // sullo schermo, e non deve costringere a cercarla.
+  const tutorEl = document.createElement('section');
+  tutorEl.className = 'panel tutor';
+  tutorEl.hidden = true;
+
   const evalPanel = document.createElement('section');
   evalPanel.className = 'panel';
   const evalTitle = document.createElement('h2');
@@ -388,10 +490,10 @@ function buildLayout(root: HTMLElement) {
   movesEl.className = 'movelist';
   movesPanel.append(movesTitle, movesEl);
 
-  side.append(evalPanel, movesPanel);
+  side.append(tutorEl, evalPanel, movesPanel);
   layout.append(boardColumn, side);
   root.append(header, layout);
-  return { boardWrap, statusEl, movesEl, controlsEl, evalEl };
+  return { boardWrap, statusEl, movesEl, controlsEl, evalEl, tutorEl };
 }
 
 function text(content: string, className: string): HTMLElement {
