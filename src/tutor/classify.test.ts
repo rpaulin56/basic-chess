@@ -84,12 +84,13 @@ describe('classifyConsequence', () => {
 });
 
 describe('transportArrows', () => {
-  it('segue il pezzo attraverso piu\' mosse in una sola freccia', () => {
-    // Il cavallo va da b8 a c6 e poi in d4: la freccia utile e' b8->d4.
+  it('disegna una freccia per semi-mossa, concatenate sullo stesso pezzo', () => {
+    // Il cavallo va da b8 a c6 e poi in d4: si vedono DUE frecce agganciate, non una
+    // sola da b8 a d4. La freccia unica sembrava piu' pulita ma nascondeva il
+    // percorso, che e' proprio la cosa da imparare.
     const arrows = transportArrows(AFTER_CASTLING, ['b8c6', 'h2h3', 'c6d4']);
-    const knight = arrows.find((arrow) => arrow.orig === 'b8');
-    expect(knight).toBeDefined();
-    expect(knight!.dest).toBe('d4');
+    const legs = arrows.filter((arrow) => arrow.orig !== arrow.dest);
+    expect(legs.map((arrow) => `${arrow.orig}${arrow.dest}`)).toEqual(['b8c6', 'h2h3', 'c6d4']);
   });
 
   it('colora i pezzi secondo il proprietario', () => {

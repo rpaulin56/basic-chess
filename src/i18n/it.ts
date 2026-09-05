@@ -31,6 +31,7 @@ export const it = {
   black: 'il Nero',
   promotionTitle: 'Scegli il pezzo di promozione',
   language: 'Lingua',
+  playerName: 'Il tuo nome',
   level: 'Livello',
   levelTitle: 'Forza del bot (Elo misurato)',
   playAs: 'Giochi con',

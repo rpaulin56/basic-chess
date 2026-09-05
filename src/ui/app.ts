@@ -18,7 +18,7 @@ import { BOT_LEVELS, levelById, selectBotMove, type BotLevel } from '../bot/bot.
 import { formatScore } from '../engine/winProb.js';
 import type { Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
-import { classifyConsequence, type Consequence } from '../tutor/classify.js';
+import { classifyConsequence, transportArrows, type Consequence } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findOpening, type Opening } from '../openings/openings.js';
 import { moveNumberOf } from '../core/game.js';
@@ -89,6 +89,8 @@ export function mountApp(root: HTMLElement): void {
   let tutorEnabled = localStorage.getItem('basic-chess:tutor') !== 'off';
   /** Apertura riconosciuta per la posizione mostrata (null = nessuna, o non ancora). */
   let opening: Opening | null = null;
+  /** Nome con cui l'utente compare nel PGN. Vuoto = si usa "Human". */
+  let playerName = localStorage.getItem('basic-chess:player') ?? '';
   let botThinking = false;
   /**
    * Contatore di versione dello stato. Ogni analisi lo cattura prima di partire e lo
@@ -250,9 +252,13 @@ export function mountApp(root: HTMLElement): void {
   function renderPreview(): void {
     if (!preview) return;
     const { fen, lastMove } = previewPosition(preview.index);
-    // Le frecce di trasporto hanno senso solo sulla posizione finale: a meta'
-    // sequenza indicherebbero un futuro che sullo schermo non c'e' ancora.
-    const arrows = preview.index === preview.consequence.manifestAt ? preview.consequence.arrows : [];
+    // Le frecce mostrate sono quelle delle semi-mosse GIA' avvenute: scorrendo lo
+    // slider il percorso si costruisce sotto gli occhi invece di comparire tutto
+    // insieme alla fine.
+    const arrows =
+      preview.index === preview.consequence.manifestAt
+        ? preview.consequence.arrows
+        : transportArrows(preview.fenAfterMistake, preview.consequence.line.slice(0, preview.index));
     board.renderPosition(fen, orientation, arrows, lastMove as [never, never] | undefined);
   }
 
@@ -611,13 +617,12 @@ export function mountApp(root: HTMLElement): void {
       button(t('newGame'), t('newGame'), false, () => {
         state = newGame();
         evaluation = null;
-        mistakeLog.length = 0;
         clearTutor();
         refresh();
       }),
       button(t('importPosition'), t('importTitle'), false, importPosition),
       button(t('exportPgn'), t('exportPgn'), state.plies.length === 0, () => {
-        void copy(toPgn(state));
+        void copy(toPgn(state, pgnTags()));
       }),
       button(t('copyFen'), t('copyFen'), false, () => {
         void copy(currentFen(state));
@@ -631,6 +636,7 @@ export function mountApp(root: HTMLElement): void {
         if (!tutorEnabled) review = null;
         refresh();
       }),
+      nameInput(),
       levelSelect(),
       colorSelect(),
       languageSelect(),
@@ -649,6 +655,33 @@ export function mountApp(root: HTMLElement): void {
     evaluation = null;
     clearTutor();
     refresh();
+  }
+
+  /**
+   * Chi ha giocato la partita, per i tag White/Black del PGN. Senza questi un PGN
+   * esportato non dice nulla su chi fosse l'avversario, ed e' proprio l'informazione
+   * che serve a rileggerlo fra sei mesi. Per il bot si dichiara anche l'Elo misurato.
+   */
+  function pgnTags(): Record<string, string> {
+    const human = playerName.trim() || 'Human';
+    const bot = `Bot ${level.id}`;
+    return humanColor === 'w'
+      ? { White: human, Black: bot, BlackElo: String(level.nominalElo) }
+      : { White: bot, Black: human, WhiteElo: String(level.nominalElo) };
+  }
+
+  function nameInput(): HTMLElement {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'name-input';
+    input.value = playerName;
+    input.placeholder = t('playerName');
+    input.title = t('playerName');
+    input.addEventListener('change', () => {
+      playerName = input.value;
+      localStorage.setItem('basic-chess:player', playerName);
+    });
+    return input;
   }
 
   function levelSelect(): HTMLElement {
@@ -741,6 +774,9 @@ export function mountApp(root: HTMLElement): void {
   function clearTutor(): void {
     review = null;
     preview = null;
+    // Anche il riepilogo: appartiene alla partita, non alla sessione. Senza questo
+    // gli errori di una partita comparivano nel riepilogo di quella successiva.
+    mistakeLog.length = 0;
   }
 
   function seek(cursor: number): void {

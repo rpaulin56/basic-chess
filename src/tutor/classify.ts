@@ -36,7 +36,14 @@ export interface LostPiece {
   readonly passed: boolean;
 }
 
-/** Una freccia "di trasporto": da dove sta un pezzo ADESSO a dove finira'. */
+/**
+ * Una freccia della variante: una singola semi-mossa.
+ *
+ * Una prima versione disegnava UNA freccia per pezzo, dalla casa attuale a quella
+ * finale (b8->d4 per un cavallo che passa da c6). Sembrava piu' pulita ma nascondeva
+ * proprio la cosa da imparare: il PERCORSO. Ora ogni semi-mossa ha la sua freccia, e
+ * due mosse dello stesso pezzo si leggono concatenate (b8->c6, c6->d4).
+ */
 export interface Arrow {
   readonly orig: Square;
   readonly dest: Square;
@@ -57,7 +64,7 @@ export interface Consequence {
   readonly manifestAt: number;
   /** Materiale perso in pedoni (0 per l'errore strategico). */
   readonly materialLoss: number;
-  /** Frecce di trasporto verso la posizione di manifestazione. */
+  /** Le frecce della variante, una per semi-mossa, fino alla manifestazione. */
   readonly arrows: readonly Arrow[];
   /**
    * I pezzi che si perdono, con il loro nome. Vuoto quando la perdita e' il saldo di
@@ -279,12 +286,11 @@ function isPassedPawn(chess: Chess, square: Square, color: 'w' | 'b'): boolean {
 }
 
 /**
- * Frecce di trasporto: da dove sta un pezzo ADESSO a dove sara' alla fine della
- * sequenza.
+ * Le frecce della variante: una per semi-mossa, nell'ordine in cui si gioca.
  *
- * Il punto e' seguire l'IDENTITA' del pezzo attraverso la variante: se il cavallo va
- * in c6 e poi in d4, la freccia utile e' b8->d4, non due frecce separate. E' cio' che
- * permette di leggere il diagramma futuro senza rigiocare le mosse a mente.
+ * L'identita' dei pezzi viene comunque seguita, ma serve a un'altra cosa: sapere DA
+ * DOVE veniva un pezzo che viene catturato, per segnare il cerchio sulla casa in cui
+ * l'utente lo vede adesso invece che su quella dove sparisce.
  */
 export function transportArrows(fen: string, line: readonly string[]): Arrow[] {
   return replay(fen, line).arrows;
@@ -302,6 +308,7 @@ export function replay(
   const origin = new Map<string, { from: string; color: 'w' | 'b' }>();
   /** i nostri pezzi spariti perche' catturati, con il nome che avevano all'inizio */
   const lost: LostPiece[] = [];
+  const arrows: Arrow[] = [];
   /** cosa abbiamo catturato noi: serve a riconoscere uno scambio da una perdita secca */
   const won: LostPiece['type'][] = [];
 
@@ -341,13 +348,14 @@ export function replay(
     const previous = origin.get(from);
     origin.delete(from);
     origin.set(to, { from: previous?.from ?? from, color: moving?.color ?? move.color });
+    arrows.push({
+      orig: from as Square,
+      dest: to as Square,
+      brush: (moving?.color ?? move.color) === victim ? 'blue' : 'red',
+    });
   }
 
-  const arrows: Arrow[] = [];
-  for (const [to, { from, color }] of origin) {
-    if (from === to) continue;
-    arrows.push({ orig: from as Square, dest: to as Square, brush: color === victim ? 'blue' : 'red' });
-  }
+
   // I pezzi perduti si segnano con una freccia "su se stessi": chessground disegna un
   // cerchio sulla casa, che e' esattamente il modo giusto di dire "questo sparisce".
   for (const piece of lost) {

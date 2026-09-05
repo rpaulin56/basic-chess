@@ -247,3 +247,15 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 .recap li:last-child { border-bottom: none; }
 .recap li.recap-corrected { color: var(--ink-soft); text-decoration-color: var(--line); }
 .recap li.recap-corrected::after { content: ' ✓'; color: #4a7a3c; }
+
+.name-input {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  width: 9em;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.name-input:focus { outline: none; border-color: var(--accent); }
