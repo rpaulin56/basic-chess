@@ -15,7 +15,8 @@
     "calibrate": "tsx scripts/calibrate.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "review": "tsx scripts/review.ts"
+    "review": "tsx scripts/review.ts",
+    "explain": "tsx scripts/explain.ts"
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {

@@ -2,20 +2,31 @@ import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
 import type { Key } from 'chessground/types';
 import { positionAt, legalDests, type GameState } from '../core/game.js';
+import type { Arrow } from '../tutor/classify.js';
 
 /**
  * Involucro sottile attorno a chessground.
  *
  * Volutamente NON conosce chess.js oltre a quanto gia' esposto da core/game: riceve
- * uno stato e lo disegna. Il tutor (fase 4) disegnera' le proprie frecce chiamando
- * `setArrows`, senza che questo modulo debba sapere cosa significano.
+ * uno stato e lo disegna. Il tutor disegna le proprie frecce chiamando
+ * `renderPosition`, senza che questo modulo debba sapere cosa significano.
  */
 
 export type MoveHandler = (from: Key, to: Key) => void;
 
 export interface BoardView {
   render(state: GameState, orientation: 'white' | 'black', humanColor: 'w' | 'b'): void;
-  setArrows(arrows: readonly { orig: Key; dest: Key; brush: string }[]): void;
+  /**
+   * Disegna una posizione qualunque, in sola lettura, con eventuali frecce. La usa il
+   * tutor per mostrare le conseguenze di un errore: e' una posizione che nella partita
+   * non esiste, quindi non puo' passare da `render`.
+   */
+  renderPosition(
+    fen: string,
+    orientation: 'white' | 'black',
+    arrows: readonly Arrow[],
+    lastMove?: readonly [Key, Key],
+  ): void;
   destroy(): void;
 }
 
@@ -54,10 +65,27 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
         lastMove: lastPly ? [lastPly.from as Key, lastPly.to as Key] : [],
         movable,
       });
+      api.setShapes([]);
     },
-    setArrows(arrows) {
-      api.setShapes(arrows.map((a) => ({ orig: a.orig, dest: a.dest, brush: a.brush })));
+
+    renderPosition(fen, orientation, arrows, lastMove) {
+      api.set({
+        fen,
+        orientation,
+        lastMove: lastMove ? [lastMove[0], lastMove[1]] : [],
+        movable: { free: false, dests: new Map<Key, Key[]>(), showDests: false },
+      });
+      // Una freccia che parte e arriva sulla stessa casa diventa un cerchio: e' il
+      // modo con cui il tutor segnala "questo pezzo sparisce".
+      api.setShapes(
+        arrows.map((arrow) =>
+          arrow.orig === arrow.dest
+            ? { orig: arrow.orig as Key, brush: arrow.brush }
+            : { orig: arrow.orig as Key, dest: arrow.dest as Key, brush: arrow.brush },
+        ),
+      );
     },
+
     destroy() {
       api.destroy();
     },

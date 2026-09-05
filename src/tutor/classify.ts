@@ -1,0 +1,222 @@
+import { Chess, type Square } from 'chess.js';
+
+/**
+ * Classificazione dell'errore e costruzione di cio' che va MOSTRATO.
+ *
+ * La cascata e' quella decisa a tavolino col committente, e l'ordine non e'
+ * negoziabile: prima si prova "banale", poi "tattico", e "strategico" e' quel che
+ * resta. Cosi' la categoria piu' difficile da spiegare e' anche quella che si
+ * raggiunge solo quando le altre due sono state escluse.
+ *
+ * Funzione pura: riceve una posizione e una linea di confutazione, restituisce una
+ * descrizione. Non conosce ne' motore ne' interfaccia.
+ */
+
+export type Category =
+  /** Il pezzo se lo prendono subito: basta mostrare la risposta. */
+  | 'banale'
+  /** La perdita si manifesta qualche mossa piu' avanti, lungo una linea forzante. */
+  | 'tattico'
+  /** Nessuna perdita di materiale all'orizzonte: la posizione peggiora e basta. */
+  | 'strategico';
+
+/** Una freccia "di trasporto": da dove sta un pezzo ADESSO a dove finira'. */
+export interface Arrow {
+  readonly orig: Square;
+  readonly dest: Square;
+  /** 'red' = pezzi dell'avversario, 'blue' = i nostri, 'yellow' = pezzi che perdiamo. */
+  readonly brush: 'red' | 'blue' | 'yellow';
+}
+
+export interface Consequence {
+  readonly category: Category;
+  /** La confutazione, in UCI, troncata all'orizzonte utile. */
+  readonly line: readonly string[];
+  /** Le stesse mosse in SAN, per la lista sotto il diagramma. */
+  readonly san: readonly string[];
+  /**
+   * Dopo quante semi-mosse la conseguenza si vede. E' la posizione da mostrare:
+   * mostrare tutta la variante fino in fondo confonderebbe e basta.
+   */
+  readonly manifestAt: number;
+  /** Materiale perso in pedoni (0 per l'errore strategico). */
+  readonly materialLoss: number;
+  /** Frecce di trasporto verso la posizione di manifestazione. */
+  readonly arrows: readonly Arrow[];
+  /** Vero se la linea e' fatta quasi solo di scacchi e catture: l'utente non aveva scampo. */
+  readonly forcing: boolean;
+}
+
+const VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+
+/** Bilancio materiale dal punto di vista di `color`, in pedoni. */
+function materialBalance(chess: Chess, color: 'w' | 'b'): number {
+  let balance = 0;
+  for (const row of chess.board()) {
+    for (const square of row) {
+      if (!square) continue;
+      balance += (square.color === color ? 1 : -1) * (VALUE[square.type] ?? 0);
+    }
+  }
+  return balance;
+}
+
+/**
+ * Orizzonte di analisi: oltre questa profondita' la "conseguenza" diventa una
+ * previsione troppo remota per essere didattica. Otto semi-mosse sono quattro mosse
+ * per parte: abbastanza per una combinazione, non tanto da sembrare magia.
+ */
+const HORIZON = 8;
+
+/** Sotto questa perdita (in pedoni) non si parla di errore materiale. */
+const MATERIAL_THRESHOLD = 1;
+
+
+/**
+ * Il bilancio materiale PEGGIORE fra le posizioni "assestate".
+ *
+ * Due trappole, entrambe incontrate su partite vere, che questa funzione evita:
+ *
+ * 1. Guardare solo la FINE della variante nasconde l'errore. In una partita reale il
+ *    Nero si riprendeva il pedone passato alla prima mossa e il Bianco ne recuperava
+ *    un altro tre semi-mosse dopo: bilancio finale invariato, ma il pedone che
+ *    contava era sparito. Per questo si prende il minimo, non il valore finale.
+ *
+ * 2. Guardare TUTTE le posizioni segnala come perdita anche un cambio normale (ti
+ *    prendo l'alfiere, tu ricatturi). Per questo si guardano solo le posizioni dopo
+ *    una semi-mossa PARI, cioe' quelle in cui chi ha sbagliato ha gia' avuto la
+ *    possibilita' di ricatturare.
+ *
+ * L'ultima posizione conta anche se dispari, ma solo quando la variante del motore
+ * finisce davvero li' (non quando l'abbiamo troncata noi all'orizzonte): in quel caso
+ * non c'e' nessuna ricattura in sospeso.
+ */
+function settledWorst(balances: readonly number[], plies: number): number {
+  let worst = balances[0]!;
+  for (let i = 2; i < balances.length; i += 2) worst = Math.min(worst, balances[i]!);
+  if (plies % 2 === 1 && plies < HORIZON) worst = Math.min(worst, balances[plies]!);
+  return worst;
+}
+
+export function classifyConsequence(
+  /** Posizione DOPO la mossa sbagliata: tocca all'avversario. */
+  fenAfterMistake: string,
+  /** Confutazione prevista dal motore, in UCI. */
+  refutation: readonly string[],
+): Consequence | null {
+  const chess = new Chess(fenAfterMistake);
+  // Chi ha sbagliato e' quello che NON ha il tratto adesso.
+  const victim: 'w' | 'b' = chess.turn() === 'w' ? 'b' : 'w';
+
+  const line: string[] = [];
+  const san: string[] = [];
+  const balances: number[] = [materialBalance(chess, victim)];
+  let forcingMoves = 0;
+
+  for (const uci of refutation.slice(0, HORIZON)) {
+    let move;
+    try {
+      move = chess.move({
+        from: uci.slice(0, 2),
+        to: uci.slice(2, 4),
+        ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
+      });
+    } catch {
+      break; // linea non rigiocabile: ci fermiamo a quel che abbiamo
+    }
+    line.push(uci);
+    san.push(move.san);
+    balances.push(materialBalance(chess, victim));
+    // "Forzante" e' approssimato con scacchi e catture. Il criterio rigoroso
+    // (chiedere al motore quante alternative c'erano in ogni nodo) costerebbe
+    // un'analisi per semi-mossa: qui non vale il prezzo.
+    if (move.san.includes('+') || move.san.includes('#') || move.captured) forcingMoves++;
+  }
+
+  if (line.length === 0) return null;
+
+  const start = balances[0]!;
+  const worst = settledWorst(balances, line.length);
+  const materialLoss = start - worst;
+
+  // Dove si manifesta: la prima semi-mossa dopo la quale il materiale e' gia' quello
+  // peggiore. E' il momento in cui "si capisce", non la fine della variante.
+  let manifestAt = line.length;
+  if (materialLoss >= MATERIAL_THRESHOLD) {
+    for (let i = 1; i < balances.length; i++) {
+      if (balances[i]! <= worst) {
+        manifestAt = i;
+        break;
+      }
+    }
+  }
+
+  const category: Category =
+    materialLoss < MATERIAL_THRESHOLD ? 'strategico' : manifestAt <= 1 ? 'banale' : 'tattico';
+
+  return {
+    category,
+    line: line.slice(0, manifestAt),
+    san: san.slice(0, manifestAt),
+    manifestAt,
+    materialLoss: Math.max(0, materialLoss),
+    arrows: transportArrows(fenAfterMistake, line.slice(0, manifestAt)),
+    forcing: forcingMoves * 2 >= manifestAt,
+  };
+}
+
+/**
+ * Frecce di trasporto: da dove sta un pezzo ADESSO a dove sara' alla fine della
+ * sequenza.
+ *
+ * Il punto e' seguire l'IDENTITA' del pezzo attraverso la variante: se il cavallo va
+ * in c6 e poi in d4, la freccia utile e' b8->d4, non due frecce separate. E' cio' che
+ * permette di leggere il diagramma futuro senza rigiocare le mosse a mente.
+ */
+export function transportArrows(fen: string, line: readonly string[]): Arrow[] {
+  const chess = new Chess(fen);
+  const victim: 'w' | 'b' = chess.turn() === 'w' ? 'b' : 'w';
+
+  /** casa attuale -> (casa di partenza, colore) */
+  const origin = new Map<string, { from: string; color: 'w' | 'b' }>();
+  /** case da cui un nostro pezzo e' sparito perche' catturato */
+  const lost: string[] = [];
+
+  for (const uci of line) {
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
+    const moving = chess.get(from as Square);
+    let move;
+    try {
+      move = chess.move({
+        from,
+        to,
+        ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
+      });
+    } catch {
+      break;
+    }
+    if (move.captured) {
+      // Il pezzo catturato: se era nostro, e' una perdita da evidenziare. La casa da
+      // mostrare e' quella di PARTENZA del pezzo perduto, non quella di cattura.
+      const capturedAt = origin.get(to);
+      if (move.color !== victim) lost.push(capturedAt?.from ?? to);
+      origin.delete(to);
+    }
+    const previous = origin.get(from);
+    origin.delete(from);
+    origin.set(to, { from: previous?.from ?? from, color: moving?.color ?? move.color });
+  }
+
+  const arrows: Arrow[] = [];
+  for (const [to, { from, color }] of origin) {
+    if (from === to) continue;
+    arrows.push({ orig: from as Square, dest: to as Square, brush: color === victim ? 'blue' : 'red' });
+  }
+  // I pezzi perduti si segnano con una freccia "su se stessi": chessground disegna un
+  // cerchio sulla casa, che e' esattamente il modo giusto di dire "questo sparisce".
+  for (const square of lost) {
+    arrows.push({ orig: square as Square, dest: square as Square, brush: 'yellow' });
+  }
+  return arrows;
+}

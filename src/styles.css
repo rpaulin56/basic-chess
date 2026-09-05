@@ -186,3 +186,19 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 }
 .tutor-actions button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .tutor-actions button:hover { border-color: var(--accent); }
+
+/* --- barra della conseguenza (sotto la scacchiera) --- */
+.preview-bar {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'caption slider' 'moves moves';
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.preview-caption { grid-area: caption; font-size: 12px; color: var(--ink-soft); }
+.preview-bar input[type='range'] { grid-area: slider; width: 100%; accent-color: var(--accent); }
+.preview-moves { grid-area: moves; font-size: 15px; letter-spacing: 0.02em; }
