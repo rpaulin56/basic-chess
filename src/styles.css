@@ -156,9 +156,12 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
    fila sono piu' larghe dello schermo — senza questo era tutta la pagina a scorrere
    di lato, scacchiera compresa. */
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+/* 40 e non 34: con "ritira mossa" salito nella barra e' sparita una riga intera di
+   pulsanti, e lo spazio guadagnato in altezza vale piu' speso in leggibilita' che
+   lasciato vuoto. */
 .icon-btn {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -176,6 +179,9 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 
 /* Menu di un pulsante-icona (esporta). Ancorato al pulsante e sopra tutto il resto. */
 .toolbar .group { display: flex; align-items: center; gap: 2px; }
+/* Spinto a destra: il ritiro e' l'unico comando che cambia la partita, e la distanza
+   lo separa meglio di qualunque bordo. */
+.toolbar .group.push { margin-left: auto; }
 .menu-wrap { position: relative; display: inline-flex; }
 .menu {
   position: absolute;
@@ -238,9 +244,9 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 .side-icon.dark svg .eye { fill: var(--panel); }
 .side-icon.light svg .eye { fill: var(--ink); }
 
-.actions, .settings { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.settings { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 
-.actions button, select {
+select {
   font: inherit;
   font-size: 13px;
   padding: 6px 10px;
@@ -250,8 +256,6 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   border-radius: 6px;
   cursor: pointer;
 }
-.actions button:hover:not(:disabled) { border-color: var(--accent); }
-.actions button:disabled { opacity: 0.4; cursor: default; }
 
 /* --- scelta della promozione --- */
 .promotion {
@@ -396,7 +400,7 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 /* Su schermo tattile le icone diventano piu' grandi: 34 pixel si centrano bene col
    mouse e male col pollice. */
 @media (pointer: coarse) {
-  .icon-btn { width: 42px; height: 42px; }
+  .icon-btn { width: 46px; height: 46px; }
   .toolbar .sep { margin: 0 4px; }
 }
 
@@ -426,6 +430,8 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   margin-bottom: 10px;
   font-size: 13px;
 }
+.settings-dialog .check-row.nested { margin-left: 24px; }
+.settings-dialog .check-row:has(input:disabled) { color: var(--ink-soft); cursor: default; }
 .settings-dialog .check-row {
   display: flex;
   align-items: center;

@@ -24,6 +24,7 @@ export const it = {
   settings: 'Impostazioni',
   settingsClose: 'Chiudi',
   showEval: 'Mostra la valutazione sotto la scacchiera',
+  showDepth: 'Mostra anche la profondità di analisi',
   playAsWhite: 'Giochi con il Bianco',
   playAsBlack: 'Giochi con il Nero',
   copied: 'Copiato negli appunti.',

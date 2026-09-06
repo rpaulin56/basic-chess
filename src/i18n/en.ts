@@ -26,6 +26,7 @@ export const en: Record<keyof typeof it, string> = {
   settings: 'Settings',
   settingsClose: 'Close',
   showEval: 'Show the evaluation under the board',
+  showDepth: 'Show the search depth as well',
   playAsWhite: 'You play White',
   playAsBlack: 'You play Black',
   copied: 'Copied to clipboard.',

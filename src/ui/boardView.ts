@@ -15,7 +15,18 @@ import type { Arrow } from '../tutor/classify.js';
 export type MoveHandler = (from: Key, to: Key) => void;
 
 export interface BoardView {
-  render(state: GameState, orientation: 'white' | 'black', humanColor: 'w' | 'b'): void;
+  render(
+    state: GameState,
+    orientation: 'white' | 'black',
+    humanColor: 'w' | 'b',
+    /**
+     * Vero quando il seguito che si ha davanti e' quello appena messo da parte da un
+     * ritiro: allora si puo' muovere anche se la partita continua piu' avanti, perche'
+     * e' proprio quello che l'utente ha chiesto facendo il ritiro. Navigando invece
+     * dentro una partita la scacchiera resta in sola lettura.
+     */
+    resumable?: boolean,
+  ): void;
   /**
    * Disegna una posizione qualunque, in sola lettura, con eventuali frecce. La usa il
    * tutor per mostrare le conseguenze di un errore: e' una posizione che nella partita
@@ -41,7 +52,7 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
   });
 
   return {
-    render(state, orientation, humanColor) {
+    render(state, orientation, humanColor, resumable = false) {
       const chess = positionAt(state);
       const turn: 'white' | 'black' = chess.turn() === 'w' ? 'white' : 'black';
       const lastPly = state.cursor > 0 ? state.plies[state.cursor - 1] : undefined;
@@ -50,7 +61,7 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
       // un click distratto cancellerebbe il seguito della partita.
       // A partita finita nessuno muove: con exactOptionalPropertyTypes la chiave
       // `color` va OMESSA, non messa a undefined.
-      const atEnd = state.cursor === state.plies.length;
+      const atEnd = state.cursor === state.plies.length || resumable;
       const humanTurn = atEnd && !chess.isGameOver() && chess.turn() === humanColor;
       const movable = humanTurn
         ? { free: false, color: turn, dests: legalDests(state) as Map<Key, Key[]>, showDests: true }

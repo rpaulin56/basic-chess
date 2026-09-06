@@ -126,6 +126,28 @@ export function mountApp(root: HTMLElement): void {
    * allenarsi a giudicare la posizione da solo deve poterlo spegnere.
    */
   let showEval = localStorage.getItem('basic-chess:eval') !== 'off';
+  /**
+   * Se mostrare anche la profondita' della ricerca accanto al punteggio.
+   *
+   * Spenta di default: "profondita' 14" e' un dettaglio del motore, non
+   * un'informazione sulla partita, e chi non sa cos'e' la legge come rumore accanto
+   * al numero che invece conta. Chi sa cos'e' la accende.
+   */
+  let showDepth = localStorage.getItem('basic-chess:depth') === 'on';
+  /**
+   * Vero quando l'utente ha appena rigiocato una mossa che aveva ritirato.
+   *
+   * In quel caso il bot deve RIPETERE la risposta di allora, non sceglierne una
+   * nuova: altrimenti ritirare e rigiocare la stessa mossa porterebbe a una partita
+   * diversa, e il "ritira" smetterebbe di essere una prova a costo zero per diventare
+   * una scommessa. E' la condizione che rende non distruttivo il pulsante.
+   */
+  let replaying = false;
+  /**
+   * Il cursore a cui e' avvenuto l'ultimo ritiro. Serve a non chiedere conferma per
+   * cancellare un seguito che l'utente ha appena messo da parte apposta.
+   */
+  let takenBackAt: number | null = null;
   /** Apertura riconosciuta per la posizione mostrata (null = nessuna, o non ancora). */
   let opening: Opening | null = null;
   /** Nome con cui l'utente compare nel PGN. Vuoto = si usa "Human". */
@@ -163,7 +185,10 @@ export function mountApp(root: HTMLElement): void {
     generation++;
     saveGame();
     if (preview) renderPreview();
-    else board.render(state, orientation, humanColor);
+    // L'ultimo argomento: dopo un ritiro si puo' muovere anche se il seguito e'
+    // ancora li'. Senza, la scacchiera restava bloccata proprio dopo il comando che
+    // serve a riprovare.
+    else board.render(state, orientation, humanColor, takenBackAt === state.cursor);
     renderMoveList(movesEl, state, (cursor) => {
       state = goTo(state, cursor);
       evaluation = null;
@@ -189,7 +214,10 @@ export function mountApp(root: HTMLElement): void {
         review = null;
         preview = null;
         forcedLine = null;
-        state = truncateHere(goTo(state, Math.max(0, state.plies.length - 1)));
+        // Come il ritiro dalla barra: la mossa si mette indietro, non si cancella.
+        state = goTo(state, Math.max(0, state.cursor - 1));
+        takenBackAt = state.cursor;
+        replaying = false;
         evaluation = null;
         refresh();
       },
@@ -382,6 +410,17 @@ export function mountApp(root: HTMLElement): void {
     const chess = positionAt(state);
     if (chess.isGameOver()) return;
 
+    // Rigiocata una mossa ritirata, la risposta del bot e' gia' li' nel seguito: si
+    // avanza il cursore invece di far pensare il motore. Vale una volta sola, ed e'
+    // per questo che serve la bandiera: navigare a mano in una posizione dove tocca
+    // al bot non deve far ripartire la partita da sola.
+    if (replaying && chess.turn() !== humanColor && hasFuture(state)) {
+      replaying = false;
+      state = goTo(state, state.cursor + 1);
+      evaluation = null;
+      refresh();
+      return;
+    }
     const botTurn = atEnd && chess.turn() !== humanColor;
     if (botTurn) {
       if (botThinking) return;
@@ -607,6 +646,14 @@ export function mountApp(root: HTMLElement): void {
   async function updateEvaluation(): Promise<void> {
     const mine = generation;
     const fen = currentFen(state);
+    // Se la posizione mostrata e' gia' quella analizzata, non si rianalizza.
+    //
+    // Non e' solo risparmio: a profondita' fissa due ricerche della STESSA posizione
+    // non danno lo stesso numero, perche' la seconda parte con la tabella di
+    // trasposizione piena e pota rami diversi. Il risultato era che ogni ridisegno
+    // (accendere il tutor, girare la scacchiera) faceva ballare la valutazione di
+    // qualche centesimo senza che nulla fosse cambiato sulla scacchiera.
+    if (evaluation && lastAnalysis?.fen === fen && lastAnalysis.depth >= ANALYSIS_DEPTH) return;
     const analysis = await engine.analyse(fen, {
       depth: ANALYSIS_DEPTH,
       multiPV: ANALYSIS_MULTIPV,
@@ -626,16 +673,33 @@ export function mountApp(root: HTMLElement): void {
     const origin = from as Square;
     const target = to as Square;
 
+    // Rigiocare esattamente la mossa che si era ritirata non e' una mossa nuova: e'
+    // un "rifai". Il seguito resta dov'e' e il bot ripetera' la sua risposta.
+    const ahead = state.plies[state.cursor];
+    if (ahead && ahead.from === origin && ahead.to === target && !ahead.promotion) {
+      state = goTo(state, state.cursor + 1);
+      replaying = true;
+      evaluation = null;
+      review = null;
+      preview = null;
+      refresh();
+      return;
+    }
+
     // Giocare mentre si guarda una posizione passata cancella il seguito: si chiede
     // conferma qui, non dentro core/game (che resta puro).
-    if (hasFuture(state)) {
+    //
+    // Non si chiede pero' per il seguito appena messo da parte da un ritiro: e' roba
+    // che l'utente ha tolto lui un secondo fa, e chiedergli se e' sicuro di volerla
+    // buttare sarebbe una domanda a cui ha gia' risposto.
+    if (hasFuture(state) && takenBackAt !== state.cursor) {
       const discarded = state.plies.length - state.cursor;
       if (!confirm(t('overwriteFuture', { count: discarded }))) {
         refresh(); // rimette il pezzo dove stava
         return;
       }
-      state = truncateHere(state);
     }
+    if (hasFuture(state)) state = truncateHere(state);
 
     if (needsPromotion(state, origin, target)) {
       askPromotion(boardWrap, (piece) => {
@@ -648,6 +712,8 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function commit(from: Square, to: Square, promotion?: Promotion): void {
+    replaying = false;
+    takenBackAt = null;
     const fenBefore = currentFen(state);
     const mover = positionAt(state).turn();
     const next = playMove(state, from, to, promotion);
@@ -714,7 +780,8 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     const score = formatScore(evaluation.line, evaluation.sideToMove);
-    evalEl.append(text(score, 'eval-score'), text(t('evalDepth', { depth: evaluation.depth }), 'eval-note'));
+    evalEl.append(text(score, 'eval-score'));
+    if (showDepth) evalEl.append(text(t('evalDepth', { depth: evaluation.depth }), 'eval-note'));
   }
 
   /**
@@ -759,7 +826,7 @@ export function mountApp(root: HTMLElement): void {
           refresh();
         }),
         iconButton(
-          'tutor',
+          tutorEnabled ? 'tutor' : 'tutorOff',
           tutorEnabled ? t('tutorOn') : t('tutorOff'),
           false,
           () => {
@@ -805,11 +872,13 @@ export function mountApp(root: HTMLElement): void {
         }),
         iconButton('settings', t('settings'), false, openSettings),
       ),
+      // Il ritiro sta in fondo, staccato dal resto dalla spinta a destra: e' l'unico
+      // comando che cambia la partita invece di guardarla, e la distanza lo dice
+      // meglio di un separatore. Era un pulsante con l'etichetta perche' sembrava
+      // distruttivo; da quando la mossa ritirata si puo' rimettere identica, non lo e'
+      // piu', e si e' preso la sua icona come tutti gli altri.
+      group(iconButton('undo', t('takeBack'), state.cursor === 0, takeBack), 'push'),
     );
-
-    const actions = document.createElement('div');
-    actions.className = 'actions';
-    actions.append(button(t('takeBack'), t('takeBack'), state.cursor === 0, takeBack));
 
     // Nella riga restano le due impostazioni che si cambiano DA UNA PARTITA
     // ALL'ALTRA. Nome, lingua e visibilita' della valutazione si scelgono una volta
@@ -818,7 +887,7 @@ export function mountApp(root: HTMLElement): void {
     settings.className = 'settings';
     settings.append(levelSelect(), colorChoice());
 
-    controlsEl.append(toolbar, actions, settings);
+    controlsEl.append(toolbar, settings);
   }
 
   /**
@@ -893,10 +962,11 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /** Un gruppo di icone che non si spezza quando la barra va a capo. */
-  function group(...children: readonly HTMLElement[]): HTMLElement {
+  function group(...children: readonly (HTMLElement | 'push')[]): HTMLElement {
     const element = document.createElement('span');
-    element.className = 'group';
-    element.append(...children);
+    const push = children.includes('push');
+    element.className = push ? 'group push' : 'group';
+    element.append(...children.filter((child): child is HTMLElement => child !== 'push'));
     return element;
   }
 
@@ -910,11 +980,19 @@ export function mountApp(root: HTMLElement): void {
    * Ritira la mossa. Se il bot ha gia' risposto ne toglie DUE: ritirarne una sola
    * lascerebbe il turno all'avversario, che rigiocherebbe subito — l'utente si
    * ritroverebbe al punto di prima senza capire perche'.
+   *
+   * Le mosse ritirate NON vengono cancellate, solo messe indietro: la freccia
+   * "avanti" le rimette dov'erano, e rigiocando a mano la stessa mossa il bot ripete
+   * la sua risposta di allora. Cosi' ritirare non e' un atto distruttivo ma una prova
+   * reversibile — che e' esattamente quello che deve essere in un programma dove si
+   * impara sbagliando.
    */
   function takeBack(): void {
-    const chess = positionAt(goTo(state, state.plies.length));
+    const chess = positionAt(state);
     const back = chess.turn() === humanColor ? 2 : 1;
-    state = truncateHere(goTo(state, Math.max(0, state.plies.length - back)));
+    state = goTo(state, Math.max(0, state.cursor - back));
+    takenBackAt = state.cursor;
+    replaying = false;
     evaluation = null;
     clearTutor();
     refresh();
@@ -1101,9 +1179,25 @@ export function mountApp(root: HTMLElement): void {
     evalBox.addEventListener('change', () => {
       showEval = evalBox.checked;
       localStorage.setItem('basic-chess:eval', showEval ? 'on' : 'off');
+      depthBox.disabled = !showEval;
       renderEnginePanel();
     });
     evalRow.append(evalBox, document.createTextNode(t('showEval')));
+
+    // La profondita' e' un dettaglio della valutazione: se la valutazione non si
+    // vede, la sua opzione non ha nulla a cui riferirsi e resta spenta.
+    const depthRow = document.createElement('label');
+    depthRow.className = 'check-row nested';
+    const depthBox = document.createElement('input');
+    depthBox.type = 'checkbox';
+    depthBox.checked = showDepth;
+    depthBox.disabled = !showEval;
+    depthBox.addEventListener('change', () => {
+      showDepth = depthBox.checked;
+      localStorage.setItem('basic-chess:depth', showDepth ? 'on' : 'off');
+      renderEnginePanel();
+    });
+    depthRow.append(depthBox, document.createTextNode(t('showDepth')));
 
     const close = document.createElement('button');
     close.type = 'button';
@@ -1116,6 +1210,7 @@ export function mountApp(root: HTMLElement): void {
       field(t('playerName'), nameInput()),
       field(t('language'), languageSelect()),
       evalRow,
+      depthRow,
       close,
     );
     // Il cambio di lingua deve ridisegnare tutto, e finche' la finestra e' aperta
@@ -1294,23 +1389,6 @@ function text(content: string, className: string): HTMLElement {
   const element = document.createElement('div');
   element.className = className;
   element.textContent = content;
-  return element;
-}
-
-function button(
-  label: string,
-  title: string,
-  disabled: boolean,
-  onClick: () => void,
-  className = '',
-): HTMLElement {
-  const element = document.createElement('button');
-  element.type = 'button';
-  element.textContent = label;
-  element.title = title;
-  element.disabled = disabled;
-  if (className) element.className = className;
-  element.addEventListener('click', onClick);
   return element;
 }
 

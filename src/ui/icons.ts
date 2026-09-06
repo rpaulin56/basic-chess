@@ -19,6 +19,8 @@ export type IconName =
   | 'last'
   | 'flip'
   | 'tutor'
+  | 'tutorOff'
+  | 'undo'
   | 'settings'
   | 'export'
   | 'import'
@@ -38,6 +40,10 @@ const BOARD_MINI =
   '<path d="M3.5 5h11v11h-11z" />' +
   '<path d="M3.5 5h3.7v3.7H3.5zM10.8 5h3.7v3.7h-3.7zM7.15 8.7h3.7v3.6h-3.7zM3.5 12.3h3.7v3.7H3.5zM10.8 12.3h3.7v3.7h-3.7z" fill="currentColor" fill-opacity=".3" stroke="none"/>';
 
+/** La lampadina, con e senza sbarra. */
+const BULB =
+  '<path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.6 10.8c.6.5.9 1.2 1 2.2h5.2c.1-1 .4-1.7 1-2.2A6 6 0 0 0 12 3z" />';
+
 const PATHS: Record<IconName, string> = {
   first: '<path d="M17 5.5v13L9 12z" fill="currentColor"/><path d="M6.5 5.5v13" />',
   previous: '<path d="M15.5 5.5v13L7 12z" fill="currentColor"/>',
@@ -46,9 +52,15 @@ const PATHS: Record<IconName, string> = {
   // Due frecce che si scambiano: dice "gira" meglio di una freccia circolare, che in
   // 24 pixel si confonde con "ricarica".
   flip: '<path d="M8 20V4m0 0L5 7m3-3 3 3M16 4v16m0 0 3-3m-3 3-3-3" />',
-  // Lampadina: il tutor e' un suggerimento, non un giudice.
-  tutor:
-    '<path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.6 10.8c.6.5.9 1.2 1 2.2h5.2c.1-1 .4-1.7 1-2.2A6 6 0 0 0 12 3z" />',
+  // Lampadina: il tutor e' un suggerimento, non un giudice. Quando e' spento e'
+  // sbarrata: lo stato si legge dal DISEGNO e non solo dal colore di sfondo, che chi
+  // guarda per la prima volta non sa interpretare (e che a un daltonico non dice
+  // niente).
+  tutor: BULB,
+  tutorOff: BULB + '<path d="M4 20 20 4" />',
+  // Freccia che torna indietro: e' il gesto "annulla" ovunque. Non e' una freccia di
+  // navigazione (quelle sono piene e triangolari): questa cambia la partita.
+  undo: '<path d="M4.5 9.5h9a5.5 5.5 0 0 1 0 11H8" /><path d="M8.5 5 4 9.5 8.5 14" />',
   // Cursori: e' l'icona che ovunque significa "impostazioni". Un ingranaggio, a 20
   // pixel e a filo, diventa una rotella dentata illeggibile.
   settings:
@@ -68,23 +80,20 @@ const PATHS: Record<IconName, string> = {
     '<rect class="body" x="3.6" y="5.4" width="14.8" height="11.6" rx="3" />' +
     '<circle class="eye" cx="8.2" cy="11.2" r="1.3" stroke="none" />' +
     '<circle class="eye" cx="13.8" cy="11.2" r="1.3" stroke="none" />',
-  // Scacchiera con i due eserciti schierati: la posizione iniziale. Puntini e non
-  // sagome di pezzi, che a venti pixel diventerebbero macchie.
+  // Scacchiera vuota con un piu' al centro. La versione precedente disegnava i due
+  // schieramenti a puntini: a ventidue pixel non si leggevano come pezzi schierati ma
+  // come una griglia puntinata qualunque. Il piu' e' la convenzione universale per
+  // "nuovo", e la cornice dice di cosa.
   newGame:
-    '<path d="M4 4h16v16H4z" />' +
-    '<g fill="currentColor" stroke="none">' +
-    '<circle cx="7.5" cy="7.2" r="1.15"/><circle cx="10.5" cy="7.2" r="1.15"/>' +
-    '<circle cx="13.5" cy="7.2" r="1.15"/><circle cx="16.5" cy="7.2" r="1.15"/>' +
-    '<circle cx="7.5" cy="16.8" r="1.15"/><circle cx="10.5" cy="16.8" r="1.15"/>' +
-    '<circle cx="13.5" cy="16.8" r="1.15"/><circle cx="16.5" cy="16.8" r="1.15"/>' +
-    '</g>',
+    '<path d="M3.5 3.5h17v17h-17z" />' +
+    '<path d="M12 8v8M8 12h8" />',
 };
 
 export function createIcon(name: IconName): SVGSVGElement {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('width', '20');
-  svg.setAttribute('height', '20');
+  svg.setAttribute('width', '22');
+  svg.setAttribute('height', '22');
   svg.setAttribute('fill', 'none');
   svg.setAttribute('stroke', 'currentColor');
   svg.setAttribute('stroke-width', '1.7');
