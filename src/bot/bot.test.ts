@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { levelById, selectBotMove } from './bot.js';
+import { distractionById, levelById, selectBotMove } from './bot.js';
 import type { Analysis, EngineLine } from '../engine/types.js';
 
 /**
@@ -25,6 +25,9 @@ function sequence(values: number[]): () => number {
   return () => values[index++ % values.length]!;
 }
 
+/** L'avversario che non fa papere: i test qui sotto misurano la SCELTA, non i dadi. */
+const ATTENTO = distractionById('attento');
+
 describe('selectBotMove', () => {
   const club = levelById('club');
 
@@ -40,7 +43,7 @@ describe('selectBotMove', () => {
     ]);
     // Con qualunque estrazione che non sia la papera deliberata deve prendere.
     for (const draw of [0.2, 0.5, 0.8, 0.99]) {
-      expect(selectBotMove(winning, club, sequence([0.9, draw]))).toBe('d1h5');
+      expect(selectBotMove(winning, club, ATTENTO, sequence([0.9, draw]))).toBe('d1h5');
     }
   });
 
@@ -51,14 +54,14 @@ describe('selectBotMove', () => {
       line(-1900, 'a7a6', 3),
     ]);
     for (const draw of [0.2, 0.5, 0.8, 0.99]) {
-      expect(selectBotMove(losing, club, sequence([0.9, draw]))).toBe('g1h1');
+      expect(selectBotMove(losing, club, ATTENTO, sequence([0.9, draw]))).toBe('g1h1');
     }
   });
 
   it('preferisce il matto piu\' corto', () => {
     // Senza la valutazione "estesa" tutti i matti valgono 100% e si equivalgono.
     const mating = analysis([mate(1, 'h5f7', 1), mate(6, 'd1d8', 2), line(900, 'a2a3', 3)]);
-    expect(selectBotMove(mating, club, sequence([0.9, 0.99]))).toBe('h5f7');
+    expect(selectBotMove(mating, club, ATTENTO, sequence([0.9, 0.99]))).toBe('h5f7');
   });
 
   it('in posizione equilibrata continua a variare', () => {
@@ -68,7 +71,7 @@ describe('selectBotMove', () => {
     const balanced = analysis([line(20, 'e2e4', 1), line(10, 'd2d4', 2), line(0, 'g1f3', 3)]);
     const chosen = new Set<string>();
     for (const draw of [0.05, 0.3, 0.55, 0.8, 0.97]) {
-      chosen.add(selectBotMove(balanced, club, sequence([0.9, draw]))!);
+      chosen.add(selectBotMove(balanced, club, ATTENTO, sequence([0.9, draw]))!);
     }
     expect(chosen.size).toBeGreaterThan(1);
   });

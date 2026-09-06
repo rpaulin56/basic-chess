@@ -147,4 +147,8 @@ export const en: Record<keyof typeof it, string> = {
   annotationTheory: '{name}: last position known to the opening book.',
   positionTitle: 'Position: import or export',
   importPosition: 'Import a position or a game',
+  distractionTitle: 'How distracted the opponent is',
+  distractionCareful: 'careful',
+  distractionSloppy: 'distracted',
+  tutorMissedChance: 'Your opponent had just made a mistake, and you did not take advantage of it.',
 };

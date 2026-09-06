@@ -21,8 +21,12 @@ import { winPercentOf } from '../engine/winProb.js';
 
 export interface BotLevel {
   readonly id: string;
-  /** Elo dichiarato: e' una STIMA da verificare con la calibrazione, non un dato. */
-  readonly nominalElo: number;
+  /**
+   * Elo MISURATO, uno per grado di attenzione: la distrazione e' un asse a se' e
+   * sposta la forza quanto e piu' di un gradino di bravura, quindi un numero solo
+   * sarebbe una bugia per meta' delle combinazioni.
+   */
+  readonly elo: { readonly attento: number; readonly distratto: number };
   /** Profondita' di ricerca: il primo e piu' grossolano regolatore di forza. */
   readonly depth: number;
   /** Quante alternative considerare. Sotto 3 il campionamento non ha spazio. */
@@ -33,13 +37,6 @@ export interface BotLevel {
    * Bassa = quasi sempre la mossa migliore. Alta = sceglie spesso alternative scadenti.
    */
   readonly temperature: number;
-  /**
-   * Probabilita' di una svista vera e propria: sceglie deliberatamente la PEGGIORE
-   * fra le alternative considerate. Serve perche' un principiante non sbaglia solo
-   * "un po' ovunque": ogni tanto fa proprio una papera, e senza questo il bot
-   * risulterebbe innaturalmente uniforme.
-   */
-  readonly blunderRate: number;
   /**
    * Da quale vantaggio (in pedoni) la partita conta come "decisa", e il bot smette di
    * sbagliare apposta. Assente = la soglia normale.
@@ -105,41 +102,76 @@ export const BOT_LEVELS: readonly BotLevel[] = [
   // avversari credibili per chi comincia.
   {
     id: 'principiante',
-    nominalElo: 612,
+    elo: { attento: 968, distratto: 612 },
     depth: 2,
     multiPV: 8,
     temperature: 45,
-    blunderRate: 0.3,
     decidedPawns: 6,
   },
   {
     id: 'facile',
-    nominalElo: 808,
+    elo: { attento: 968, distratto: 612 },
     depth: 2,
     multiPV: 8,
-    temperature: 32,
-    blunderRate: 0.22,
+    temperature: 20,
     decidedPawns: 6,
   },
   {
     id: 'medio',
-    nominalElo: 1019,
+    elo: { attento: 1144, distratto: 938 },
     depth: 3,
     multiPV: 6,
-    temperature: 30,
-    blunderRate: 0.18,
+    temperature: 20,
     decidedPawns: 5,
   },
-  { id: 'discreto', nominalElo: 1297, depth: 4, multiPV: 5, temperature: 22, blunderRate: 0.1 },
-  { id: 'club', nominalElo: 1621, depth: 5, multiPV: 5, temperature: 16, blunderRate: 0.06 },
+  { id: 'discreto', elo: { attento: 1496, distratto: 1159 }, depth: 4, multiPV: 5, temperature: 22 },
+  { id: 'club', elo: { attento: 1580, distratto: 1467 }, depth: 5, multiPV: 5, temperature: 16 },
   // Misurati contro l'ancoraggio a 1800, non a 1320: contro il piu' debole vincevano
   // quasi tutte le partite e la stima sarebbe stata solo un'estrapolazione senza senso.
-  { id: 'esperto', nominalElo: 1858, depth: 6, multiPV: 4, temperature: 13, blunderRate: 0.035 },
-  { id: 'forte', nominalElo: 2258, depth: 8, multiPV: 3, temperature: 8, blunderRate: 0.015 },
+  { id: 'esperto', elo: { attento: 1947, distratto: 1765 }, depth: 6, multiPV: 4, temperature: 13 },
+  { id: 'forte', elo: { attento: 2508, distratto: 2152 }, depth: 8, multiPV: 3, temperature: 8 },
 ];
+
 
 export function levelById(id: string): BotLevel {
   return BOT_LEVELS.find((level) => level.id === id) ?? BOT_LEVELS[2]!;
+}
+
+/**
+ * Quanto e' distratto l'avversario: un asse SEPARATO dalla bravura.
+ *
+ * Sono due cose diverse e vanno scelte separatamente. La bravura (profondita' e
+ * temperatura) produce errori SPIEGABILI e PUNIBILI: il bot non ha visto abbastanza
+ * lontano, come un giocatore debole vero, e tu che calcoli una mossa in piu' lo
+ * batti. La distrazione produce regali: non insegnano a calcolare, insegnano ad
+ * aspettare — ma insegnano l'altra meta' del mestiere, cioe' accorgersi dell'errore
+ * altrui e punirlo, che e' un'abilita' vera e che nessun avversario perfetto allena.
+ *
+ * Due gradi e non tre: la differenza fra "una papera ogni venti mosse" e "una ogni
+ * otto" sta dentro il rumore della calibrazione (±64 punti su 30 partite), e
+ * un'impostazione che non si riesce a misurare e' precisione finta.
+ */
+export type DistractionId = 'attento' | 'distratto';
+
+export interface Distraction {
+  readonly id: DistractionId;
+  /**
+   * Probabilita' di una svista vera e propria: sceglie deliberatamente la PEGGIORE
+   * fra le alternative considerate. Non e' una mossa a caso fra tutte le legali —
+   * chi sbaglia gioca comunque una mossa che gli sembrava sensata.
+   */
+  readonly blunderRate: number;
+}
+
+export const DISTRACTIONS: readonly Distraction[] = [
+  { id: 'attento', blunderRate: 0 },
+  // Una ogni dieci mosse: due o tre a partita. Il vecchio "principiante" ne faceva
+  // una su tre, che non e' un avversario distratto ma un generatore di regali.
+  { id: 'distratto', blunderRate: 0.1 },
+];
+
+export function distractionById(id: string): Distraction {
+  return DISTRACTIONS.find((entry) => entry.id === id) ?? DISTRACTIONS[0]!;
 }
 
 export type Rng = () => number;
@@ -217,7 +249,12 @@ export function isDecided(analysis: Analysis, level?: BotLevel): boolean {
  * Sceglie la mossa del bot fra le linee analizzate.
  * Restituisce una mossa in notazione UCI, o null se non c'e' nulla da giocare.
  */
-export function selectBotMove(analysis: Analysis, level: BotLevel, rng: Rng = Math.random): string | null {
+export function selectBotMove(
+  analysis: Analysis,
+  level: BotLevel,
+  distraction: Distraction,
+  rng: Rng = Math.random,
+): string | null {
   const all = analysis.lines.filter((line) => line.pv.length > 0);
   if (all.length === 0) return analysis.bestMove;
   if (all.length === 1) return all[0]!.pv[0]!;
@@ -247,7 +284,7 @@ export function selectBotMove(analysis: Analysis, level: BotLevel, rng: Rng = Ma
   // A partita decisa la svista sparisce del tutto: e' li' che il bot deve stringere i
   // denti, e una papera gratuita mentre si converte (o si resiste) e' esattamente
   // cio' che rende inutile l'allenamento.
-  if (!decided && rng() < level.blunderRate) {
+  if (!decided && rng() < distraction.blunderRate) {
     return lines[lines.length - 1]!.pv[0]!;
   }
 

@@ -1,5 +1,5 @@
 import type { Analysis } from '../engine/types.js';
-import { isDecided, selectBotMove, type BotLevel, type Rng } from './bot.js';
+import { isDecided, selectBotMove, type BotLevel, type Distraction, type Rng } from './bot.js';
 
 /**
  * La mossa del bot, ricerca compresa.
@@ -28,15 +28,16 @@ export type Analyse = (options: { depth: number; multiPV: number }) => Promise<A
 export async function chooseBotMove(
   analyse: Analyse,
   level: BotLevel,
+  distraction: Distraction,
   rng?: Rng,
 ): Promise<string | null> {
   const first = await analyse({ depth: level.depth, multiPV: level.multiPV });
   if (!first) return null;
-  if (!isDecided(first, level)) return selectBotMove(first, level, rng);
+  if (!isDecided(first, level)) return selectBotMove(first, level, distraction, rng);
 
   const deeper = await analyse({
     depth: level.depth + DECIDED_EXTRA_DEPTH,
     multiPV: level.multiPV,
   });
-  return selectBotMove(deeper ?? first, level, rng);
+  return selectBotMove(deeper ?? first, level, distraction, rng);
 }

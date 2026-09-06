@@ -14,7 +14,14 @@ import {
 import { parseGameInput } from '../core/import.js';
 import { toFigurine } from '../core/notation.js';
 import { ANNOTATION_TAG, toPgn } from '../core/pgn.js';
-import { BOT_LEVELS, levelById, type BotLevel } from '../bot/bot.js';
+import {
+  BOT_LEVELS,
+  DISTRACTIONS,
+  distractionById,
+  levelById,
+  type BotLevel,
+  type Distraction,
+} from '../bot/bot.js';
 import { chooseBotMove } from '../bot/play.js';
 import { formatScore } from '../engine/winProb.js';
 import type { Analysis, EngineLine } from '../engine/types.js';
@@ -96,6 +103,13 @@ export function mountApp(root: HTMLElement): void {
   let humanColor: Color = saved?.humanColor ?? 'w';
   let orientation: 'white' | 'black' = humanColor === 'b' ? 'black' : 'white';
   let level: BotLevel = levelById(localStorage.getItem('basic-chess:level') ?? 'medio');
+  /**
+   * Quanto e' distratto l'avversario. Asse separato dalla bravura: la bravura decide
+   * quanto vede, la distrazione quanto spesso non guarda.
+   */
+  let distraction: Distraction = distractionById(
+    localStorage.getItem('basic-chess:distraction') ?? 'attento',
+  );
 
   /** Analisi della posizione attualmente mostrata (null = non ancora disponibile). */
   let evaluation: { line: EngineLine; depth: number; sideToMove: Color } | null = null;
@@ -112,6 +126,8 @@ export function mountApp(root: HTMLElement): void {
     /** La confutazione INTERA prevista dal motore, non troncata al diagramma. */
     refutation: readonly string[];
     betterSans: readonly string[] | null;
+    /** L'avversario aveva appena sbagliato e non se n'e' approfittato. */
+    missedChance: boolean;
     /** Posizione da cui parte la confutazione: serve a ricostruire il diagramma. */
     fenAfterMistake: string;
   } | null = null;
@@ -195,6 +211,14 @@ export function mountApp(root: HTMLElement): void {
    * Senza questo, un'analisi lenta sovrascrive quella di una posizione successiva.
    */
   let generation = 0;
+  /**
+   * L'analisi della posizione da cui l'avversario ha mosso l'ultima volta.
+   *
+   * Serve a giudicare la mossa del BOT con lo stesso metro con cui si giudicano le
+   * nostre: e' l'analisi che il tutor ha gia' fatto un turno fa per valutare la
+   * mossa dell'utente, quindi non costa niente conservarla — costerebbe rifarla.
+   */
+  let beforeBotMove: { fen: string; analysis: Analysis } | null = null;
   /** Timer del tentativo successivo quando il motore ha avuto un guasto. */
   let retryTimer: number | null = null;
   /** Gli errori segnalati in questa partita, per il riepilogo. */
@@ -631,6 +655,28 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     if (mine !== generation) return;
+
+    /*
+     * L'avversario aveva appena sbagliato?
+     *
+     * Si giudica la sua mossa con lo stesso detect.ts, e le due analisi ci sono gia'
+     * tutte e due: quella di partenza e' l'`after` del turno scorso (la posizione da
+     * cui il bot ha mosso), quella d'arrivo e' il `before` di adesso. Zero ricerche
+     * in piu'.
+     *
+     * Serve solo a cambiare la CORNICE del rimprovero, non a farne uno nuovo: se
+     * l'utente ha sbagliato dopo un errore dell'avversario, la cosa da imparare non
+     * e' "hai sbagliato" ma "avevi un'occasione e non l'hai vista".
+     */
+    const botPly = state.plies[state.plies.length - 2];
+    const afterOpponentError =
+      beforeBotMove !== null &&
+      botPly !== undefined &&
+      botPly.color !== humanColor &&
+      botPly.fenBefore === beforeBotMove.fen &&
+      isImportant(detectMistake(beforeBotMove.analysis, before));
+    beforeBotMove = { fen: pending.fenAfter, analysis: after };
+
     const verdict = detectMistake(before, after);
     if (isImportant(verdict)) {
       // La confutazione e' il seguito previsto dopo la mossa giocata: e' la risposta
@@ -653,6 +699,7 @@ export function mountApp(root: HTMLElement): void {
               )
             : [],
         betterSans: null,
+        missedChance: afterOpponentError,
         fenAfterMistake: pending.fenAfter,
       };
       // Il riepilogo si costruisce durante la partita: a fine partita le posizioni
@@ -763,7 +810,8 @@ export function mountApp(root: HTMLElement): void {
     renderStatus();
     const fen = currentFen(state);
     const forced = forcedMove();
-    const chosen = forced ?? (await chooseBotMove((options) => engine.analyse(fen, options), level));
+    const chosen =
+      forced ?? (await chooseBotMove((options) => engine.analyse(fen, options), level, distraction));
     botThinking = false;
     // La posizione e' cambiata mentre il bot pensava (l'utente ha ritirato una mossa o
     // ha navigato indietro): la mossa calcolata non c'entra piu' nulla.
@@ -1076,7 +1124,7 @@ export function mountApp(root: HTMLElement): void {
     // e poi ingombrerebbero per sempre: sono finite nella finestra delle impostazioni.
     const settings = document.createElement('div');
     settings.className = 'settings';
-    settings.append(levelSelect(), colorChoice());
+    settings.append(levelSelect(), distractionSelect(), colorChoice());
 
     controlsEl.append(toolbar, settings);
   }
@@ -1196,11 +1244,14 @@ export function mountApp(root: HTMLElement): void {
    */
   function pgnTags(): Record<string, string> {
     const human = playerName.trim() || 'Human';
-    const bot = `Bot ${level.id}`;
+    // Nel PGN il bot si presenta con entrambe le sue coordinate: fra sei mesi
+    // "Bot discreto" da solo non direbbe se l'avversario regalava pezzi o no.
+    const bot = `Bot ${level.id} (${distraction.id})`;
+    const elo = String(level.elo[distraction.id]);
     const players =
       humanColor === 'w'
-        ? { White: human, Black: bot, BlackElo: String(level.nominalElo) }
-        : { White: bot, Black: human, WhiteElo: String(level.nominalElo) };
+        ? { White: human, Black: bot, BlackElo: elo }
+        : { White: bot, Black: human, WhiteElo: elo };
     // ECO e Opening sono tag standard di fatto (li scrivono ChessBase, SCID, Lichess):
     // e' li' che il nome dell'apertura va a vivere quando sparisce dallo schermo, e da
     // li' lo rilegge qualunque altro programma.
@@ -1296,7 +1347,7 @@ export function mountApp(root: HTMLElement): void {
     for (const option of BOT_LEVELS) {
       const element = document.createElement('option');
       element.value = option.id;
-      element.textContent = `${option.id} · ${option.nominalElo}`;
+      element.textContent = `${option.id} · ${option.elo[distraction.id]}`;
       element.selected = option.id === level.id;
       select.append(element);
     }
@@ -1316,6 +1367,28 @@ export function mountApp(root: HTMLElement): void {
    * il bot e prende l'altro colore. Le due coppie omino/robot la mostrano intera, e
    * non hanno bisogno di traduzione.
    */
+  /**
+   * L'attenzione dell'avversario, accanto al livello perche' e' una scelta dello
+   * stesso tipo: si fa a inizio partita e cambia che partita sara'.
+   */
+  function distractionSelect(): HTMLElement {
+    const select = document.createElement('select');
+    select.title = t('distractionTitle');
+    for (const option of DISTRACTIONS) {
+      const element = document.createElement('option');
+      element.value = option.id;
+      element.textContent = t(option.id === 'attento' ? 'distractionCareful' : 'distractionSloppy');
+      element.selected = option.id === distraction.id;
+      select.append(element);
+    }
+    select.addEventListener('change', () => {
+      distraction = distractionById(select.value);
+      localStorage.setItem('basic-chess:distraction', distraction.id);
+      refresh();
+    });
+    return select;
+  }
+
   function colorChoice(): HTMLElement {
     const group = document.createElement('div');
     group.className = 'side-choice';
@@ -1480,6 +1553,7 @@ export function mountApp(root: HTMLElement): void {
    */
   function clearTutor(): void {
     hint = null;
+    beforeBotMove = null;
     review = null;
     preview = null;
     forcedLine = null;

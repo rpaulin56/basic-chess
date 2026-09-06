@@ -44,6 +44,11 @@ export interface TutorPanelState {
   readonly positional: readonly Explanation[];
   /** Vero mentre il diagramma delle conseguenze e' sulla scacchiera. */
   readonly previewing: boolean;
+  /**
+   * Vero se la mossa precedente dell'avversario era essa stessa un errore
+   * importante: allora questo non e' solo un tuo errore, e' un'occasione mancata.
+   */
+  readonly missedChance: boolean;
 }
 
 const SEVERITY_LABEL = {
@@ -89,7 +94,7 @@ export function renderTutorPanel(
   }
   container.hidden = false;
 
-  const { verdict, consequence, betterSans, positional, previewing } = state;
+  const { verdict, consequence, betterSans, positional, previewing, missedChance } = state;
   const severity = verdict.severity as 'blunder' | 'mistake' | 'inaccuracy';
   container.className = `panel tutor tutor-${severity}`;
 
@@ -110,6 +115,11 @@ export function renderTutorPanel(
   container.append(heading);
 
   const lines: string[] = [];
+  // Se l'avversario aveva appena sbagliato, la frase piu' utile viene PRIMA di tutto
+  // il resto e cambia cosa si impara: non "hai sbagliato" ma "avevi un'occasione e
+  // non l'hai vista". L'abitudine che manca a chi comincia e' proprio guardare la
+  // mossa appena giocata dall'altro, e questa e' l'unica riga che gliela insegna.
+  if (missedChance) lines.push(t('tutorMissedChance'));
   // Per l'errore strategico le ragioni misurate SOSTITUISCONO la frase generica,
   // non la seguono. "Non perdi materiale, ma la posizione peggiora" seguito da
   // "perdi il tuo pedone passato" si legge come una contraddizione: il saldo e' pari

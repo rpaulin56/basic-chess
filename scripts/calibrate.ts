@@ -21,7 +21,7 @@
 import { Chess } from 'chess.js';
 import { createEngine } from '../src/engine/uci.js';
 import type { Engine } from '../src/engine/types.js';
-import { BOT_LEVELS, levelById, type BotLevel } from '../src/bot/bot.js';
+import { BOT_LEVELS, distractionById, levelById, type BotLevel } from '../src/bot/bot.js';
 import { chooseBotMove } from '../src/bot/play.js';
 import { createNodeTransport } from './nodeTransport.js';
 
@@ -37,6 +37,7 @@ const opponentId = arg('vs', '');
 const anchorElo = Number(arg('anchor', '1320'));
 const games = Number(arg('games', '20'));
 const maxPlies = Number(arg('maxPlies', '250'));
+const distraction = distractionById(arg('distraction', 'attento'));
 
 // --- giocatori ------------------------------------------------------------
 
@@ -63,7 +64,7 @@ async function botPlayer(level: BotLevel, seed: number): Promise<Player> {
     // diverso da quello che gioca davvero darebbe numeri di Elo di un giocatore
     // immaginario.
     async move(fen) {
-      return chooseBotMove((options) => engine.analyse(fen, options), level, rng);
+      return chooseBotMove((options) => engine.analyse(fen, options), level, distraction, rng);
     },
     quit: () => engine.quit(),
   };
@@ -127,7 +128,6 @@ const level: BotLevel = {
   depth: Number(arg('depth', String(base.depth))),
   multiPV: Number(arg('multipv', String(base.multiPV))),
   temperature: Number(arg('temp', String(base.temperature))),
-  blunderRate: Number(arg('blunder', String(base.blunderRate))),
   decidedPawns: Number(arg('decided', String(base.decidedPawns ?? 3))),
 };
 const opponentLevel = opponentId ? levelById(opponentId) : null;

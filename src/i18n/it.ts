@@ -145,4 +145,8 @@ export const it = {
   annotationTheory: '{name}: ultima posizione riconosciuta dalla teoria.',
   positionTitle: 'Posizione: importa o esporta',
   importPosition: 'Importa una posizione o una partita',
+  distractionTitle: 'Quanto è distratto l’avversario',
+  distractionCareful: 'attento',
+  distractionSloppy: 'distratto',
+  tutorMissedChance: 'Il tuo avversario aveva appena sbagliato, e non ne hai approfittato.',
 } as const;
