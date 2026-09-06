@@ -116,8 +116,34 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 .movelist .placeholder { padding: 2px 6px; color: var(--ink-soft); }
 
 /* --- comandi --- */
-.controls { display: flex; flex-wrap: wrap; gap: 6px; }
-.controls button, select {
+/* --- comandi -------------------------------------------------------------
+ * Tre gruppi, divisi per quanto costa un clic sbagliato: la barra di icone (innocui),
+ * i pulsanti con etichetta (fanno perdere lavoro), i campi di impostazione.
+ */
+.controls { display: flex; flex-direction: column; gap: 10px; }
+
+.toolbar { display: flex; align-items: center; gap: 2px; }
+.toolbar button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.toolbar button:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+.toolbar button:disabled { opacity: 0.3; cursor: default; }
+/* Il tutor acceso e' uno STATO, non un'azione: si vede senza doverci passare sopra. */
+.toolbar button.on { color: var(--accent); background: var(--accent-soft); }
+.toolbar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 7px; }
+
+.actions, .settings { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+.actions button, select {
   font: inherit;
   font-size: 13px;
   padding: 6px 10px;
@@ -127,10 +153,8 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   border-radius: 6px;
   cursor: pointer;
 }
-.controls button:hover:not(:disabled) { border-color: var(--accent); }
-.controls button:disabled { opacity: 0.4; cursor: default; }
-.nav { display: flex; gap: 4px; }
-.nav button { min-width: 40px; }
+.actions button:hover:not(:disabled) { border-color: var(--accent); }
+.actions button:disabled { opacity: 0.4; cursor: default; }
 
 /* --- scelta della promozione --- */
 .promotion {
@@ -270,3 +294,10 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   border-radius: 6px;
 }
 .name-input:focus { outline: none; border-color: var(--accent); }
+
+/* Su schermo tattile le icone diventano piu' grandi: 34 pixel si centrano bene col
+   mouse e male col pollice. */
+@media (pointer: coarse) {
+  .toolbar button { width: 42px; height: 42px; }
+  .toolbar .sep { margin: 0 4px; }
+}

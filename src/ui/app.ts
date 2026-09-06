@@ -23,6 +23,7 @@ import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findOpening, type Opening } from '../openings/openings.js';
 import { moveNumberOf } from '../core/game.js';
 import { createBoardView, type BoardView } from './boardView.js';
+import { createIcon, type IconName } from './icons.js';
 import { createEngineSession } from './engineSession.js';
 import { renderMoveList } from './moveList.js';
 import { renderTutorPanel } from './tutorPanel.js';
@@ -654,25 +655,67 @@ export function mountApp(root: HTMLElement): void {
     evalEl.append(text(score, 'eval-score'), text(t('evalDepth', { depth: evaluation.depth }), 'eval-note'));
   }
 
+  /**
+   * I comandi, divisi secondo un criterio solo: cosa succede se li clicchi per
+   * sbaglio.
+   *
+   * Quelli innocui (navigare, ruotare la scacchiera, copiare qualcosa negli appunti,
+   * accendere il tutor) diventano ICONE: si annullano da soli o non cambiano niente,
+   * quindi non hanno bisogno di una parola che li spieghi prima del clic. Quelli che
+   * fanno perdere lavoro (ritirare, ricominciare, importare) restano pulsanti con
+   * l'etichetta scritta, perche' devono farsi leggere.
+   *
+   * Effetto collaterale utile: le icone non vanno tradotte, quindi ogni lingua nuova
+   * costa meno, e la fila di pulsanti sotto la scacchiera smette di pesare piu' della
+   * scacchiera stessa.
+   */
   function renderControls(): void {
     controlsEl.replaceChildren();
 
-    const nav = document.createElement('div');
-    nav.className = 'nav';
-    nav.append(
-      button('⏮', t('first'), state.cursor === 0, () => seek(0)),
-      button('◀', t('previous'), state.cursor === 0, () => seek(state.cursor - 1)),
-      button('▶', t('next'), state.cursor >= state.plies.length, () => seek(state.cursor + 1)),
-      button('⏭', t('last'), state.cursor >= state.plies.length, () => seek(state.plies.length)),
-    );
-    controlsEl.append(nav);
-
-    controlsEl.append(
-      button(t('takeBack'), t('takeBack'), state.cursor === 0, takeBack),
-      button(t('flipBoard'), t('flipBoard'), false, () => {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'toolbar';
+    toolbar.append(
+      iconButton('first', t('first'), state.cursor === 0, () => seek(0)),
+      iconButton('previous', t('previous'), state.cursor === 0, () => seek(state.cursor - 1)),
+      iconButton('next', t('next'), state.cursor >= state.plies.length, () =>
+        seek(state.cursor + 1),
+      ),
+      iconButton('last', t('last'), state.cursor >= state.plies.length, () =>
+        seek(state.plies.length),
+      ),
+      separator(),
+      iconButton('flip', t('flipBoard'), false, () => {
         orientation = orientation === 'white' ? 'black' : 'white';
         refresh();
       }),
+      iconButton(
+        'tutor',
+        tutorEnabled ? t('tutorOn') : t('tutorOff'),
+        false,
+        () => {
+          tutorEnabled = !tutorEnabled;
+          localStorage.setItem('basic-chess:tutor', tutorEnabled ? 'on' : 'off');
+          if (!tutorEnabled) review = null;
+          refresh();
+        },
+        tutorEnabled,
+      ),
+      separator(),
+      iconButton('pgn', t('exportPgn'), state.plies.length === 0, () => {
+        void copy(toPgn(state, pgnTags()));
+      }),
+      iconButton('fen', t('copyFen'), false, () => {
+        void copy(currentFen(state));
+      }),
+      iconButton('recap', t('recapCopy'), mistakeLog.length === 0, () => {
+        void copy(recapText(mistakeLog));
+      }),
+    );
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    actions.append(
+      button(t('takeBack'), t('takeBack'), state.cursor === 0, takeBack),
       button(t('newGame'), t('newGame'), false, () => {
         state = newGame();
         evaluation = null;
@@ -680,26 +723,45 @@ export function mountApp(root: HTMLElement): void {
         refresh();
       }),
       button(t('importPosition'), t('importTitle'), false, importPosition),
-      button(t('exportPgn'), t('exportPgn'), state.plies.length === 0, () => {
-        void copy(toPgn(state, pgnTags()));
-      }),
-      button(t('copyFen'), t('copyFen'), false, () => {
-        void copy(currentFen(state));
-      }),
-      button(t('recapCopy'), t('recapCopy'), mistakeLog.length === 0, () => {
-        void copy(recapText(mistakeLog));
-      }),
-      button(tutorEnabled ? t('tutorOn') : t('tutorOff'), t('tutorOn'), false, () => {
-        tutorEnabled = !tutorEnabled;
-        localStorage.setItem('basic-chess:tutor', tutorEnabled ? 'on' : 'off');
-        if (!tutorEnabled) review = null;
-        refresh();
-      }),
-      nameInput(),
-      levelSelect(),
-      colorSelect(),
-      languageSelect(),
     );
+
+    const settings = document.createElement('div');
+    settings.className = 'settings';
+    settings.append(nameInput(), levelSelect(), colorSelect(), languageSelect());
+
+    controlsEl.append(toolbar, actions, settings);
+  }
+
+  /**
+   * Un comando innocuo: solo l'icona, con la parola nel suggerimento e
+   * nell'etichetta accessibile (che serve a chi usa un lettore di schermo e a chi
+   * naviga da tastiera).
+   */
+  function iconButton(
+    name: IconName,
+    label: string,
+    disabled: boolean,
+    onClick: () => void,
+    active = false,
+  ): HTMLElement {
+    const element = document.createElement('button');
+    element.type = 'button';
+    element.title = label;
+    element.setAttribute('aria-label', label);
+    if (active) {
+      element.classList.add('on');
+      element.setAttribute('aria-pressed', 'true');
+    }
+    element.disabled = disabled;
+    element.append(createIcon(name));
+    element.addEventListener('click', onClick);
+    return element;
+  }
+
+  function separator(): HTMLElement {
+    const element = document.createElement('span');
+    element.className = 'sep';
+    return element;
   }
 
   /**
