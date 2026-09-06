@@ -1,0 +1,240 @@
+/**
+ * Riconoscimento del finale tipico, e le risorse per studiarlo.
+ *
+ * Riconoscere che tipo di finale si ha davanti non richiede tabelle di finali ne'
+ * motore ne' rete: basta la FIRMA DI MATERIALE letta dal FEN. "Torre e pedone contro
+ * torre" e' un conteggio di pezzi, non una valutazione. Le tablebase servirebbero a
+ * un'altra cosa — dire se la posizione e' vinta o patta — e sono state escluse per
+ * scelta: questo programma non parla con la rete, e un link che l'utente clicca non
+ * e' il programma che parla con la rete.
+ *
+ * Le risorse sono link curati a mano e verificati uno per uno. Non e' eleganza:
+ * i link marciscono, e tenerli tutti in un posto solo fa si' che ripararli sia una
+ * riga da cambiare invece di una caccia. Si preferisce Wikipedia in italiano quando
+ * l'articolo esiste (per parecchi finali non esiste, e si ripiega sull'inglese) e le
+ * lezioni UFFICIALI di Lichess, non gli studi degli utenti, che il proprietario puo'
+ * cancellare domani.
+ */
+
+export interface EndgameResource {
+  readonly label: string;
+  readonly url: string;
+  /** Vero se la risorsa e' interattiva: si gioca la posizione, non si legge. */
+  readonly practice?: boolean;
+}
+
+export interface Endgame {
+  /** Chiave i18n del nome del finale. */
+  readonly key: string;
+  readonly resources: readonly EndgameResource[];
+}
+
+const WIKI_IT = 'https://it.wikipedia.org/wiki/';
+const WIKI_EN = 'https://en.wikipedia.org/wiki/';
+const PRACTICE = 'https://lichess.org/practice/';
+
+/** Conteggio dei pezzi di un colore, per tipo. */
+interface Count {
+  p: number;
+  n: number;
+  b: number;
+  r: number;
+  q: number;
+  /** Alfieri su casa chiara e su casa scura: serve per i colori contrari. */
+  lightBishops: number;
+  darkBishops: number;
+}
+
+function emptyCount(): Count {
+  return { p: 0, n: 0, b: 0, r: 0, q: 0, lightBishops: 0, darkBishops: 0 };
+}
+
+/**
+ * Conta il materiale dalla disposizione del FEN. Si legge il primo campo e basta:
+ * tratto, arrocchi e contatori non c'entrano con il tipo di finale.
+ */
+export function countMaterial(fen: string): { white: Count; black: Count } {
+  const board = fen.split(' ')[0] ?? '';
+  const white = emptyCount();
+  const black = emptyCount();
+  let file = 0;
+  let rank = 7;
+  for (const character of board) {
+    if (character === '/') {
+      rank--;
+      file = 0;
+      continue;
+    }
+    if (character >= '1' && character <= '8') {
+      file += Number(character);
+      continue;
+    }
+    const side = character === character.toUpperCase() ? white : black;
+    const type = character.toLowerCase();
+    if (type === 'p') side.p++;
+    else if (type === 'n') side.n++;
+    else if (type === 'r') side.r++;
+    else if (type === 'q') side.q++;
+    else if (type === 'b') {
+      side.b++;
+      // Casa chiara se la somma di colonna e traversa e' dispari: e' la convenzione
+      // che rende h1 (0+0) scura, come sulla scacchiera vera.
+      if ((file + rank) % 2 === 1) side.lightBishops++;
+      else side.darkBishops++;
+    }
+    file++;
+  }
+  return { white, black };
+}
+
+function pieces(count: Count): number {
+  return count.n + count.b + count.r + count.q;
+}
+
+function total(count: Count): number {
+  return pieces(count) + count.p;
+}
+
+/** La firma "KRPvKR" e simili, sempre dal lato con piu' materiale. */
+function signature(strong: Count, weak: Count): string {
+  const letters = (c: Count): string =>
+    'K' + 'Q'.repeat(c.q) + 'R'.repeat(c.r) + 'B'.repeat(c.b) + 'N'.repeat(c.n) + 'P'.repeat(c.p);
+  return `${letters(strong)}v${letters(weak)}`;
+}
+
+/**
+ * Tipi riconosciuti per firma esatta, in ordine di specificita'.
+ *
+ * Il criterio di ammissione: un finale entra solo se ha un NOME e una tecnica che si
+ * puo' studiare. "Torre e due pedoni contro torre e pedone" non e' un finale tipico,
+ * e' una posizione: verrebbe classificato dalla regola generica dei finali di torre.
+ */
+const BY_SIGNATURE: Record<string, Endgame> = {
+  KPvK: {
+    key: 'egKPvK',
+    resources: [
+      { label: 'Wikipedia', url: `${WIKI_EN}King_and_pawn_versus_king_endgame` },
+      { label: "Lichess: l'opposizione", url: `${PRACTICE}pawn-endgames/opposition/A4ujYOer`, practice: true },
+      { label: 'Lichess: le case chiave', url: `${PRACTICE}pawn-endgames/key-squares/xebrDvFe`, practice: true },
+      { label: 'Wikipedia: opposizione', url: `${WIKI_IT}Opposizione_(scacchi)` },
+    ],
+  },
+  KQvK: {
+    key: 'egKQvK',
+    resources: [
+      { label: 'Lichess: i matti elementari', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
+    ],
+  },
+  KRvK: {
+    key: 'egKRvK',
+    resources: [
+      { label: 'Lichess: i matti elementari', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
+    ],
+  },
+  KBNvK: {
+    key: 'egKBNvK',
+    resources: [
+      { label: 'Lichess: alfiere e cavallo', url: `${PRACTICE}checkmates/knight-bishop-mate/ByhlXnmM`, practice: true },
+      { label: 'Wikipedia', url: `${WIKI_EN}Bishop_and_knight_checkmate` },
+    ],
+  },
+  KNNvK: {
+    key: 'egKNNvK',
+    resources: [{ label: 'Wikipedia', url: `${WIKI_EN}Two_knights_endgame` }],
+  },
+  KBBvK: {
+    key: 'egKBBvK',
+    resources: [
+      { label: 'Lichess: i matti elementari', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
+    ],
+  },
+  KQvKP: {
+    key: 'egKQvKP',
+    resources: [{ label: 'Wikipedia', url: `${WIKI_EN}Queen_versus_pawn_endgame` }],
+  },
+  KRPvKR: {
+    key: 'egKRPvKR',
+    resources: [
+      { label: 'Wikipedia: Lucena', url: `${WIKI_IT}Posizione_di_Lucena` },
+      { label: 'Wikipedia: Philidor', url: `${WIKI_IT}Posizione_di_Philidor` },
+      { label: 'Lichess: finali di torre', url: `${PRACTICE}rook-endgames/basic-rook-endgames/pqUSUw8Y`, practice: true },
+      { label: 'Wikipedia: la teoria completa', url: `${WIKI_EN}Rook_and_pawn_versus_rook_endgame` },
+    ],
+  },
+  KRBvKR: {
+    key: 'egKRBvKR',
+    resources: [{ label: 'Wikipedia', url: `${WIKI_EN}Rook_and_bishop_versus_rook_endgame` }],
+  },
+  KQPvKQ: {
+    key: 'egKQPvKQ',
+    resources: [{ label: 'Wikipedia', url: `${WIKI_EN}Queen_and_pawn_versus_queen_endgame` }],
+  },
+};
+
+/** Quanti pezzi (pedoni esclusi) si possono avere e parlare ancora di "finale". */
+const ENDGAME_PIECES = 4;
+
+/**
+ * Che finale e' questo, se e' un finale.
+ *
+ * Restituisce null quando non c'e' niente di tipico da dire: e' l'esito piu' comune e
+ * va bene cosi'. Dire "sei in un finale di pedoni" in ogni partita che arriva alla
+ * mossa 40 sarebbe rumore, non didattica.
+ */
+export function classifyEndgame(fen: string): Endgame | null {
+  const { white, black } = countMaterial(fen);
+  const [strong, weak] = total(white) >= total(black) ? [white, black] : [black, white];
+
+  const exact = BY_SIGNATURE[signature(strong, weak)];
+  if (exact) return exact;
+
+  // Da qui in giu' i finali "di genere". Si parla di finale solo se le donne sono
+  // sparite e i pezzi sono pochi: con le donne in campo la partita e' ancora
+  // mediogioco, per quanto materiale sia stato cambiato.
+  if (white.q + black.q > 0) return null;
+  if (pieces(white) + pieces(black) > ENDGAME_PIECES) return null;
+
+  // Alfieri di colore contrario: uno per parte, su colori diversi. E' la regola con
+  // il valore pratico piu' alto di tutte — cambia il modo di giocare la posizione,
+  // perche' un pedone in piu' spesso non basta piu' a vincere.
+  if (
+    white.b === 1 &&
+    black.b === 1 &&
+    white.n + black.n + white.r + black.r === 0 &&
+    white.lightBishops !== black.lightBishops
+  ) {
+    return {
+      key: 'egOppositeBishops',
+      resources: [{ label: 'Wikipedia', url: `${WIKI_EN}Opposite-coloured_bishops_endgame` }],
+    };
+  }
+
+  // Finale di pedoni: solo re e pedoni. Il piu' concreto di tutti, perche' ogni
+  // mossa e' irreversibile e un errore non si rimedia.
+  if (pieces(white) + pieces(black) === 0 && white.p + black.p > 0) {
+    return {
+      key: 'egPawns',
+      resources: [
+        { label: "Lichess: l'opposizione", url: `${PRACTICE}pawn-endgames/opposition/A4ujYOer`, practice: true },
+        { label: 'Lichess: le case chiave', url: `${PRACTICE}pawn-endgames/key-squares/xebrDvFe`, practice: true },
+        { label: 'Wikipedia', url: `${WIKI_EN}Pawn_endgame` },
+        { label: 'Wikipedia: pedone passato', url: `${WIKI_IT}Pedone_passato` },
+      ],
+    };
+  }
+
+  // Finale di torri: il piu' frequente della pratica, e quello che si sbaglia di piu'.
+  if (white.r + black.r > 0 && white.n + black.n + white.b + black.b === 0) {
+    return {
+      key: 'egRooks',
+      resources: [
+        { label: 'Lichess: finali di torre', url: `${PRACTICE}rook-endgames/basic-rook-endgames/pqUSUw8Y`, practice: true },
+        { label: 'Lichess: finali intermedi', url: `${PRACTICE}rook-endgames/intermediate-rook-endings/heQDnvq7`, practice: true },
+        { label: 'Wikipedia: Lucena', url: `${WIKI_IT}Posizione_di_Lucena` },
+        { label: 'Wikipedia: Philidor', url: `${WIKI_IT}Posizione_di_Philidor` },
+      ],
+    };
+  }
+
+  return null;
+}

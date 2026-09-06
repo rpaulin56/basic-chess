@@ -39,6 +39,8 @@ import { createEngineSession } from './engineSession.js';
 import { renderMoveList } from './moveList.js';
 import { renderTutorPanel } from './tutorPanel.js';
 import { renderHintPanel, type HintView } from './hintPanel.js';
+import { renderEndgamePanel } from './endgamePanel.js';
+import { classifyEndgame, type Endgame } from '../endgame/endgame.js';
 import { locale, setLocale, t, type LocaleCode } from '../i18n/index.js';
 
 type Promotion = 'q' | 'r' | 'b' | 'n';
@@ -237,6 +239,16 @@ export function mountApp(root: HTMLElement): void {
    * diventa una stampella invisibile.
    */
   let hintsUsed = saved?.hints ?? 0;
+  /**
+   * I finali gia' segnalati in questa partita.
+   *
+   * Una volta per tipo e basta. La scheda dice una cosa vera e utile la prima volta
+   * che ci si arriva; ricomparire a ogni mossa la trasformerebbe in tappezzeria, e
+   * si imparerebbe a non vedere quella zona dello schermo.
+   */
+  const endgamesSeen = new Set<string>();
+  /** Il finale da mostrare adesso, se c'e'. */
+  let endgame: Endgame | null = null;
 
   root.replaceChildren();
   const {
@@ -251,6 +263,7 @@ export function mountApp(root: HTMLElement): void {
     recapEl,
     recapPanel,
     hintEl,
+    endgameEl,
   } = buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
   const engine = createEngineSession(() => renderEnginePanel());
@@ -271,6 +284,7 @@ export function mountApp(root: HTMLElement): void {
     renderStatus();
     renderControls();
     renderHint();
+    updateEndgame();
     renderEnginePanel();
     renderOpening();
     renderRecap();
@@ -359,6 +373,27 @@ export function mountApp(root: HTMLElement): void {
     }
     if (mistakeLog.length > 0) recapEl.append(list);
     if (hintsUsed > 0) recapEl.append(text(t('recapHints', { count: hintsUsed }), 'recap-hints'));
+  }
+
+  /**
+   * Riconosce il finale tipico dalla posizione mostrata.
+   *
+   * Il riconoscimento e' una firma di materiale: nessun motore, nessuna rete, nessuna
+   * tabella di finali. Si guarda la posizione CORRENTE e non quella finale, cosi'
+   * ripercorrendo la partita la scheda compare quando si e' arrivati davvero li'.
+   */
+  function updateEndgame(): void {
+    const found = classifyEndgame(currentFen(state));
+    if (found && !endgamesSeen.has(found.key)) {
+      endgamesSeen.add(found.key);
+      endgame = found;
+    }
+    renderEndgamePanel(endgameEl, endgame, {
+      onClose: () => {
+        endgame = null;
+        renderEndgamePanel(endgameEl, null, { onClose: () => {} });
+      },
+    });
   }
 
   function renderHint(): void {
@@ -1552,6 +1587,9 @@ export function mountApp(root: HTMLElement): void {
    * fermo il bot.
    */
   function clearTutor(): void {
+    // Anche i finali gia' visti: appartengono alla partita, non alla sessione.
+    endgamesSeen.clear();
+    endgame = null;
     hint = null;
     beforeBotMove = null;
     review = null;
@@ -1645,6 +1683,12 @@ function buildLayout(root: HTMLElement) {
   hintEl.className = 'panel tutor hint';
   hintEl.hidden = true;
 
+  // La scheda del finale: stesso posto e stesso aspetto, ma non e' il tutor — non
+  // giudica niente, dice solo che la posizione ha un nome e dove studiarla.
+  const endgameEl = document.createElement('section');
+  endgameEl.className = 'panel tutor endgame';
+  endgameEl.hidden = true;
+
   const recapPanel = document.createElement('section');
   recapPanel.className = 'panel';
   const recapTitle = document.createElement('h2');
@@ -1662,7 +1706,7 @@ function buildLayout(root: HTMLElement) {
   movesEl.className = 'movelist';
   movesPanel.append(movesTitle, movesEl);
 
-  side.append(tutorEl, hintEl, recapPanel, movesPanel);
+  side.append(tutorEl, hintEl, endgameEl, recapPanel, movesPanel);
   layout.append(boardColumn, side);
   root.append(header, layout);
   return {
@@ -1677,6 +1721,7 @@ function buildLayout(root: HTMLElement) {
     recapEl,
     recapPanel,
     hintEl,
+    endgameEl,
   };
 }
 

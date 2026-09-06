@@ -28,6 +28,21 @@ npm run build
 `npm run calibrate` misura la forza reale di un livello del bot facendolo giocare
 contro Stockfish limitato a un Elo noto. Vedi `scripts/calibrate.ts`.
 
+## Finali tipici
+
+Quando la posizione diventa un finale con un nome — re e pedone contro re, torre e
+pedone contro torre, alfieri di colore contrario — compare una scheda con il nome del
+finale e due o tre link per studiarlo: Wikipedia (in italiano dove l'articolo esiste)
+e le lezioni **ufficiali** di Lichess, che sono interattive.
+
+Riconoscere il finale non richiede ne' motore ne' rete ne' tabelle: e' la firma di
+materiale letta dal FEN. Le tablebase Syzygy servirebbero a un'altra cosa — dire se la
+posizione e' vinta o patta — e sono state escluse per scelta: il programma non parla
+con la rete, e un link che l'utente clicca non e' il programma che parla con la rete.
+
+E' l'unico punto in cui il programma manda fuori, ed e' deliberato: sui finali
+elementari esiste materiale fatto meglio di quanto potremmo farlo noi.
+
 ## "E adesso?"
 
 Un pulsante che risponde alla domanda che ci si fa a fine apertura: *e adesso cosa
