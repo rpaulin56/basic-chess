@@ -101,7 +101,7 @@ export function mountApp(root: HTMLElement): void {
   /** L'analisi completa dell'ultima posizione valutata: e' il "prima" per il tutor. */
   let lastAnalysis: Analysis | null = null;
   /** Mossa dell'utente in attesa di giudizio (con l'analisi della posizione di partenza). */
-  let pendingReview: { before: Analysis; fenBefore: string; fenAfter: string } | null = null;
+  let pendingReview: { before: Analysis | null; fenBefore: string; fenAfter: string } | null = null;
   /** Verdetto da mostrare; finche' c'e', il bot NON risponde e si aspetta l'utente. */
   let review: {
     verdict: MistakeVerdict;
@@ -554,10 +554,10 @@ export function mountApp(root: HTMLElement): void {
     pendingReview = null;
     if (!pending) return;
     const mine = generation;
-    // Il "prima" gia' calcolato si riusa solo se e' abbastanza profondo; altrimenti si
-    // rifa'. Costa un'analisi in piu', ma il bot starebbe comunque pensando.
+    // Il "prima" gia' calcolato si riusa solo se c'e' ed e' abbastanza profondo;
+    // altrimenti si rifa'. Costa un'analisi in piu', ma il bot sta comunque fermo.
     const before =
-      pending.before.depth >= REVIEW_DEPTH
+      pending.before && pending.before.depth >= REVIEW_DEPTH
         ? pending.before
         : await engine.analyse(pending.fenBefore, {
             depth: REVIEW_DEPTH,
@@ -835,12 +835,23 @@ export function mountApp(root: HTMLElement): void {
       refresh(); // mossa illegale: annulla il movimento visivo
       return;
     }
-    // Il tutor giudica solo le mosse dell'UTENTE, e solo se ha in mano l'analisi
-    // giusta della posizione di partenza (puo' mancare se si e' mosso in fretta).
-    const judgeable = tutorEnabled && mover === humanColor && lastAnalysis?.fen === fenBefore;
-    const before = lastAnalysis;
+    /*
+     * Il tutor giudica tutte le mosse dell'UTENTE, punto.
+     *
+     * Prima chiedeva anche di avere gia' in mano l'analisi della posizione di
+     * partenza, e se mancava rinunciava in silenzio. Sembrava un'ottimizzazione
+     * innocua e invece era un buco grosso: l'analisi arriva in un paio di secondi,
+     * quindi il tutor taceva ogni volta che si muoveva in fretta — cioe' proprio
+     * quando si sbaglia. Su una partita reale sono passate senza una parola una mossa
+     * che perdeva 25 punti di aspettativa e una che ne perdeva 39.
+     *
+     * Adesso l'analisi del "prima", se manca, la calcola runReview. Costa una ricerca
+     * in piu' mentre il bot sarebbe comunque fermo ad aspettare la decisione.
+     */
+    const judgeable = tutorEnabled && mover === humanColor;
+    const before = lastAnalysis?.fen === fenBefore ? lastAnalysis : null;
     state = next;
-    pendingReview = judgeable && before ? { before, fenBefore, fenAfter: currentFen(state) } : null;
+    pendingReview = judgeable ? { before, fenBefore, fenAfter: currentFen(state) } : null;
     evaluation = null;
     review = null;
     preview = null;
