@@ -136,8 +136,18 @@ export function mountApp(root: HTMLElement): void {
   const mistakeLog: MistakeEntry[] = saved?.mistakes ?? [];
 
   root.replaceChildren();
-  const { boardWrap, statusEl, movesEl, controlsEl, evalEl, tutorEl, previewEl, openingEl, recapEl } =
-    buildLayout(root);
+  const {
+    boardWrap,
+    statusEl,
+    movesEl,
+    controlsEl,
+    evalEl,
+    tutorEl,
+    previewEl,
+    openingEl,
+    recapEl,
+    recapPanel,
+  } = buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
   const engine = createEngineSession(() => renderEnginePanel());
 
@@ -218,12 +228,17 @@ export function mountApp(root: HTMLElement): void {
 
   // --- riepilogo ---------------------------------------------------------
 
+  /**
+   * Il riepilogo esiste solo se c'e' qualcosa da riepilogare.
+   *
+   * Un pannello che a inizio partita dice "nessun errore segnalato finora" occupa
+   * spazio per non dire niente, e insegna a ignorare quella zona dello schermo —
+   * proprio dove poi comparira' l'informazione che conta.
+   */
   function renderRecap(): void {
     recapEl.replaceChildren();
-    if (mistakeLog.length === 0) {
-      recapEl.append(text(t('recapEmpty'), 'eval-note'));
-      return;
-    }
+    recapPanel.hidden = mistakeLog.length === 0;
+    if (mistakeLog.length === 0) return;
     const list = document.createElement('ul');
     for (const entry of mistakeLog) {
       const item = document.createElement('li');
@@ -1037,6 +1052,11 @@ function buildLayout(root: HTMLElement) {
   boardWrap.className = 'board-wrap';
   const statusEl = document.createElement('div');
   statusEl.className = 'status';
+  // Il nome dell'apertura sta sotto la scacchiera e non nella lista mosse: parla
+  // della posizione che si ha davanti, non dell'elenco delle mosse fatte.
+  const openingEl = document.createElement('div');
+  openingEl.className = 'opening';
+  openingEl.hidden = true;
   const controlsEl = document.createElement('div');
   controlsEl.className = 'controls';
   // Lo slider della conseguenza sta SOTTO la scacchiera, non nel pannello laterale:
@@ -1044,7 +1064,7 @@ function buildLayout(root: HTMLElement) {
   const previewEl = document.createElement('div');
   previewEl.className = 'preview-bar';
   previewEl.hidden = true;
-  boardColumn.append(boardWrap, previewEl, statusEl, controlsEl);
+  boardColumn.append(boardWrap, previewEl, statusEl, openingEl, controlsEl);
 
   const side = document.createElement('aside');
 
@@ -1069,18 +1089,15 @@ function buildLayout(root: HTMLElement) {
   const recapEl = document.createElement('div');
   recapEl.className = 'recap';
   recapPanel.append(recapTitle, recapEl);
+  recapPanel.hidden = true;
 
   const movesPanel = document.createElement('section');
   movesPanel.className = 'panel';
   const movesTitle = document.createElement('h2');
   movesTitle.textContent = t('moves');
-  // Il nome dell'apertura sta in cima alla lista mosse, dove si guarda comunque.
-  const openingEl = document.createElement('div');
-  openingEl.className = 'opening';
-  openingEl.hidden = true;
   const movesEl = document.createElement('div');
   movesEl.className = 'movelist';
-  movesPanel.append(movesTitle, openingEl, movesEl);
+  movesPanel.append(movesTitle, movesEl);
 
   side.append(tutorEl, evalPanel, recapPanel, movesPanel);
   layout.append(boardColumn, side);
@@ -1095,6 +1112,7 @@ function buildLayout(root: HTMLElement) {
     previewEl,
     openingEl,
     recapEl,
+    recapPanel,
   };
 }
 
