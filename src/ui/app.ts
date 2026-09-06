@@ -205,9 +205,14 @@ export function mountApp(root: HTMLElement): void {
    */
   async function updateOpening(): Promise<void> {
     const mine = generation;
-    const san = state.plies.slice(0, state.cursor).map((ply) => ply.san);
+    // Le POSIZIONI attraversate, non le mosse: l'indice e' per posizione, cosi' una
+    // trasposizione viene riconosciuta lo stesso.
+    const fens = [
+      state.startFen,
+      ...state.plies.slice(0, state.cursor).map((ply) => ply.fenAfter),
+    ];
     try {
-      const found = await findOpening(san);
+      const found = await findOpening(fens);
       if (mine !== generation) return;
       if (found?.name !== opening?.name || found?.plies !== opening?.plies) {
         opening = found;

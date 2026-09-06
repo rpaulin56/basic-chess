@@ -110,12 +110,16 @@ export function renderTutorPanel(
   container.append(heading);
 
   const lines: string[] = [];
-  if (consequence) lines.push(describe(consequence));
-  // Per l'errore strategico la frase generica ("la posizione peggiora") non insegna
-  // nulla da sola: subito dopo vengono le ragioni misurate.
-  if (consequence?.category === 'strategico') {
+  // Per l'errore strategico le ragioni misurate SOSTITUISCONO la frase generica,
+  // non la seguono. "Non perdi materiale, ma la posizione peggiora" seguito da
+  // "perdi il tuo pedone passato" si legge come una contraddizione: il saldo e' pari
+  // (un pedone per un pedone) ma il pezzo che contava se n'e' andato, e la seconda
+  // frase lo dice meglio da sola.
+  if (consequence?.category === 'strategico' && positional.length > 0) {
     for (const explanation of positional) lines.push(t(explanation.key, explanation.params));
-    if (positional.length === 0) lines.push(t('posNothing'));
+  } else if (consequence) {
+    lines.push(describe(consequence));
+    if (consequence.category === 'strategico') lines.push(t('posNothing'));
   }
   if (verdict.crossing) lines.push(t(CROSSING_LABEL[verdict.crossing]));
   lines.push(

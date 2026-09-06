@@ -40,19 +40,38 @@ describe('classifyConsequence', () => {
     expect(result!.lost.map((piece) => `${piece.type}${piece.square}`)).toEqual(['ra8']);
   });
 
-  it('resta BANALE anche se il materiale viene recuperato altrove piu\' avanti', () => {
-    // Regressione su un caso reale. La variante vera dopo 12.O-O e':
-    //   Cxc6 c3 Ag7 cxb4 ...
-    // Il Bianco si riprende UN pedone tre semi-mosse dopo, quindi il bilancio alla
-    // FINE della linea e' invariato — e la prima versione del classificatore
-    // concludeva "nessuna perdita di materiale", cioe' errore strategico. Ma il
-    // pedone passato in c6, che era tutto il vantaggio, era sparito alla prima mossa.
+  it('non chiama perdita di materiale un pedone ceduto e uno ripreso', () => {
+    // Caso reale, dopo 12.O-O: Cxc6 c3 Ag7 cxb4 — il Nero prende il pedone passato in
+    // c6 e il Bianco ne recupera un altro tre semi-mosse dopo. Il SALDO e' pari, e
+    // dire "perdi un pedone" sarebbe falso.
+    //
+    // Che il pedone perduto fosse quello PASSATO — cioe' l'unica cosa che contava — e'
+    // un giudizio posizionale, non materiale, e lo dice positional.ts con "perdi il
+    // tuo pedone passato". Una versione precedente lo trattava come perdita materiale
+    // prendendo il MINIMO lungo la variante, e proprio per questo su un'altra partita
+    // annunciava "perdi il cavallo in c3" quando il cavallo veniva ripagato poco dopo.
     const result = classifyConsequence(AFTER_CASTLING, [
       'b8c6', 'c2c3', 'f8g7', 'c3b4', 'g8e7', 'b4b5',
     ]);
-    expect(result!.category).toBe('banale');
-    expect(result!.manifestAt).toBe(1);
+    expect(result!.category).toBe('strategico');
+    expect(result!.materialLoss).toBe(0);
+  });
+
+  it('aspetta il compenso che arriva con una mossa intermedia', () => {
+    // Regressione sul caso segnalato dall'utente. Dopo 8.a3 la confutazione e'
+    //   Axc3 Aa2 Axd4 Cxd4 ...
+    // Il cavallo in c3 sparisce alla PRIMA semi-mossa, ma il Bianco non ricattura
+    // subito: si ritira e recupera un pezzo due semi-mosse dopo. Il conto vero e' un
+    // pedone, non un cavallo, e la conseguenza si manifesta alla quarta semi-mossa.
+    // Una regola che pretende la ricattura immediata sbaglia ogni volta che c'e' di
+    // mezzo una mossa intermedia — e a scacchi ce n'e' di mezzo continuamente.
+    const AFTER_A3 = 'r1bqk1nr/1pp2ppp/p3p3/n7/1bBPP3/P1N2N2/1P3PPP/R1BQ1RK1 b kq - 0 8';
+    const result = classifyConsequence(AFTER_A3, [
+      'b4c3', 'c4a2', 'c3d4', 'f3d4', 'c7c5', 'd4e2', 'd8d1', 'f1d1',
+    ]);
     expect(result!.materialLoss).toBe(1);
+    expect(result!.manifestAt).toBe(4);
+    expect(result!.category).toBe('tattico');
   });
 
   it('non scambia un cambio normale per una perdita', () => {

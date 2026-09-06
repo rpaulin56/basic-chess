@@ -4,7 +4,16 @@
 //
 // Fonte: https://github.com/lichess-org/chess-openings (CC0). Sono cinque file TSV
 // (a..e) con colonne eco, name, pgn. Il risultato e' un solo oggetto JSON che mappa
-// la sequenza di mosse SAN, separate da spazi e senza numerazione, sul nome.
+// la POSIZIONE (non la sequenza di mosse) sul nome dell'apertura.
+//
+// Indicizzare per posizione e non per sequenza e' la differenza fra riconoscere e non
+// riconoscere una trasposizione, che nella pratica e' la norma: 1.Cf3 d5 2.d4 e6 3.c4
+// arriva alla stessa posizione del Gambetto di Donna Rifiutato per un'altra strada, e
+// con l'indice per mosse restava senza nome (anzi, restava fermo al nome della prima
+// mossa). La chiave e' il FEN senza i contatori e senza l'en passant: i contatori non
+// distinguono le posizioni, e sull'en passant i generatori di FEN non concordano
+// (alcuni lo indicano sempre dopo un doppio passo di pedone, altri solo se e'
+// davvero catturabile).
 //
 // Il file generato viene COMMESSO nel repo: l'applicazione deve funzionare offline, e
 // non puo' dipendere da GitHub al primo avvio. Questo script si rilancia solo quando
@@ -13,6 +22,12 @@
 import { writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Chess } from 'chess.js';
+
+/** Chiave di posizione: disposizione dei pezzi, tratto, arrocchi. */
+function positionKey(fen) {
+  return fen.split(' ').slice(0, 3).join(' ');
+}
 
 const BASE = 'https://raw.githubusercontent.com/lichess-org/chess-openings/master';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -28,14 +43,21 @@ for (const letter of ['a', 'b', 'c', 'd', 'e']) {
     if (!line.trim()) continue;
     const [eco, name, pgn] = line.split('\t');
     if (!eco || !name || !pgn) continue;
-    // "1. e4 e5 2. Nf3" -> "e4 e5 Nf3": la numerazione non serve a riconoscere nulla
-    // e raddoppierebbe il peso del file.
-    const moves = pgn
-      .trim()
-      .split(/\s+/)
-      .filter((token) => !/^\d+\.+$/.test(token))
-      .join(' ');
-    openings[moves] = `${eco}|${name}`;
+    const chess = new Chess();
+    try {
+      for (const token of pgn.trim().split(/\s+/)) {
+        if (/^\d+\.+$/.test(token)) continue;
+        chess.move(token);
+      }
+    } catch {
+      console.warn(`riga non rigiocabile, saltata: ${eco} ${name}`);
+      continue;
+    }
+    // Se due sequenze arrivano alla stessa posizione vince la PRIMA: i file sono
+    // ordinati per codice ECO, quindi resta il nome canonico invece di quello di una
+    // variante esotica che ci arriva per trasposizione.
+    const key = positionKey(chess.fen());
+    if (!(key in openings)) openings[key] = `${eco}|${name}`;
     rows++;
   }
 }

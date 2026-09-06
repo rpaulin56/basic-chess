@@ -119,36 +119,36 @@ const MATERIAL_THRESHOLD = 1;
 
 
 /**
- * Il bilancio materiale PEGGIORE fra le posizioni "assestate".
+ * Dove la variante e' "assestata", cioe' dove ha senso contare il materiale.
  *
- * Due trappole, entrambe incontrate su partite vere, che questa funzione evita:
- *
- * 1. Guardare solo la FINE della variante nasconde l'errore. In una partita reale il
- *    Nero si riprendeva il pedone passato alla prima mossa e il Bianco ne recuperava
- *    un altro tre semi-mosse dopo: bilancio finale invariato, ma il pedone che
- *    contava era sparito. Per questo si prende il minimo, non il valore finale.
- *
- * 2. Guardare TUTTE le posizioni segnala come perdita anche un cambio normale (ti
- *    prendo l'alfiere, tu ricatturi). Per questo si guardano solo le posizioni dopo
- *    una semi-mossa PARI, cioe' quelle in cui chi ha sbagliato ha gia' avuto la
- *    possibilita' di ricatturare.
- *
- * L'ultima posizione conta anche se dispari, ma solo quando la variante del motore
- * finisce davvero li' (non quando l'abbiamo troncata noi all'orizzonte): in quel caso
- * non c'e' nessuna ricattura in sospeso.
+ * Se la variante del motore finisce prima dell'orizzonte, la posizione finale e' gia'
+ * assestata. Se invece siamo noi ad averla troncata, ci si ferma all'ultima semi-mossa
+ * PARI: dopo una dispari puo' esserci una ricattura in sospeso, e contare li'
+ * scambierebbe per una perdita un normale cambio di pezzi.
  */
-function settledWorst(balances: readonly number[], plies: number): { worst: number; at: number } {
-  let worst = balances[0]!;
-  let at = 0;
-  const consider = (i: number) => {
-    if (balances[i]! < worst) {
-      worst = balances[i]!;
-      at = i;
-    }
-  };
-  for (let i = 2; i < balances.length; i += 2) consider(i);
-  if (plies % 2 === 1 && plies < HORIZON) consider(plies);
-  return { worst, at };
+function settledIndex(plies: number): number {
+  return plies < HORIZON ? plies : plies - (plies % 2);
+}
+
+/**
+ * Da quale semi-mossa il bilancio materiale e' ORMAI quello finale.
+ *
+ * Non e' il minimo lungo la variante, ed e' una correzione pagata su una partita
+ * vera: dopo 8.a3 il Nero prende il cavallo in c3, ma tre semi-mosse dopo il Bianco
+ * recupera un pezzo con Cxd4. Guardando il minimo il tutor annunciava "perdi il
+ * cavallo in c3"; il conto vero e' un pedone. Un compenso che arriva con qualche
+ * mossa di ritardo (uno scacco intermedio, una ritirata e poi la ricattura) e' del
+ * tutto normale a scacchi, e una regola che pretende la ricattura immediata sbaglia
+ * ogni volta che c'e' di mezzo una mossa intermedia.
+ */
+function manifestIndex(balances: readonly number[], settled: number, final: number): number {
+  for (let i = 1; i <= settled; i++) {
+    if (balances[i] !== final) continue;
+    // Dev'essere il punto in cui la situazione si stabilizza, non un passaggio: da
+    // qui in poi il bilancio non deve piu' risalire sopra il valore finale.
+    if (balances.slice(i, settled + 1).every((balance) => balance <= final)) return i;
+  }
+  return settled;
 }
 
 export function classifyConsequence(
@@ -196,27 +196,24 @@ export function classifyConsequence(
   if (line.length === 0) return null;
 
   const start = balances[0]!;
-  const { worst, at: settledAt } = settledWorst(balances, line.length);
-  const materialLoss = start - worst;
+  const settledAt = settledIndex(line.length);
+  const materialLoss = start - balances[settledAt]!;
 
-  // Dove si manifesta: la prima semi-mossa dopo la quale il materiale e' gia' quello
-  // peggiore. E' il momento in cui "si capisce", non la fine della variante.
+  // Dove si manifesta: il momento in cui "si capisce", non la fine della variante.
   let manifestAt = line.length;
   // Il matto e' la conseguenza definitiva: la variante si ferma li', qualunque cosa
   // dica il conteggio del materiale.
   if (matesIn !== null) {
     manifestAt = mateAtPly;
   } else if (materialLoss >= MATERIAL_THRESHOLD) {
-    for (let i = 1; i < balances.length; i++) {
-      if (balances[i]! <= worst) {
-        manifestAt = i;
-        break;
-      }
-    }
+    manifestAt = manifestIndex(balances, settledAt, balances[settledAt]!);
   }
 
+  // "Immediato" vuol dire entro una mossa per parte: se ti prendono un pezzo e tu
+  // ricatturi, il conto e' chiuso li' e chiamarlo "arriva una mossa piu' avanti"
+  // sarebbe pedanteria.
   const category: Category =
-    materialLoss < MATERIAL_THRESHOLD ? 'strategico' : manifestAt <= 1 ? 'banale' : 'tattico';
+    materialLoss < MATERIAL_THRESHOLD ? 'strategico' : manifestAt <= 2 ? 'banale' : 'tattico';
 
   // Le FRECCE si fermano dove la conseguenza si vede; il CONTO di cosa si perde
   // arriva invece fino alla posizione assestata, altrimenti una ricattura che avviene
