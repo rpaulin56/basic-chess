@@ -3,6 +3,11 @@ import type { it } from './it.js';
 export const en: Record<keyof typeof it, string> = {
   appTitle: 'Basic Chess',
   credits: 'Credits and licences',
+  creditsAuthorLabel: 'Concept and software design',
+  creditsAuthorName: 'Riccardo Paulin',
+  creditsCodeLabel: 'Code written by',
+  creditsCodeName: 'Claude (Anthropic), directed by the author',
+  creditsCopyright: '© 2026 Riccardo Paulin — GPL-3.0-or-later',
   creditsIntro: 'This program is free software, by obligation as well as by choice: it uses Stockfish and chessground, both under the GPL-3.0 licence.',
   creditsSource: 'Source code',
   creditsClose: 'Close',

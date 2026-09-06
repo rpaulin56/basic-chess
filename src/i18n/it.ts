@@ -1,6 +1,11 @@
 export const it = {
   appTitle: 'Basic Chess',
   credits: 'Crediti e licenze',
+  creditsAuthorLabel: 'Concept e progetto software',
+  creditsAuthorName: 'Riccardo Paulin',
+  creditsCodeLabel: 'Scrittura del codice',
+  creditsCodeName: 'Claude (Anthropic), sotto la direzione dell’autore',
+  creditsCopyright: '© 2026 Riccardo Paulin — GPL-3.0-or-later',
   creditsIntro: 'Questo programma è software libero, e lo è per obbligo oltre che per scelta: usa Stockfish e chessground, entrambi sotto licenza GPL-3.0.',
   creditsSource: 'Codice sorgente',
   creditsClose: 'Chiudi',

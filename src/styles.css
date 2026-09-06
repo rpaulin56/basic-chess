@@ -471,3 +471,8 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 .credits a { color: var(--accent); }
 
 .menu button:disabled { color: var(--ink-soft); opacity: 0.5; cursor: default; background: none; }
+
+.credits-authors { margin: 0 0 6px; }
+.credits-authors dt { color: var(--ink-soft); }
+.credits-authors dd { margin: 0 0 4px; color: var(--ink); }
+.credits-copyright { margin: 0 0 10px; }

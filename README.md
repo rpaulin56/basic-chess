@@ -28,7 +28,21 @@ npm run build
 `npm run calibrate` misura la forza reale di un livello del bot facendolo giocare
 contro Stockfish limitato a un Elo noto. Vedi `scripts/calibrate.ts`.
 
+## Autore
+
+**Concept e progetto software:** Riccardo Paulin
+**Scrittura del codice:** Claude (Anthropic), sotto la direzione dell'autore
+
+Il modello e' dichiarato come strumento, non come coautore: l'autore e' chi ha deciso
+cosa il programma deve fare, ha definito i criteri didattici (a partire dalla
+classificazione degli errori in svista / tattico / strategico, che e' il cuore del
+progetto), ha giudicato e corretto il risultato, e ne risponde. E' anche l'unico che
+puo' esserne titolare del diritto d'autore, che in Italia come negli Stati Uniti nasce
+solo da un apporto creativo umano.
+
 ## Licenza
+
+Copyright (C) 2026 Riccardo Paulin.
 
 **GPL-3.0-or-later** — testo completo in [LICENSE](LICENSE).
 
