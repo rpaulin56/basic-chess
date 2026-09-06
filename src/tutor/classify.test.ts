@@ -190,3 +190,18 @@ describe('il matto', () => {
     expect(result!.manifestAt).toBe(1);
   });
 });
+
+describe('semplificazione dei cambi alla pari', () => {
+  it('nomina il pezzo che resta davvero dopo aver cancellato i cambi', () => {
+    // Caso reale, dopo 8.a3: Axc3 Aa2 Axd4 Cxd4 ... Dxd1 Txd1.
+    // Il Bianco cede cavallo, pedone e donna e prende alfiere e donna: donna contro
+    // donna e cavallo contro alfiere si cancellano, e cio' che resta e' IL PEDONE IN
+    // D4. Dire "l'equivalente di un pedone" era vero ma non diceva dove guardare.
+    const AFTER_A3 = 'r1bqk1nr/1pp2ppp/p3p3/n7/1bBPP3/P1N2N2/1P3PPP/R1BQ1RK1 b kq - 0 8';
+    const result = classifyConsequence(AFTER_A3, [
+      'b4c3', 'c4a2', 'c3d4', 'f3d4', 'c7c5', 'd4e2', 'd8d1', 'f1d1',
+    ]);
+    expect(result!.lossKind).toBe('named');
+    expect(result!.lost.map((piece) => `${piece.type}${piece.square}`)).toEqual(['pd4']);
+  });
+});

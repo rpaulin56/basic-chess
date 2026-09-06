@@ -220,7 +220,7 @@ export function classifyConsequence(
   // una semi-mossa dopo resterebbe fuori e uno scambio sembrerebbe una perdita secca.
   const { arrows } = replay(fenAfterMistake, line.slice(0, manifestAt));
   const { lost, won } = replay(fenAfterMistake, line.slice(0, Math.max(manifestAt, settledAt)));
-  const lossKind = describeLoss(lost, won, materialLoss);
+  const { kind: lossKind, named } = describeLoss(lost, won, materialLoss);
 
   return {
     category,
@@ -229,7 +229,7 @@ export function classifyConsequence(
     manifestAt,
     materialLoss: Math.max(0, materialLoss),
     arrows,
-    lost: lossKind === 'named' ? lost : [],
+    lost: named,
     lossKind,
     forcing: forcingMoves * 2 >= manifestAt,
     matesIn,
@@ -251,17 +251,34 @@ function describeLoss(
   lost: readonly LostPiece[],
   won: readonly LostPiece['type'][],
   materialLoss: number,
-): 'named' | 'exchange' | 'count' {
+): { kind: 'named' | 'exchange' | 'count'; named: readonly LostPiece[] } {
   const isMinor = (type: LostPiece['type']) => type === 'n' || type === 'b';
   if (lost.length === 1 && lost[0]!.type === 'r' && won.length === 1 && isMinor(won[0]!)) {
-    return 'exchange';
+    return { kind: 'exchange', named: [] };
   }
-  // Si nominano i pezzi quando il compenso e' al massimo un pedone: "perdi la torre in
-  // a8" resta vero e leggibile anche se per strada hai preso un pedone. Con un
-  // compenso piu' sostanzioso il nome nasconderebbe meta' della storia.
+
+  // Si SEMPLIFICANO i cambi alla pari prima di parlare: se hai dato cavallo, pedone e
+  // donna e hai preso alfiere e donna, la donna si cancella con la donna, il cavallo
+  // con l'alfiere, e quello che resta davvero e' il pedone. Dire "perdi il pedone in
+  // d4" e' cio' che direbbe un giocatore guardando la stessa variante; dire
+  // "l'equivalente di un pedone" e' vero ma non insegna dove guardare.
+  const remaining = [...lost];
+  for (const type of won) {
+    const index = remaining.findIndex((piece) => VALUE[piece.type] === VALUE[type]);
+    if (index >= 0) remaining.splice(index, 1);
+  }
+  const remainingValue = remaining.reduce((sum, piece) => sum + (VALUE[piece.type] ?? 0), 0);
+  if (remaining.length > 0 && remainingValue === materialLoss) {
+    return { kind: 'named', named: remaining };
+  }
+
+  // Seconda possibilita': il compenso e' al massimo un pedone. "Perdi la torre in a8"
+  // resta vero e leggibile anche se per strada hai preso un pedone.
   const compensation = won.reduce((sum, type) => sum + (VALUE[type] ?? 0), 0);
-  if (lost.length > 0 && compensation <= 1 && materialLoss > 0) return 'named';
-  return 'count';
+  if (lost.length > 0 && compensation <= 1 && materialLoss > 0) {
+    return { kind: 'named', named: lost };
+  }
+  return { kind: 'count', named: [] };
 }
 
 /**

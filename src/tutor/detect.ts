@@ -81,7 +81,14 @@ export const DEFAULT_OPTIONS: DetectOptions = {
   minDepth: 10,
 };
 
-/** Soglie di "genere" della posizione, in probabilita' di vittoria per chi muove. */
+/**
+ * Soglie di "genere" della posizione, in aspettativa per chi muove.
+ *
+ * Sono la soglia del NETTO VANTAGGIO, non della vittoria: il 70% corrisponde a circa
+ * un pedone e mezzo, e chiamare "vinta" una posizione cosi' sarebbe un'esagerazione
+ * che il tutor pagherebbe in credibilita' la prima volta che quella partita finisce
+ * pari. Le frasi mostrate all'utente dicono infatti "netto vantaggio".
+ */
 const WINNING_FROM = 70;
 const LOSING_BELOW = 30;
 
