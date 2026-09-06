@@ -30,7 +30,20 @@ contro Stockfish limitato a un Elo noto. Vedi `scripts/calibrate.ts`.
 
 ## Licenza
 
-Il motore di analisi è **Stockfish**, distribuito sotto **GPL-3.0**. Poiché
-l'applicazione lo include e lo distribuisce, anche questo progetto è GPL-3.0-or-later.
-In pratica: si può usare, modificare e ridistribuire liberamente, ma una eventuale
-distribuzione pubblica deve restare open source con la stessa licenza.
+**GPL-3.0-or-later** — testo completo in [LICENSE](LICENSE).
+
+Non è una scelta stilistica: due delle librerie usate sono GPL-3.0 e un programma che
+le include e le distribuisce eredita la licenza.
+
+| componente | licenza |
+|---|---|
+| [Stockfish](https://stockfishchess.org) — motore di analisi | GPL-3.0 |
+| [chessground](https://github.com/lichess-org/chessground) — scacchiera | GPL-3.0-or-later |
+| [chess.js](https://github.com/jhlywa/chess.js) — regole e notazione | BSD-2-Clause |
+| pezzi cburnett (dentro chessground) | CC BY-SA 3.0 |
+| [chess-openings](https://github.com/lichess-org/chess-openings) — nomi delle aperture | CC0 |
+
+In pratica: si può usare, modificare e ridistribuire liberamente, ma chi riceve il
+programma — anche solo aprendo il sito, perché il browser ne scarica il codice — ha
+diritto al sorgente corrispondente. È il motivo per cui questo repository è pubblico e
+il link compare nei crediti dentro l'applicazione.
