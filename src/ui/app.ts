@@ -167,6 +167,23 @@ export function mountApp(root: HTMLElement): void {
   let takenBackAt: number | null = null;
   /** Apertura riconosciuta per la posizione mostrata (null = nessuna, o non ancora). */
   let opening: Opening | null = null;
+  /**
+   * Vero finche' si e' dentro la teoria. Quando diventa falso il nome sparisce dalla
+   * riga sotto la scacchiera.
+   *
+   * Prima il nome restava li' per tutta la partita, che e' anche quello che fa
+   * Lichess, ma dice una cosa falsa: alla mossa 30 di una partita che ha lasciato i
+   * libri da venti mosse, "Difesa Siciliana" non descrive piu' niente di quello che
+   * si ha davanti. Il nome resta nel PGN, dove e' un dato sulla partita e non
+   * un'etichetta sulla posizione.
+   */
+  let inTheory = false;
+  /**
+   * L'apertura della PARTITA INTERA, non della posizione mostrata: e' quella che
+   * finisce nei tag del PGN, dove descrive la partita e non il punto in cui si sta
+   * guardando.
+   */
+  let gameOpening: Opening | null = null;
   /** Nome con cui l'utente compare nel PGN. Vuoto = si usa "Human". */
   let playerName = localStorage.getItem('basic-chess:player') ?? '';
   let botThinking = false;
@@ -414,21 +431,55 @@ export function mountApp(root: HTMLElement): void {
     ];
     try {
       const found = await findOpening(fens);
+      const theory = await stillInTheory(found);
+      const whole =
+        state.cursor === state.plies.length
+          ? found
+          : await findOpening([state.startFen, ...state.plies.map((ply) => ply.fenAfter)]);
       if (mine !== generation) return;
-      if (found?.name !== opening?.name || found?.plies !== opening?.plies) {
+      gameOpening = whole;
+      if (found?.name !== opening?.name || found?.plies !== opening?.plies || theory !== inTheory) {
         opening = found;
+        inTheory = theory;
         renderOpening();
       }
     } catch {
       // Il file delle aperture non e' essenziale: se manca, si gioca lo stesso.
       opening = null;
+      inTheory = false;
     }
+  }
+
+  /**
+   * Si e' ancora dentro la teoria?
+   *
+   * Non basta chiedere se la posizione corrente ha un nome: la tabella indicizza solo
+   * le posizioni che un nome ce l'hanno, e in mezzo a una variante ci sono passaggi
+   * che non lo hanno pur essendo teoria a tutti gli effetti. Quindi si guarda anche
+   * un passo avanti: se una mossa legale porta a una posizione conosciuta, si e'
+   * ancora su un sentiero battuto. E' lo stesso calcolo che risponde a "e adesso?",
+   * e costa una trentina di ricerche in una mappa.
+   */
+  async function stillInTheory(found: Opening | null): Promise<boolean> {
+    if (!found) return false;
+    if (found.plies === state.cursor) return true;
+    const fen = currentFen(state);
+    const candidates = positionAt(state)
+      .moves({ verbose: true })
+      .map((move) => {
+        const after = new Chess(fen);
+        after.move(move.san);
+        return { san: move.san, fenAfter: after.fen() };
+      });
+    return (await findContinuations(candidates)).length > 0;
   }
 
   function renderOpening(): void {
     openingEl.replaceChildren();
-    openingEl.hidden = !opening;
-    if (!opening) return;
+    // Fuori dalla teoria il nome sparisce: continuare a esibirlo sarebbe una didascalia
+    // che parla di una posizione che non c'e' piu'.
+    openingEl.hidden = !opening || !inTheory;
+    if (!opening || !inTheory) return;
     const eco = document.createElement('span');
     eco.className = 'opening-eco';
     eco.textContent = opening.eco;
@@ -1143,9 +1194,16 @@ export function mountApp(root: HTMLElement): void {
   function pgnTags(): Record<string, string> {
     const human = playerName.trim() || 'Human';
     const bot = `Bot ${level.id}`;
-    return humanColor === 'w'
-      ? { White: human, Black: bot, BlackElo: String(level.nominalElo) }
-      : { White: bot, Black: human, WhiteElo: String(level.nominalElo) };
+    const players =
+      humanColor === 'w'
+        ? { White: human, Black: bot, BlackElo: String(level.nominalElo) }
+        : { White: bot, Black: human, WhiteElo: String(level.nominalElo) };
+    // ECO e Opening sono tag standard di fatto (li scrivono ChessBase, SCID, Lichess):
+    // e' li' che il nome dell'apertura va a vivere quando sparisce dallo schermo, e da
+    // li' lo rilegge qualunque altro programma.
+    return gameOpening
+      ? { ...players, ECO: gameOpening.eco, Opening: gameOpening.name }
+      : players;
   }
 
   /**
@@ -1160,6 +1218,17 @@ export function mountApp(root: HTMLElement): void {
    */
   function annotations(): Map<number, string> {
     const map = new Map<number, string>();
+    // Dove finisce la teoria, segnato sulla mossa che ci ha portati: rileggendo il PGN
+    // fra sei mesi e' esattamente il punto che si vuole ritrovare, perche' da li' in
+    // poi le mosse sono farina del sacco di chi ha giocato.
+    //
+    // Il confine e' l'ultima posizione che il libro CONOSCE, e la frase dice
+    // esattamente quello. Sullo schermo il nome sopravvive di una semi-mossa in piu'
+    // (vedi stillInTheory), ma quella e' una gentilezza per non farlo lampeggiare nei
+    // buchi dell'indice, non un'affermazione su dove finisca la teoria.
+    if (gameOpening && gameOpening.plies > 0 && gameOpening.plies <= state.plies.length) {
+      map.set(gameOpening.plies - 1, t('annotationTheory', { name: gameOpening.name }));
+    }
     for (const entry of mistakeLog) {
       const state_ = entry.corrected
         ? t('annotationUndone', { move: toFigurine(entry.san) })
@@ -1177,7 +1246,9 @@ export function mountApp(root: HTMLElement): void {
         entry.corrected ? 'undone' : 'kept',
         entry.san,
       ].join(',');
-      map.set(entry.ply, `${human} [${ANNOTATION_TAG} ${machine}]`);
+      const previous = map.get(entry.ply);
+      const comment = `${human} [${ANNOTATION_TAG} ${machine}]`;
+      map.set(entry.ply, previous ? `${previous} ${comment}` : comment);
     }
     return map;
   }

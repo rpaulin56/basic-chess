@@ -144,4 +144,5 @@ export const en: Record<keyof typeof it, string> = {
   hintManyOpen: 'Almost anything works here: this position is not decided now, and there is no move to find.',
   orientNothing: 'No feature stands out. So the useful question is a different one: which of your pieces is taking the least part, and how do you bring it into play?',
   hintMore: '… and others.',
+  annotationTheory: '{name}: last position known to the opening book.',
 };

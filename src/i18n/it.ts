@@ -142,4 +142,5 @@ export const it = {
   hintManyOpen: 'Qui va bene quasi tutto: la posizione non si decide adesso, e non c’è una mossa da trovare.',
   orientNothing: 'Non spicca nessuna caratteristica particolare. La domanda utile allora è un’altra: quale dei tuoi pezzi sta partecipando di meno, e come lo fai entrare in gioco?',
   hintMore: '… e altre.',
+  annotationTheory: '{name}: ultima posizione riconosciuta dalla teoria.',
 } as const;
