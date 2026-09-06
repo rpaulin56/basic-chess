@@ -143,4 +143,6 @@ export const it = {
   orientNothing: 'Non spicca nessuna caratteristica particolare. La domanda utile allora è un’altra: quale dei tuoi pezzi sta partecipando di meno, e come lo fai entrare in gioco?',
   hintMore: '… e altre.',
   annotationTheory: '{name}: ultima posizione riconosciuta dalla teoria.',
+  positionTitle: 'Posizione: importa o esporta',
+  importPosition: 'Importa una posizione o una partita',
 } as const;

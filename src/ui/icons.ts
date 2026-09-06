@@ -23,8 +23,7 @@ export type IconName =
   | 'hint'
   | 'undo'
   | 'settings'
-  | 'export'
-  | 'import'
+  | 'position'
   | 'person'
   | 'bot'
   | 'newGame';
@@ -34,16 +33,32 @@ export type IconName =
  * dal CSS: le frecce di navigazione sono piene (si leggono meglio in piccolo), il
  * resto e' a filo.
  */
-/** Scacchiera in miniatura, condivisa da "esporta" e "importa": in entrambi i casi
- *  cio' che viaggia e' una posizione. Le case scure sono quadrati pieni e non
- *  tratteggi, che a venti pixel diventano poltiglia. */
-const BOARD_MINI =
-  '<path d="M3.5 5h11v11h-11z" />' +
-  '<path d="M3.5 5h3.7v3.7H3.5zM10.8 5h3.7v3.7h-3.7zM7.15 8.7h3.7v3.6h-3.7zM3.5 12.3h3.7v3.7H3.5zM10.8 12.3h3.7v3.7h-3.7z" fill="currentColor" fill-opacity=".3" stroke="none"/>';
 
 /** La lampadina, con e senza sbarra. */
 const BULB =
   '<path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.6 10.8c.6.5.9 1.2 1 2.2h5.2c.1-1 .4-1.7 1-2.2A6 6 0 0 0 12 3z" />';
+
+/**
+ * Le due scacchiere: quella schierata e quella in mezzo alla partita.
+ *
+ * Funzionano IN COPPIA, ed e' il motivo per cui funzionano. Una scacchiera puntinata
+ * da sola non dice "nuova partita" — l'avevamo provata e non si leggeva. Messa
+ * accanto a una scacchiera con i pezzi sparsi, la differenza fra ordine e disordine
+ * dice "inizio" contro "partita in corso" senza bisogno di nessun simbolo astratto.
+ *
+ * Le case scure sono un motivo 4x4 e non 8x8: a ventidue pixel una scacchiera vera
+ * diventa un retino grigio, e resta solo un quadrato sporco.
+ */
+const BOARD_FRAME =
+  '<path d="M3 3h18v18H3z" />' +
+  '<path d="M3 3h4.5v4.5H3zM12 3h4.5v4.5H12zM7.5 7.5H12V12H7.5zM16.5 7.5H21V12h-4.5z' +
+  'M3 12h4.5v4.5H3zM12 12h4.5v4.5H12zM7.5 16.5H12V21H7.5zM16.5 16.5H21V21h-4.5z" ' +
+  'fill="currentColor" fill-opacity=".15" stroke="none"/>';
+
+/** Un pezzo: un punto pieno. Le sagome vere, a questa scala, sono macchie. */
+function dot(x: number, y: number, r = 1.15): string {
+  return `<circle cx="${x}" cy="${y}" r="${r}" fill="currentColor" stroke="none"/>`;
+}
 
 const PATHS: Record<IconName, string> = {
   first: '<path d="M17 5.5v13L9 12z" fill="currentColor"/><path d="M6.5 5.5v13" />',
@@ -73,10 +88,6 @@ const PATHS: Record<IconName, string> = {
   settings:
     '<path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h9M17 17h3" />' +
     '<circle cx="15" cy="7" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="15" cy="17" r="2" />',
-  // Esporta e importa sono la STESSA scacchiera con la freccia girata: sono la stessa
-  // operazione in due versi, e due disegni diversi lo nasconderebbero.
-  export: BOARD_MINI + '<path d="M19 21v-9m0 0-2.4 2.4M19 12l2.4 2.4" />',
-  import: BOARD_MINI + '<path d="M19 12v9m0 0-2.4-2.4M19 21l2.4-2.4" />',
   // Chi gioca e chi risponde. Il colore delle due sagome lo decide il CSS (classe
   // `body`): la stessa icona serve per il pezzo bianco e per quello nero.
   person:
@@ -87,13 +98,17 @@ const PATHS: Record<IconName, string> = {
     '<rect class="body" x="3.6" y="5.4" width="14.8" height="11.6" rx="3" />' +
     '<circle class="eye" cx="8.2" cy="11.2" r="1.3" stroke="none" />' +
     '<circle class="eye" cx="13.8" cy="11.2" r="1.3" stroke="none" />',
-  // Scacchiera vuota con un piu' al centro. La versione precedente disegnava i due
-  // schieramenti a puntini: a ventidue pixel non si leggevano come pezzi schierati ma
-  // come una griglia puntinata qualunque. Il piu' e' la convenzione universale per
-  // "nuovo", e la cornice dice di cosa.
+  // Nuova partita: i due schieramenti allineati, ordinati e simmetrici.
   newGame:
-    '<path d="M3.5 3.5h17v17h-17z" />' +
-    '<path d="M12 8v8M8 12h8" />',
+    BOARD_FRAME +
+    dot(6.2, 6.2) + dot(10.1, 6.2) + dot(13.9, 6.2) + dot(17.8, 6.2) +
+    dot(6.2, 17.8) + dot(10.1, 17.8) + dot(13.9, 17.8) + dot(17.8, 17.8),
+  // Posizione: gli stessi pezzi, ma sparsi come in una partita cominciata. Il
+  // disordine e' il messaggio, quindi le posizioni sono scelte per non allinearsi
+  // ne' in riga ne' in colonna.
+  position:
+    BOARD_FRAME +
+    dot(7.1, 6.6) + dot(13.4, 9.8) + dot(17.4, 6.9) + dot(9.9, 16.4),
 };
 
 export function createIcon(name: IconName): SVGSVGElement {

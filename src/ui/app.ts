@@ -1029,16 +1029,18 @@ export function mountApp(root: HTMLElement): void {
         ),
       ),
       separator(),
-      // Esporta e importa stanno vicini e sono due icone sole: sono la stessa cosa in
-      // due versi. Esportare puo' voler dire due cose (la partita o la posizione), e
-      // il menu e' il posto giusto per una scelta che si fa raramente - meglio di due
-      // pulsanti permanenti nella barra.
+      // Un'icona sola per tutto cio' che riguarda far entrare e uscire posizioni.
+      // Sono tre comandi d'uso raro: mettere tre pulsanti permanenti nella barra per
+      // qualcosa che si fa una volta a partita e' spazio speso male, e un menu e' il
+      // posto giusto per una scelta rara.
+      //
+      // Il menu resta aperto anche a partita vuota: la POSIZIONE si esporta sempre
+      // (dopo aver importato un finale di mosse non ce n'e' nessuna, ed e' proprio il
+      // FEN che si vuole rimandare indietro). A spegnersi e' solo la voce della
+      // partita, quando di partita non ce n'e'.
       group(
-        // Il menu resta aperto anche a partita vuota: la POSIZIONE si esporta sempre
-        // (dopo aver importato un finale di mosse non ce n'e' nessuna, ed e' proprio
-        // il FEN che si vuole rimandare indietro). A spegnersi e' solo la voce della
-        // partita, quando di partita non ce n'e'.
-        menuButton('export', t('exportTitle'), false, [
+        menuButton('position', t('positionTitle'), false, [
+          { label: t('importPosition'), run: importPosition },
           {
             label: t('exportPgn'),
             run: () => void copy(toPgn(state, pgnTags(), annotations())),
@@ -1046,7 +1048,6 @@ export function mountApp(root: HTMLElement): void {
           },
           { label: t('exportFen'), run: () => void copy(currentFen(state)) },
         ]),
-        iconButton('import', t('importTitle'), false, importPosition),
       ),
       separator(),
       group(

@@ -145,4 +145,6 @@ export const en: Record<keyof typeof it, string> = {
   orientNothing: 'No feature stands out. So the useful question is a different one: which of your pieces is taking the least part, and how do you bring it into play?',
   hintMore: '… and others.',
   annotationTheory: '{name}: last position known to the opening book.',
+  positionTitle: 'Position: import or export',
+  importPosition: 'Import a position or a game',
 };
