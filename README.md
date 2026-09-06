@@ -28,6 +28,24 @@ npm run build
 `npm run calibrate` misura la forza reale di un livello del bot facendolo giocare
 contro Stockfish limitato a un Elo noto. Vedi `scripts/calibrate.ts`.
 
+## "E adesso?"
+
+Un pulsante che risponde alla domanda che ci si fa a fine apertura: *e adesso cosa
+faccio?* Risponde su richiesta e mai di sua iniziativa — un tutor che parla anche
+quando le mosse buone sono molte parlerebbe quasi sempre, e allora il suo silenzio
+direbbe "qui ce n'e' una sola, cerca il colpo": si imparerebbe a leggere il tutor
+invece della posizione.
+
+La risposta arriva sempre in due tempi: prima **quante** mosse tengono, e solo se lo
+chiedi **quali**. Fra i due clic c'e' l'unico momento in cui si puo' ancora provare a
+rispondere da soli. L'elenco e' alfabetico e senza punteggi: ordinarlo per valore
+creerebbe un podio, e un podio ha un vincitore.
+
+In apertura la risposta viene dal **libro** e non dal motore: si guarda quali mosse
+legali portano a una posizione che ha un nome, e le si elenca con il nome. Le mosse
+note ma cattive vengono comunque scartate dal motore — da 1.e4 e5 2.Cf3 Cc6 la tabella
+conosce anche 3.Cxe5 (*Irish Gambit*), che regala un cavallo.
+
 ## Autore
 
 **Concept e progetto software:** Riccardo Paulin

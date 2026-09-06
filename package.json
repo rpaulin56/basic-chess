@@ -4,7 +4,6 @@
   "description": "Scacchiera didattica con tutor: gioco contro bot calibrato e analisi degli errori",
   "private": true,
   "author": "Riccardo Paulin",
-  "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "postinstall": "node scripts/copy-engine.mjs",

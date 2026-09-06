@@ -20,7 +20,9 @@ import type { Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
 import { classifyConsequence, transportArrows, type Consequence } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
-import { findOpening, type Opening } from '../openings/openings.js';
+import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
+import { buildHint } from '../tutor/hint.js';
+import { orientPosition } from '../tutor/orientation.js';
 import { moveNumberOf } from '../core/game.js';
 import { createBoardView, type BoardView } from './boardView.js';
 import { createIcon, type IconName } from './icons.js';
@@ -28,6 +30,7 @@ import { createCredits } from './credits.js';
 import { createEngineSession } from './engineSession.js';
 import { renderMoveList } from './moveList.js';
 import { renderTutorPanel } from './tutorPanel.js';
+import { renderHintPanel, type HintView } from './hintPanel.js';
 import { locale, setLocale, t, type LocaleCode } from '../i18n/index.js';
 
 type Promotion = 'q' | 'r' | 'b' | 'n';
@@ -57,6 +60,18 @@ const ANALYSIS_MULTIPV = 3;
  */
 const REVIEW_DEPTH = 17;
 
+/**
+ * Profondita' e larghezza della ricerca che risponde a "e adesso?".
+ *
+ * MultiPV alto perche' la domanda e' proprio "quante sono", e con tre linee non si
+ * puo' rispondere; profondita' piu' bassa dell'analisi normale perche' qui non serve
+ * la verita' sulla posizione ma sapere quali mosse non la rovinano, e a questa
+ * profondita' l'ordine di grandezza e' gia' giusto. Una ricerca larga costa: e' un
+ * altro motivo per farla solo su richiesta esplicita e mai in continuazione.
+ */
+const HINT_DEPTH = 12;
+const HINT_MULTIPV = 20;
+
 /** Pausa prima di riprovare dopo un guasto del motore. */
 const RETRY_DELAY_MS = 1500;
 
@@ -70,6 +85,8 @@ interface SavedGame {
   moves: string[];
   humanColor: Color;
   mistakes: MistakeEntry[];
+  /** Quante volte si e' chiesto "e adesso?": fa parte del bilancio della partita. */
+  hints?: number;
 }
 
 export function mountApp(root: HTMLElement): void {
@@ -164,6 +181,20 @@ export function mountApp(root: HTMLElement): void {
   let retryTimer: number | null = null;
   /** Gli errori segnalati in questa partita, per il riepilogo. */
   const mistakeLog: MistakeEntry[] = saved?.mistakes ?? [];
+  /**
+   * Il suggerimento aperto, se c'e'. `revealed` distingue il primo livello (quante
+   * sono) dal secondo (quali sono): fra i due clic c'e' l'unico momento in cui si puo'
+   * ancora provare a rispondere da soli.
+   */
+  let hint: HintView | null = null;
+  /**
+   * Quante volte si e' chiesto aiuto in questa partita.
+   *
+   * Non serve a punire: "ho chiesto aiuto nove volte" e' un'informazione su di se'
+   * esattamente come "ho fatto tre errori gravi", e senza contarla il suggerimento
+   * diventa una stampella invisibile.
+   */
+  let hintsUsed = saved?.hints ?? 0;
 
   root.replaceChildren();
   const {
@@ -177,6 +208,7 @@ export function mountApp(root: HTMLElement): void {
     openingEl,
     recapEl,
     recapPanel,
+    hintEl,
   } = buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
   const engine = createEngineSession(() => renderEnginePanel());
@@ -196,6 +228,7 @@ export function mountApp(root: HTMLElement): void {
     });
     renderStatus();
     renderControls();
+    renderHint();
     renderEnginePanel();
     renderOpening();
     renderRecap();
@@ -273,8 +306,8 @@ export function mountApp(root: HTMLElement): void {
    */
   function renderRecap(): void {
     recapEl.replaceChildren();
-    recapPanel.hidden = mistakeLog.length === 0;
-    if (mistakeLog.length === 0) return;
+    recapPanel.hidden = mistakeLog.length === 0 && hintsUsed === 0;
+    if (recapPanel.hidden) return;
     const list = document.createElement('ul');
     for (const entry of mistakeLog) {
       const item = document.createElement('li');
@@ -282,7 +315,86 @@ export function mountApp(root: HTMLElement): void {
       item.textContent = recapLine(entry);
       list.append(item);
     }
-    recapEl.append(list);
+    if (mistakeLog.length > 0) recapEl.append(list);
+    if (hintsUsed > 0) recapEl.append(text(t('recapHints', { count: hintsUsed }), 'recap-hints'));
+  }
+
+  function renderHint(): void {
+    renderHintPanel(hintEl, hint, {
+      onReveal: () => {
+        if (!hint) return;
+        hint = { ...hint, revealed: true };
+        renderHint();
+      },
+      onClose: () => {
+        hint = null;
+        renderHint();
+      },
+    });
+  }
+
+  /**
+   * Risponde a "e adesso cosa faccio?".
+   *
+   * Prima il libro, poi il motore. In apertura la domanda giusta non e' "quali mosse
+   * non perdono" (il motore approva anche 3.a3) ma "dove si va da qui", e la risposta
+   * ce l'abbiamo gia': si generano le mosse legali e si guarda quali portano a una
+   * posizione che ha un nome. Costa una trentina di ricerche in una mappa, e le mosse
+   * escono con il loro nome, che e' il modo in cui le aperture si imparano davvero.
+   */
+  async function askHint(): Promise<void> {
+    if (hint) return;
+    const mine = generation;
+    const fen = currentFen(state);
+    hintsUsed++;
+    saveGame();
+
+    const chess = positionAt(state);
+    const candidates = chess.moves({ verbose: true }).map((move) => {
+      const after = new Chess(fen);
+      after.move(move.san);
+      return { san: move.san, fenAfter: after.fen() };
+    });
+    const book = await findContinuations(candidates).catch(() => []);
+    if (mine !== generation) return;
+
+    // "Non c'e' piu' teoria" si dice solo se ci si era dentro: a chi e' partito da un
+    // finale importato non interessa sapere che non e' un'apertura.
+    const leavingBook = book.length === 0 && opening !== null && opening.plies === state.cursor;
+    hint = { loading: true, book: [], leavingBook, hint: null, orientation: [], revealed: false };
+    renderHint();
+
+    const analysis = await engine.analyse(fen, { depth: HINT_DEPTH, multiPV: HINT_MULTIPV });
+    if (mine !== generation || !hint) return;
+    const built = analysis ? buildHint(analysis) : null;
+
+    /*
+     * Il libro passa comunque dal giudizio del motore.
+     *
+     * Avere un nome non vuol dire essere giocabile: da 1.e4 e5 2.Cf3 Cc6 la tabella
+     * conosce anche 3.Cxe5 (Irish Gambit), che regala un cavallo per un pedone.
+     * Elencarla a un principiante sotto l'etichetta "la teoria continua con" sarebbe
+     * il danno peggiore che questo programma possa fare, perche' arriverebbe con
+     * l'autorevolezza del nome proprio. Restano quindi solo le continuazioni note che
+     * sono ANCHE ragionevoli; il nome serve a ricordarle, non a giustificarle.
+     */
+    const playable = new Set(built?.moves ?? []);
+    const knownAndPlayable = built ? book.filter((entry) => playable.has(entry.san)) : book;
+
+    hint = {
+      loading: false,
+      book: knownAndPlayable,
+      leavingBook,
+      hint: knownAndPlayable.length > 0 ? null : built,
+      // L'orientamento serve dove l'elenco non risponde: se le mosse buone sono molte,
+      // la domanda vera non e' "quale mossa" ma "che piano".
+      orientation:
+        knownAndPlayable.length === 0 && built?.shape === 'many'
+          ? orientPosition(fen, chess.turn())
+          : [],
+      revealed: false,
+    };
+    renderHint();
   }
 
   // --- apertura ----------------------------------------------------------
@@ -549,6 +661,7 @@ export function mountApp(root: HTMLElement): void {
         moves: state.plies.map((ply) => `${ply.from}${ply.to}${ply.promotion ?? ''}`),
         humanColor,
         mistakes: mistakeLog,
+        hints: hintsUsed,
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
     } catch {
@@ -712,6 +825,7 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function commit(from: Square, to: Square, promotion?: Promotion): void {
+    hint = null;
     replaying = false;
     takenBackAt = null;
     const fenBefore = currentFen(state);
@@ -836,6 +950,18 @@ export function mountApp(root: HTMLElement): void {
             refresh();
           },
           tutorEnabled,
+        ),
+        // Il suggerimento sta accanto al tutor perche' e' la stessa voce, ma e' un
+        // pulsante e non un interruttore: parla solo se glielo si chiede, ed e'
+        // deliberato. Un tutor che si offre da solo quando le mosse buone sono molte
+        // parlerebbe quasi sempre, e allora il suo silenzio direbbe "qui ce n'e' una
+        // sola, cerca il colpo": si imparerebbe a leggere il tutor invece della
+        // posizione.
+        iconButton(
+          'hint',
+          t('hint'),
+          hint !== null || review !== null || state.cursor !== state.plies.length || gameOver(state) !== null,
+          () => void askHint(),
         ),
       ),
       separator(),
@@ -1268,15 +1394,18 @@ export function mountApp(root: HTMLElement): void {
    * fermo il bot.
    */
   function clearTutor(): void {
+    hint = null;
     review = null;
     preview = null;
     forcedLine = null;
     // Anche il riepilogo: appartiene alla partita, non alla sessione. Senza questo
     // gli errori di una partita comparivano nel riepilogo di quella successiva.
     mistakeLog.length = 0;
+    hintsUsed = 0;
   }
 
   function seek(cursor: number): void {
+    hint = null;
     state = goTo(state, cursor);
     evaluation = null;
     refresh();
@@ -1351,6 +1480,12 @@ function buildLayout(root: HTMLElement) {
   tutorEl.className = 'panel tutor';
   tutorEl.hidden = true;
 
+  // Il suggerimento sta subito sotto il tutor e ha lo stesso aspetto: e' la stessa
+  // voce che parla, con la differenza che questa risponde invece di intervenire.
+  const hintEl = document.createElement('section');
+  hintEl.className = 'panel tutor hint';
+  hintEl.hidden = true;
+
   const recapPanel = document.createElement('section');
   recapPanel.className = 'panel';
   const recapTitle = document.createElement('h2');
@@ -1368,7 +1503,7 @@ function buildLayout(root: HTMLElement) {
   movesEl.className = 'movelist';
   movesPanel.append(movesTitle, movesEl);
 
-  side.append(tutorEl, recapPanel, movesPanel);
+  side.append(tutorEl, hintEl, recapPanel, movesPanel);
   layout.append(boardColumn, side);
   root.append(header, layout);
   return {
@@ -1382,6 +1517,7 @@ function buildLayout(root: HTMLElement) {
     openingEl,
     recapEl,
     recapPanel,
+    hintEl,
   };
 }
 
@@ -1497,7 +1633,12 @@ function recapLine(entry: MistakeEntry): string {
  * piu') si risolve ricominciando da capo invece che con una schermata rotta: una
  * partita persa e' un fastidio, un programma che non parte e' un guasto.
  */
-function loadGame(): { state: GameState; humanColor: Color; mistakes: MistakeEntry[] } | null {
+function loadGame(): {
+  state: GameState;
+  humanColor: Color;
+  mistakes: MistakeEntry[];
+  hints: number;
+} | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
@@ -1517,6 +1658,7 @@ function loadGame(): { state: GameState; humanColor: Color; mistakes: MistakeEnt
       state,
       humanColor: saved.humanColor === 'b' ? 'b' : 'w',
       mistakes: Array.isArray(saved.mistakes) ? saved.mistakes : [],
+      hints: typeof saved.hints === 'number' ? saved.hints : 0,
     };
   } catch {
     return null;

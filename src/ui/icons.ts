@@ -20,6 +20,7 @@ export type IconName =
   | 'flip'
   | 'tutor'
   | 'tutorOff'
+  | 'hint'
   | 'undo'
   | 'settings'
   | 'export'
@@ -57,6 +58,12 @@ const PATHS: Record<IconName, string> = {
   // guarda per la prima volta non sa interpretare (e che a un daltonico non dice
   // niente).
   tutor: BULB,
+  // Punto interrogativo, non un punto interrogativo DENTRO UN CERCHIO: quello e'
+  // l'icona universale della guida in linea, e questo non apre una guida — fa una
+  // domanda sulla posizione che si ha davanti.
+  hint:
+    '<path d="M8.6 8.6a3.5 3.5 0 1 1 4.6 3.3c-1 .35-1.5 1.15-1.5 2.2v.5" />' +
+    '<circle cx="11.7" cy="18.3" r="1.15" fill="currentColor" stroke="none" />',
   tutorOff: BULB + '<path d="M4 20 20 4" />',
   // Freccia che torna indietro: e' il gesto "annulla" ovunque. Non e' una freccia di
   // navigazione (quelle sono piene e triangolari): questa cambia la partita.

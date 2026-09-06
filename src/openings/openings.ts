@@ -65,3 +65,46 @@ export async function findOpening(fens: readonly string[]): Promise<Opening | nu
   }
   return null;
 }
+
+/** Una continuazione conosciuta a partire dalla posizione corrente. */
+export interface Continuation {
+  /** La mossa che ci porta, in notazione algebrica (SAN). */
+  readonly san: string;
+  readonly eco: string;
+  readonly name: string;
+}
+
+/**
+ * Le mosse che, dalla posizione corrente, portano a una posizione conosciuta.
+ *
+ * E' la stessa tabella usata al contrario: invece di chiedere "come si chiama dove
+ * sono", si chiede "dove posso andare che abbia un nome". Costa una trentina di
+ * ricerche in una mappa, quindi e' istantaneo e non serve nessun dato nuovo.
+ *
+ * E' anche il modo giusto di suggerire mosse in apertura: il motore approva
+ * tranquillamente mosse che nessuno ha mai giocato (3.a3 non perde niente), e
+ * "non perde niente" non e' quello che si vuole imparare. Una mossa con un nome
+ * invece si ricorda, perche' il nome e' la maniglia con cui la memoria la tiene.
+ *
+ * Chi chiama passa le mosse candidate gia' generate: questo modulo non conosce le
+ * regole degli scacchi e non deve cominciare adesso.
+ */
+export async function findContinuations(
+  candidates: readonly { readonly san: string; readonly fenAfter: string }[],
+): Promise<Continuation[]> {
+  table ??= await (loading ??= load());
+  const found: Continuation[] = [];
+  for (const candidate of candidates) {
+    const entry = table[positionKey(candidate.fenAfter)];
+    if (!entry) continue;
+    const separator = entry.indexOf('|');
+    found.push({
+      san: candidate.san,
+      eco: entry.slice(0, separator),
+      name: entry.slice(separator + 1),
+    });
+  }
+  // Ordine alfabetico come tutto il resto dei suggerimenti: un elenco ordinato per
+  // "importanza" diventa una classifica, e una classifica ha un vincitore.
+  return found.sort((a, b) => a.san.localeCompare(b.san));
+}
