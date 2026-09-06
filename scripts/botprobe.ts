@@ -43,7 +43,7 @@ const engine = await createEngine(createNodeTransport(), { hashMb: 64 });
 // Le stesse costanti del bot. Duplicate di proposito: se qui si copiassero da bot.ts
 // una modifica sbagliata laggiu' verrebbe riprodotta identica anche nella diagnosi.
 const CP_PER_POINT = 10;
-const DECIDED_PAWNS = 3;
+const DECIDED_PAWNS = level.decidedPawns ?? 3;
 const DECIDED_MAX_COST = 5;
 const DECIDED_EXTRA_DEPTH = 2;
 

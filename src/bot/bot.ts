@@ -40,44 +40,102 @@ export interface BotLevel {
    * risulterebbe innaturalmente uniforme.
    */
   readonly blunderRate: number;
+  /**
+   * Da quale vantaggio (in pedoni) la partita conta come "decisa", e il bot smette di
+   * sbagliare apposta. Assente = la soglia normale.
+   *
+   * E' per livello perche' la disciplina delle posizioni decise ALZA IL PAVIMENTO
+   * della scala: misurato, togliere le papere quando la partita e' decisa ha portato
+   * "principiante" da 690 a 903 Elo, perche' erano proprio i livelli deboli a buttare
+   * via le partite gia' vinte. Un giocatore da 700 punti, per definizione, le butta
+   * via. Alzando la soglia per i livelli bassi si tiene quello che serve — nessuna
+   * mossa assurda quando la posizione e' senza speranza — e si restituisce loro il
+   * diritto di essere approssimativi quando il vantaggio e' solo grosso.
+   */
+  readonly decidedPawns?: number;
 }
 
 /**
- * I livelli, con l'Elo MISURATO (non ipotizzato) da `npm run calibrate`, 20 partite per
+ * I livelli, con l'Elo MISURATO (non ipotizzato) da `npm run calibrate`, 30 partite per
  * livello contro Stockfish limitato a un Elo noto.
  *
  * Cosa ha insegnato la calibrazione, e che vale la pena non riscoprire:
  *  - la prima ipotesi era sbagliata di 400-500 punti: "profondita' 4" suona debole ma
  *    e' gia' un giocatore da oltre 1200. Fidarsi dei numeri a occhio non funziona.
- *  - contano molto piu' TEMPERATURA e frequenza di papere che la profondita'... ma
- *    solo finche' la partita e' in bilico. Da quando il bot converte davvero le
- *    posizioni decise (vedi moveCost), alzare la temperatura sposta poco e la
- *    PROFONDITA' e' tornata a essere il regolatore principale: tutta la scala si e'
- *    dovuta spostare di un gradino di profondita' verso il basso.
- *  - la correzione al criterio di scelta ha spostato "medio" da 1080 a 1337 e "club"
- *    da 1470 a 1832 senza toccare un solo parametro dei livelli. Ogni modifica al
- *    modo in cui il bot sceglie le mosse invalida la scala e va seguita da una
- *    rimisurazione: i numeri qui sotto sono un risultato sperimentale, non una scelta.
+ *  - TEMPERATURA e PAPERE hanno smesso di essere regolatori. Da quando il bot converte
+ *    davvero le posizioni decise, cambiarle sposta meno del rumore di misura: "medio"
+ *    da temperatura 30 a 40 e papere da 0.18 a 0.25 e' passato da 1237 a 1225, cioe'
+ *    non si e' mosso. Restano nel modello perche' danno la GRANA delle mosse — un bot
+ *    deterministico si riconosce dopo tre partite — non perche' regolino la forza.
+ *  - la profondita' e' il regolatore vero, ma e' quantizzata e i gradini sono grossi:
+ *    d2 ~900, d3 ~1230, d4 ~1300, d5 ~1500, d6 ~1840, d8 ~2260. Fra d3 e d4 la
+ *    differenza sta dentro il rumore: senza altri parametri sarebbero lo stesso
+ *    avversario con due nomi.
+ *  - controintuitivo e verificato: la profondita' 1 e' PIU' FORTE della 2 (1113 contro
+ *    903). A profondita' 1 contano quasi solo le catture, le valutazioni delle linee
+ *    si separano molto, i costi diventano grandi e il campionamento si concentra sulla
+ *    prima linea. Meno profondita' produce piu' determinismo, e a questi livelli il
+ *    determinismo vale piu' della profondita'. Non usare d1 per fare un bot debole.
+ *  - la disciplina delle posizioni decise ALZA IL PAVIMENTO della scala di circa 200
+ *    punti, e colpisce soprattutto i livelli deboli, che erano quelli che buttavano
+ *    via le partite gia' vinte. Ma un giocatore da 700 punti per definizione le butta
+ *    via: non si possono avere insieme un avversario autenticamente da principianti e
+ *    un bot che converte sempre. E' la stessa proprieta' con il segno opposto, ed e'
+ *    il motivo per cui `decidedPawns` e' per livello.
  *
- * Attenzione all'attendibilita': sotto i 1320 la stima e' un'estrapolazione dal
- * punteggio, e piu' il livello e' debole meno e' precisa ("principiante" e' misurato
- * per confronto interno con "facile", non contro Stockfish). Sopra vale il problema
- * simmetrico: i livelli forti si misurano contro un ancoraggio piu' alto, altrimenti
- * vincono tutto e la stima e' aria fritta.
+ * Ogni modifica al modo in cui il bot sceglie le mosse invalida la scala e va seguita
+ * da una rimisurazione: i numeri qui sotto sono un risultato sperimentale, non una
+ * scelta.
  *
- * Quanto e' ripetibile: "medio" misurato due volte a distanza ha dato 1105 e 1051.
- * Venti partite bastano per collocare un livello, non per distinguerne due vicini.
+ * Attenzione all'attendibilita'. Sotto i 1320 la stima e' un'ESTRAPOLAZIONE dal
+ * punteggio, e ai livelli piu' bassi lo e' pesantemente: "principiante" ha fatto 0.5
+ * punti su 30 contro l'ancoraggio, e da mezzo punto si ricava "612" con una barra
+ * d'errore enorme. Prendere quei numeri come ordinamento, non come misura. Sopra vale
+ * il problema simmetrico: i livelli forti si misurano contro un ancoraggio piu' alto
+ * (1800), altrimenti vincono tutto e la stima e' aria fritta.
+ *
+ * Quanto e' ripetibile: "discreto" misurato su 20 partite ha dato 1467 e su 30 ne ha
+ * dati 1297. Venti partite non bastano nemmeno a collocare un livello.
  */
 export const BOT_LEVELS: readonly BotLevel[] = [
-  { id: 'principiante', nominalElo: 690, depth: 2, multiPV: 8, temperature: 45, blunderRate: 0.3 },
-  { id: 'facile', nominalElo: 880, depth: 2, multiPV: 8, temperature: 32, blunderRate: 0.22 },
-  { id: 'medio', nominalElo: 1080, depth: 3, multiPV: 6, temperature: 30, blunderRate: 0.18 },
-  { id: 'discreto', nominalElo: 1300, depth: 4, multiPV: 5, temperature: 22, blunderRate: 0.1 },
-  { id: 'club', nominalElo: 1535, depth: 5, multiPV: 5, temperature: 16, blunderRate: 0.06 },
-  { id: 'esperto', nominalElo: 1765, depth: 6, multiPV: 4, temperature: 13, blunderRate: 0.035 },
+  // I tre livelli bassi hanno la soglia del "decisa" molto piu' alta: la disciplina
+  // scatta solo quando la posizione e' senza speranza. Cosi' non fanno mosse assurde
+  // a meno sette — la cosa che nessuno perdona — ma restano liberi di essere
+  // approssimativi quando il vantaggio e' soltanto grosso, che e' cio' che li rende
+  // avversari credibili per chi comincia.
+  {
+    id: 'principiante',
+    nominalElo: 612,
+    depth: 2,
+    multiPV: 8,
+    temperature: 45,
+    blunderRate: 0.3,
+    decidedPawns: 6,
+  },
+  {
+    id: 'facile',
+    nominalElo: 808,
+    depth: 2,
+    multiPV: 8,
+    temperature: 32,
+    blunderRate: 0.22,
+    decidedPawns: 6,
+  },
+  {
+    id: 'medio',
+    nominalElo: 1019,
+    depth: 3,
+    multiPV: 6,
+    temperature: 30,
+    blunderRate: 0.18,
+    decidedPawns: 5,
+  },
+  { id: 'discreto', nominalElo: 1297, depth: 4, multiPV: 5, temperature: 22, blunderRate: 0.1 },
+  { id: 'club', nominalElo: 1621, depth: 5, multiPV: 5, temperature: 16, blunderRate: 0.06 },
   // Misurati contro l'ancoraggio a 1800, non a 1320: contro il piu' debole vincevano
-  // tutte le partite e la stima sarebbe stata solo un'estrapolazione senza senso.
-  { id: 'forte', nominalElo: 2436, depth: 8, multiPV: 3, temperature: 8, blunderRate: 0.015 },
+  // quasi tutte le partite e la stima sarebbe stata solo un'estrapolazione senza senso.
+  { id: 'esperto', nominalElo: 1858, depth: 6, multiPV: 4, temperature: 13, blunderRate: 0.035 },
+  { id: 'forte', nominalElo: 2258, depth: 8, multiPV: 3, temperature: 8, blunderRate: 0.015 },
 ];
 
 export function levelById(id: string): BotLevel {
@@ -149,9 +207,10 @@ function moveCost(best: EngineLine, line: EngineLine): number {
  * La partita e' decisa? Serve anche fuori di qui: quando lo e', il bot cerca piu' a
  * fondo prima di scegliere (vedi play.ts).
  */
-export function isDecided(analysis: Analysis): boolean {
+export function isDecided(analysis: Analysis, level?: BotLevel): boolean {
   const best = analysis.lines.find((line) => line.pv.length > 0);
-  return best ? Math.abs(extendedCp(best)) / 100 >= DECIDED_PAWNS : false;
+  const threshold = level?.decidedPawns ?? DECIDED_PAWNS;
+  return best ? Math.abs(extendedCp(best)) / 100 >= threshold : false;
 }
 
 /**
@@ -172,7 +231,7 @@ export function selectBotMove(analysis: Analysis, level: BotLevel, rng: Rng = Ma
   // un avversario che le butta via non insegna niente. Vale anche a parti rovesciate,
   // perche' un bot che perde e per giunta smette di prendere i pezzi in presa e'
   // semplicemente sgradevole da guardare.
-  const decided = Math.abs(extendedCp(best)) / 100 >= DECIDED_PAWNS;
+  const decided = Math.abs(extendedCp(best)) / 100 >= (level.decidedPawns ?? DECIDED_PAWNS);
   const temperature = decided ? level.temperature * 0.4 : level.temperature;
 
   // In posizione decisa si scartano del tutto le mosse che costano troppo, invece di

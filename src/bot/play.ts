@@ -32,7 +32,7 @@ export async function chooseBotMove(
 ): Promise<string | null> {
   const first = await analyse({ depth: level.depth, multiPV: level.multiPV });
   if (!first) return null;
-  if (!isDecided(first)) return selectBotMove(first, level, rng);
+  if (!isDecided(first, level)) return selectBotMove(first, level, rng);
 
   const deeper = await analyse({
     depth: level.depth + DECIDED_EXTRA_DEPTH,

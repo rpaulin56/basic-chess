@@ -128,6 +128,7 @@ const level: BotLevel = {
   multiPV: Number(arg('multipv', String(base.multiPV))),
   temperature: Number(arg('temp', String(base.temperature))),
   blunderRate: Number(arg('blunder', String(base.blunderRate))),
+  decidedPawns: Number(arg('decided', String(base.decidedPawns ?? 3))),
 };
 const opponentLevel = opponentId ? levelById(opponentId) : null;
 
