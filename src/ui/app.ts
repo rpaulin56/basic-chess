@@ -76,6 +76,8 @@ export function mountApp(root: HTMLElement): void {
     consequence: Consequence | null;
     /** Perche' la posizione peggiora: solo per l'errore strategico. */
     positional: readonly Explanation[];
+    /** La confutazione INTERA prevista dal motore, non troncata al diagramma. */
+    refutation: readonly string[];
     betterSans: readonly string[] | null;
     /** Posizione da cui parte la confutazione: serve a ricostruire il diagramma. */
     fenAfterMistake: string;
@@ -86,6 +88,20 @@ export function mountApp(root: HTMLElement): void {
    * Rivedere la sequenza mossa per mossa insegna piu' della singola immagine finale.
    */
   let preview: { consequence: Consequence; index: number; fenAfterMistake: string } | null = null;
+  /**
+   * La confutazione che il bot deve eseguire davvero.
+   *
+   * Se il tutor annuncia una punizione e poi il bot gioca altro, la lezione si
+   * annulla — anzi, insegna il contrario: che la mossa sbagliata e' passata liscia.
+   * Quando l'utente sceglie di TENERE la mossa segnalata, il bot smette per un
+   * momento di essere un avversario della sua forza e diventa quello che punisce.
+   *
+   * Vale finche' l'utente sta al gioco: ad ogni turno si controlla se la posizione e'
+   * ancora una di quelle previste dalla variante, e appena se ne esce il bot torna a
+   * giocare col suo livello. Nota che questo rende il bot piu' forte del suo Elo
+   * proprio dopo un errore: e' deliberato, ed e' il prezzo della coerenza didattica.
+   */
+  let forcedLine: { startFen: string; moves: readonly string[] } | null = null;
   let tutorEnabled = localStorage.getItem('basic-chess:tutor') !== 'off';
   /** Apertura riconosciuta per la posizione mostrata (null = nessuna, o non ancora). */
   let opening: Opening | null = null;
@@ -138,11 +154,17 @@ export function mountApp(root: HTMLElement): void {
         renderRecap();
         review = null;
         preview = null;
+        forcedLine = null;
         state = truncateHere(goTo(state, Math.max(0, state.plies.length - 1)));
         evaluation = null;
         refresh();
       },
       onContinue: () => {
+        // Tenere la mossa vuol dire accettarne le conseguenze: da qui il bot gioca la
+        // confutazione annunciata, non una mossa qualunque del suo livello.
+        if (review && review.refutation.length > 0) {
+          forcedLine = { startFen: review.fenAfterMistake, moves: review.refutation };
+        }
         review = null;
         preview = null;
         refresh();
@@ -375,6 +397,7 @@ export function mountApp(root: HTMLElement): void {
       review = {
         verdict,
         consequence,
+        refutation: after.lines[0]?.pv ?? [],
         // Le ragioni posizionali si calcolano confrontando la posizione PRIMA
         // dell'errore con quella futura in cui la conseguenza si manifesta: e'
         // il confronto che mostra cosa ha causato la mossa.
@@ -404,6 +427,37 @@ export function mountApp(root: HTMLElement): void {
       renderRecap();
     }
     refresh();
+  }
+
+  /**
+   * La mossa che il bot deve giocare per eseguire la confutazione annunciata, se la
+   * partita e' ancora sui binari di quella variante. null appena se ne esce.
+   */
+  function forcedMove(): string | null {
+    if (!forcedLine) return null;
+    const here = short(currentFen(state));
+    const chess = new Chess(forcedLine.startFen);
+    for (let i = 0; i < forcedLine.moves.length; i++) {
+      if (short(chess.fen()) === here) return forcedLine.moves[i]!;
+      try {
+        const uci = forcedLine.moves[i]!;
+        chess.move({
+          from: uci.slice(0, 2),
+          to: uci.slice(2, 4),
+          ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
+        });
+      } catch {
+        break;
+      }
+    }
+    // Variante esaurita o partita uscita dai binari: il bot torna al suo livello.
+    forcedLine = null;
+    return null;
+  }
+
+  /** FEN senza i contatori: due percorsi diversi alla stessa posizione devono coincidere. */
+  function short(fen: string): string {
+    return fen.split(' ').slice(0, 4).join(' ');
   }
 
   /** La posizione raggiunta rigiocando `line` a partire da `fen`. */
@@ -455,7 +509,7 @@ export function mountApp(root: HTMLElement): void {
       scheduleRetry();
       return;
     }
-    const uci = selectBotMove(analysis, level);
+    const uci = forcedMove() ?? selectBotMove(analysis, level);
     const next = uci
       ? playMove(
           state,
@@ -779,6 +833,7 @@ export function mountApp(root: HTMLElement): void {
   function clearTutor(): void {
     review = null;
     preview = null;
+    forcedLine = null;
     // Anche il riepilogo: appartiene alla partita, non alla sessione. Senza questo
     // gli errori di una partita comparivano nel riepilogo di quella successiva.
     mistakeLog.length = 0;

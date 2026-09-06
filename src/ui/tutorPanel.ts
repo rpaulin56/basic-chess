@@ -160,7 +160,7 @@ export function renderTutorPanel(
   } else {
     buttons.append(
       action(t('tutorTakeBack'), actions.onTakeBack, 'primary'),
-      action(t('tutorContinue'), actions.onContinue),
+      action(t('tutorContinue'), actions.onContinue, '', t('tutorContinueTitle')),
     );
     if (consequence) buttons.append(action(t('tutorShowConsequence'), actions.onShowConsequence));
     if (!betterSans) buttons.append(action(t('tutorShowBest'), actions.onReveal));
@@ -212,11 +212,12 @@ function equivalent(pawns: number): string {
   return pawns === 1 ? t('equivalentOne') : t('equivalentMany', { count: pawns });
 }
 
-function action(label: string, onClick: () => void, className = ''): HTMLElement {
+function action(label: string, onClick: () => void, className = '', title = ''): HTMLElement {
   const button = document.createElement('button');
   button.type = 'button';
   button.textContent = label;
   if (className) button.className = className;
+  if (title) button.title = title;
   button.addEventListener('click', onClick);
   return button;
 }
