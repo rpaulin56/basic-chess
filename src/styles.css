@@ -36,6 +36,7 @@ body {
 #app { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
 
 header {
+  position: relative;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -301,3 +302,31 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   .toolbar button { width: 42px; height: 42px; }
   .toolbar .sep { margin: 0 4px; }
 }
+
+/* Comando d'uso raro: presente ma senza competere per l'attenzione. */
+.actions button.rare { color: var(--ink-soft); border-style: dashed; }
+
+/* --- crediti --- */
+.credits { font-size: 12px; color: var(--ink-soft); }
+.credits summary { cursor: pointer; list-style: none; }
+.credits summary::-webkit-details-marker { display: none; }
+.credits summary::before { content: 'ⓘ '; }
+.credits summary:hover { color: var(--accent); }
+.credits[open] {
+  /* Ancorato all'intestazione e non alla pagina: scorrendo resta al suo posto e non
+     va a coprire la scacchiera. */
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 30;
+  max-width: 22em;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+.credits p { margin: 8px 0; line-height: 1.45; }
+.credits ul { margin: 8px 0; padding-left: 18px; }
+.credits li { margin: 3px 0; }
+.credits a { color: var(--accent); }

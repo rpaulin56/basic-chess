@@ -17,16 +17,37 @@ export interface PgnTags {
 export interface ParsedPgn {
   readonly state: GameState;
   readonly tags: PgnTags;
+  /** I commenti trovati, per indice di semi-mossa. Vedi ANNOTATION_TAG. */
+  readonly comments: ReadonlyMap<number, string>;
 }
+
+/**
+ * Marcatore delle nostre annotazioni dentro un commento PGN.
+ *
+ * La sintassi `[%nome valore]` dentro le graffe e' la convenzione di fatto per i dati
+ * strutturati nei PGN (Lichess ci mette `[%eval ...]` e `[%clk ...]`, ChessBase altre):
+ * i programmi che non la conoscono la ignorano e la conservano, quindi un PGN
+ * annotato da noi resta leggibile ovunque e torna intatto se ci rientra.
+ *
+ * Il testo per gli umani viene PRIMA e il marcatore in coda: chi apre il file con un
+ * altro programma vede una frase in italiano, non un codice.
+ */
+export const ANNOTATION_TAG = '%bc';
 
 export function parsePgn(pgn: string): ParsedPgn {
   const chess = new Chess();
   chess.loadPgn(pgn); // lancia se il PGN e' malformato: lo gestisce il chiamante
   const tags = chess.getHeaders() as PgnTags;
 
+  // I commenti sono indicizzati per FEN: li riportiamo su indici di semi-mossa
+  // ricostruendo le posizioni, cosi' chi li usa non deve sapere come sono fatti.
+  const byFen = new Map<string, string>();
+  for (const entry of chess.getComments()) byFen.set(entry.fen, entry.comment);
+
   // Il tag FEN indica una posizione di partenza diversa da quella iniziale.
   const startFen = typeof tags['FEN'] === 'string' && tags['FEN'] ? tags['FEN'] : INITIAL_FEN;
 
+  const comments = new Map<number, string>();
   let state = newGame(startFen);
   for (const move of chess.history({ verbose: true })) {
     const next = playMove(
@@ -37,8 +58,10 @@ export function parsePgn(pgn: string): ParsedPgn {
     );
     if (!next) throw new Error(`Mossa non rigiocabile durante l'import: ${move.san}`);
     state = next;
+    const comment = byFen.get(move.after);
+    if (comment) comments.set(state.plies.length - 1, comment);
   }
-  return { state, tags };
+  return { state, tags, comments };
 }
 
 /**
@@ -46,11 +69,20 @@ export function parsePgn(pgn: string): ParsedPgn {
  * una posizione di lettura, non un troncamento della partita (per troncare davvero
  * c'e' truncateHere).
  */
-export function toPgn(state: GameState, tags: PgnTags = {}): string {
+export function toPgn(
+  state: GameState,
+  tags: PgnTags = {},
+  /** Annotazioni da attaccare come commenti, per indice di semi-mossa. */
+  annotations: ReadonlyMap<number, string> = new Map(),
+): string {
   const chess = new Chess(state.startFen);
-  for (const ply of state.plies) {
+  state.plies.forEach((ply, index) => {
     chess.move({ from: ply.from, to: ply.to, ...(ply.promotion ? { promotion: ply.promotion } : {}) });
-  }
+    const annotation = annotations.get(index);
+    // Le graffe non possono comparire dentro un commento PGN: chess.js le converte
+    // in parentesi quadre, ma tanto vale non usarle.
+    if (annotation) chess.setComment(annotation.replace(/[{}]/g, ''));
+  });
   const today = new Date();
   const date = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
   // Result calcolato dalla posizione finale: un PGN esportato con "*" su una partita

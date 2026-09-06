@@ -13,7 +13,7 @@ import {
 } from '../core/game.js';
 import { parseGameInput } from '../core/import.js';
 import { toFigurine } from '../core/notation.js';
-import { toPgn } from '../core/pgn.js';
+import { ANNOTATION_TAG, toPgn } from '../core/pgn.js';
 import { BOT_LEVELS, levelById, selectBotMove, type BotLevel } from '../bot/bot.js';
 import { formatScore } from '../engine/winProb.js';
 import type { Analysis, EngineLine } from '../engine/types.js';
@@ -24,6 +24,7 @@ import { findOpening, type Opening } from '../openings/openings.js';
 import { moveNumberOf } from '../core/game.js';
 import { createBoardView, type BoardView } from './boardView.js';
 import { createIcon, type IconName } from './icons.js';
+import { createCredits } from './credits.js';
 import { createEngineSession } from './engineSession.js';
 import { renderMoveList } from './moveList.js';
 import { renderTutorPanel } from './tutorPanel.js';
@@ -59,10 +60,23 @@ const REVIEW_DEPTH = 17;
 /** Pausa prima di riprovare dopo un guasto del motore. */
 const RETRY_DELAY_MS = 1500;
 
+/** Chiave della partita salvata. Cambiarla invalida i salvataggi vecchi. */
+const SAVE_KEY = 'basic-chess:game/1';
+
+/** Cosa si conserva di una partita fra un accesso e l'altro. */
+interface SavedGame {
+  startFen: string;
+  /** Le mosse in UCI: bastano a ricostruire tutto il resto rigiocandole. */
+  moves: string[];
+  humanColor: Color;
+  mistakes: MistakeEntry[];
+}
+
 export function mountApp(root: HTMLElement): void {
-  let state: GameState = newGame();
-  let orientation: 'white' | 'black' = 'white';
-  let humanColor: Color = 'w';
+  const saved = loadGame();
+  let state: GameState = saved?.state ?? newGame();
+  let humanColor: Color = saved?.humanColor ?? 'w';
+  let orientation: 'white' | 'black' = humanColor === 'b' ? 'black' : 'white';
   let level: BotLevel = levelById(localStorage.getItem('basic-chess:level') ?? 'medio');
 
   /** Analisi della posizione attualmente mostrata (null = non ancora disponibile). */
@@ -119,7 +133,7 @@ export function mountApp(root: HTMLElement): void {
   /** Timer del tentativo successivo quando il motore ha avuto un guasto. */
   let retryTimer: number | null = null;
   /** Gli errori segnalati in questa partita, per il riepilogo. */
-  const mistakeLog: MistakeEntry[] = [];
+  const mistakeLog: MistakeEntry[] = saved?.mistakes ?? [];
 
   root.replaceChildren();
   const { boardWrap, statusEl, movesEl, controlsEl, evalEl, tutorEl, previewEl, openingEl, recapEl } =
@@ -129,6 +143,7 @@ export function mountApp(root: HTMLElement): void {
 
   function refresh(): void {
     generation++;
+    saveGame();
     if (preview) renderPreview();
     else board.render(state, orientation, humanColor);
     renderMoveList(movesEl, state, (cursor) => {
@@ -417,6 +432,7 @@ export function mountApp(root: HTMLElement): void {
       // Il riepilogo si costruisce durante la partita: a fine partita le posizioni
       // intermedie non ci sono piu' e ricostruirlo costerebbe una rianalisi completa.
       mistakeLog.push({
+        ply: state.plies.length - 1,
         number: moveNumberOf(state, state.plies.length - 1),
         color: humanColor,
         san: state.plies[state.plies.length - 1]?.san ?? '?',
@@ -454,6 +470,28 @@ export function mountApp(root: HTMLElement): void {
     // Variante esaurita o partita uscita dai binari: il bot torna al suo livello.
     forcedLine = null;
     return null;
+  }
+
+  /**
+   * Salva la partita ad ogni ridisegno.
+   *
+   * Perdere una partita di mezz'ora per un tasto F5 e' il genere di dispetto che fa
+   * chiudere un programma e non riaprirlo. Si salvano le mosse in UCI e non lo stato
+   * intero: rigiocarle ricostruisce tutto, e un salvataggio di una partita lunga resta
+   * di pochi kilobyte.
+   */
+  function saveGame(): void {
+    try {
+      const payload: SavedGame = {
+        startFen: state.startFen,
+        moves: state.plies.map((ply) => `${ply.from}${ply.to}${ply.promotion ?? ''}`),
+        humanColor,
+        mistakes: mistakeLog,
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+    } catch {
+      // Spazio esaurito o memoria disabilitata: si gioca lo stesso, senza salvare.
+    }
   }
 
   /** FEN senza i contatori: due percorsi diversi alla stessa posizione devono coincidere. */
@@ -702,13 +740,21 @@ export function mountApp(root: HTMLElement): void {
       ),
       separator(),
       iconButton('pgn', t('exportPgn'), state.plies.length === 0, () => {
-        void copy(toPgn(state, pgnTags()));
+        void copy(toPgn(state, pgnTags(), annotations()));
       }),
       iconButton('fen', t('copyFen'), false, () => {
         void copy(currentFen(state));
       }),
-      iconButton('recap', t('recapCopy'), mistakeLog.length === 0, () => {
-        void copy(recapText(mistakeLog));
+      separator(),
+      // Ricominciare fa perdere la partita, quindi in teoria vorrebbe un'etichetta —
+      // ma con una conferma esplicita il clic per sbaglio non fa piu' danno, e
+      // l'icona torna legittima.
+      iconButton('newGame', t('newGame'), false, () => {
+        if (state.plies.length > 0 && !confirm(t('newGameConfirm'))) return;
+        state = newGame();
+        evaluation = null;
+        clearTutor();
+        refresh();
       }),
     );
 
@@ -716,13 +762,8 @@ export function mountApp(root: HTMLElement): void {
     actions.className = 'actions';
     actions.append(
       button(t('takeBack'), t('takeBack'), state.cursor === 0, takeBack),
-      button(t('newGame'), t('newGame'), false, () => {
-        state = newGame();
-        evaluation = null;
-        clearTutor();
-        refresh();
-      }),
-      button(t('importPosition'), t('importTitle'), false, importPosition),
+      // Uso raro: sta in fondo e non compete per l'attenzione con il resto.
+      button(t('importPosition'), t('importTitle'), false, importPosition, 'rare'),
     );
 
     const settings = document.createElement('div');
@@ -789,6 +830,60 @@ export function mountApp(root: HTMLElement): void {
     return humanColor === 'w'
       ? { White: human, Black: bot, BlackElo: String(level.nominalElo) }
       : { White: bot, Black: human, WhiteElo: String(level.nominalElo) };
+  }
+
+  /**
+   * Il riepilogo degli errori come commenti PGN, uno per semi-mossa segnalata.
+   *
+   * Cosi' il riepilogo viaggia insieme alla partita invece di essere un secondo
+   * testo da copiare a parte: un PGN annotato si apre in qualunque programma di
+   * scacchi, che mostra le note e le conserva, e rientrando qui le rileggiamo.
+   *
+   * Le mosse RITIRATE non esistono piu' nella partita, quindi la loro nota si
+   * attacca alla mossa che le ha sostituite: "qui avevi giocato Cf6, poi ritirata".
+   */
+  function annotations(): Map<number, string> {
+    const map = new Map<number, string>();
+    for (const entry of mistakeLog) {
+      const state_ = entry.corrected
+        ? t('annotationUndone', { move: toFigurine(entry.san) })
+        : t('annotationKept');
+      const human = t('annotationLine', {
+        kind: entry.category ? t(RECAP_CATEGORY[entry.category] ?? 'headStrategico') : '—',
+        severity: t(RECAP_SEVERITY[entry.severity] ?? 'tutorMistake'),
+        what: `-${Math.round(entry.drop)}`,
+        state: state_,
+      });
+      const machine = [
+        entry.category ?? '',
+        entry.severity,
+        Math.round(entry.drop),
+        entry.corrected ? 'undone' : 'kept',
+        entry.san,
+      ].join(',');
+      map.set(entry.ply, `${human} [${ANNOTATION_TAG} ${machine}]`);
+    }
+    return map;
+  }
+
+  /** Rilegge le nostre annotazioni da un PGN importato, per ricostruire il riepilogo. */
+  function readAnnotations(comments: ReadonlyMap<number, string>): void {
+    mistakeLog.length = 0;
+    for (const [ply, comment] of [...comments].sort((a, b) => a[0] - b[0])) {
+      const match = comment.match(new RegExp(`\\[${ANNOTATION_TAG} ([^\\]]+)\\]`));
+      if (!match) continue;
+      const [category, severity, drop, undone, san] = match[1]!.split(',');
+      mistakeLog.push({
+        ply,
+        number: moveNumberOf(state, ply),
+        color: state.plies[ply]?.color ?? 'w',
+        san: san ?? '?',
+        severity: severity ?? 'mistake',
+        category: category || null,
+        drop: Number(drop) || 0,
+        corrected: undone === 'undone',
+      });
+    }
   }
 
   function nameInput(): HTMLElement {
@@ -870,6 +965,7 @@ export function mountApp(root: HTMLElement): void {
       state = imported.state;
       evaluation = null;
       clearTutor();
+      if (imported.comments) readAnnotations(imported.comments);
       // Si prende il tratto dalla posizione CORRENTE, non da quella di partenza: in un
       // FEN coincidono, ma in un PGN la posizione di partenza e' quasi sempre quella
       // iniziale, e il giocatore vuole proseguire la partita dal punto in cui e'.
@@ -928,7 +1024,9 @@ function buildLayout(root: HTMLElement) {
   const header = document.createElement('header');
   const title = document.createElement('h1');
   title.textContent = t('appTitle');
-  header.append(title);
+  // I crediti stanno nell'intestazione e chiusi: sono un obbligo di licenza, non
+  // qualcosa che l'utente deve leggere per giocare.
+  header.append(title, createCredits());
 
   const layout = document.createElement('div');
   layout.className = 'layout';
@@ -1007,12 +1105,19 @@ function text(content: string, className: string): HTMLElement {
   return element;
 }
 
-function button(label: string, title: string, disabled: boolean, onClick: () => void): HTMLElement {
+function button(
+  label: string,
+  title: string,
+  disabled: boolean,
+  onClick: () => void,
+  className = '',
+): HTMLElement {
   const element = document.createElement('button');
   element.type = 'button';
   element.textContent = label;
   element.title = title;
   element.disabled = disabled;
+  if (className) element.className = className;
   element.addEventListener('click', onClick);
   return element;
 }
@@ -1079,6 +1184,8 @@ function toast(message: string): void {
 
 /** Una riga del riepilogo: un errore segnalato durante la partita. */
 interface MistakeEntry {
+  /** Indice della semi-mossa nella partita: serve ad attaccarci il commento PGN. */
+  ply: number;
   number: number;
   color: 'w' | 'b';
   san: string;
@@ -1112,13 +1219,36 @@ function recapLine(entry: MistakeEntry): string {
   });
 }
 
-/** Il riepilogo in testo semplice, da incollare accanto al PGN. */
-function recapText(entries: readonly MistakeEntry[]): string {
-  const corrected = entries.filter((entry) => entry.corrected).length;
-  return [
-    t('recapTitle'),
-    ...entries.map((entry) => `  ${recapLine(entry)}`),
-    '',
-    t('recapTotals', { count: entries.length, corrected }),
-  ].join('\n');
+
+/**
+ * Ricarica la partita salvata, se c'e' ed e' ancora valida.
+ *
+ * Qualunque intoppo (dati corrotti, formato vecchio, una mossa che non si rigioca
+ * piu') si risolve ricominciando da capo invece che con una schermata rotta: una
+ * partita persa e' un fastidio, un programma che non parte e' un guasto.
+ */
+function loadGame(): { state: GameState; humanColor: Color; mistakes: MistakeEntry[] } | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as SavedGame;
+    let state = newGame(saved.startFen);
+    for (const uci of saved.moves) {
+      const next = playMove(
+        state,
+        uci.slice(0, 2) as Square,
+        uci.slice(2, 4) as Square,
+        (uci.slice(4) || undefined) as Promotion | undefined,
+      );
+      if (!next) return null;
+      state = next;
+    }
+    return {
+      state,
+      humanColor: saved.humanColor === 'b' ? 'b' : 'w',
+      mistakes: Array.isArray(saved.mistakes) ? saved.mistakes : [],
+    };
+  } catch {
+    return null;
+  }
 }

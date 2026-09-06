@@ -17,6 +17,8 @@ export interface ImportResult {
   readonly state: GameState;
   readonly tags: PgnTags;
   readonly kind: ImportKind;
+  /** Commenti del PGN per indice di semi-mossa; vuoto per un FEN. */
+  readonly comments: ReadonlyMap<number, string>;
 }
 
 /**
@@ -56,9 +58,9 @@ export function parseGameInput(text: string): ImportResult {
 
   if (looksLikeFen(trimmed)) {
     const fen = completeFen(trimmed);
-    return { state: newGame(fen), tags: { FEN: fen, SetUp: '1' }, kind: 'fen' };
+    return { state: newGame(fen), tags: { FEN: fen, SetUp: '1' }, kind: 'fen', comments: new Map() };
   }
 
   const parsed = parsePgn(trimmed);
-  return { state: parsed.state, tags: parsed.tags, kind: 'pgn' };
+  return { state: parsed.state, tags: parsed.tags, kind: 'pgn', comments: parsed.comments };
 }

@@ -20,7 +20,7 @@ export type IconName =
   | 'tutor'
   | 'pgn'
   | 'fen'
-  | 'recap';
+  | 'newGame';
 
 /**
  * Ogni icona e' il contenuto di un viewBox 24x24. Tratto e riempimento sono decisi
@@ -45,9 +45,16 @@ const PATHS: Record<IconName, string> = {
   fen:
     '<path d="M4 4h16v16H4z" />' +
     '<path d="M4 4h4v4H4zM12 4h4v4h-4zM8 8h4v4H8zM16 8h4v4h-4zM4 12h4v4H4zM12 12h4v4h-4zM8 16h4v4H8zM16 16h4v4h-4z" fill="currentColor" fill-opacity=".3" stroke="none"/>',
-  // Elenco con una spunta: il riepilogo degli errori, alcuni corretti. Una spunta
-  // sola, non due: in venti pixel la seconda e' solo rumore.
-  recap: '<path d="M4 6h11M4 12h11M4 18h7M14.5 17.5l2 2 4-4" />',
+  // Scacchiera con i due eserciti schierati: la posizione iniziale. Puntini e non
+  // sagome di pezzi, che a venti pixel diventerebbero macchie.
+  newGame:
+    '<path d="M4 4h16v16H4z" />' +
+    '<g fill="currentColor" stroke="none">' +
+    '<circle cx="7.5" cy="7.2" r="1.15"/><circle cx="10.5" cy="7.2" r="1.15"/>' +
+    '<circle cx="13.5" cy="7.2" r="1.15"/><circle cx="16.5" cy="7.2" r="1.15"/>' +
+    '<circle cx="7.5" cy="16.8" r="1.15"/><circle cx="10.5" cy="16.8" r="1.15"/>' +
+    '<circle cx="13.5" cy="16.8" r="1.15"/><circle cx="16.5" cy="16.8" r="1.15"/>' +
+    '</g>',
 };
 
 export function createIcon(name: IconName): SVGSVGElement {
