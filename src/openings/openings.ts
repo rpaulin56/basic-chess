@@ -18,11 +18,24 @@ export interface Opening {
   readonly plies: number;
 }
 
+/**
+ * Versione del FORMATO del file, da alzare ogni volta che cambia come e' fatto (non
+ * quando cambiano i dati).
+ *
+ * Serve a invalidare la cache dei browser: il file ha nome fisso ed e' servito con una
+ * settimana di cache, quindi cambiandone il contenuto in modo incompatibile chi era
+ * gia' passato dal sito continua a usare quello vecchio. E' successo davvero passando
+ * dall'indice per sequenza di mosse a quello per posizione: il codice nuovo cercava
+ * posizioni in una tabella di sequenze e non trovava piu' nessuna apertura. La query
+ * fa parte della chiave di cache, quindi alzarla basta a far riscaricare il file.
+ */
+const FORMAT = 2;
+
 let table: Record<string, string> | null = null;
 let loading: Promise<Record<string, string>> | null = null;
 
 async function load(): Promise<Record<string, string>> {
-  const response = await fetch('/openings.json');
+  const response = await fetch(`/openings.json?v=${FORMAT}`);
   if (!response.ok) throw new Error(`openings.json: HTTP ${response.status}`);
   return (await response.json()) as Record<string, string>;
 }
