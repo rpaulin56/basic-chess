@@ -53,46 +53,46 @@ export interface BotLevel {
 }
 
 /**
- * I livelli, con l'Elo MISURATO (non ipotizzato) da `npm run calibrate`, 30 partite per
- * livello contro Stockfish limitato a un Elo noto.
+ * I livelli, con l'Elo MISURATO da `npm run calibrate`, 100 partite per combinazione
+ * contro Stockfish limitato a un Elo noto.
  *
- * Cosa ha insegnato la calibrazione, e che vale la pena non riscoprire:
- *  - la prima ipotesi era sbagliata di 400-500 punti: "profondita' 4" suona debole ma
- *    e' gia' un giocatore da oltre 1200. Fidarsi dei numeri a occhio non funziona.
- *  - TEMPERATURA e PAPERE hanno smesso di essere regolatori. Da quando il bot converte
- *    davvero le posizioni decise, cambiarle sposta meno del rumore di misura: "medio"
- *    da temperatura 30 a 40 e papere da 0.18 a 0.25 e' passato da 1237 a 1225, cioe'
- *    non si e' mosso. Restano nel modello perche' danno la GRANA delle mosse — un bot
- *    deterministico si riconosce dopo tre partite — non perche' regolino la forza.
- *  - la profondita' e' il regolatore vero, ma e' quantizzata e i gradini sono grossi:
- *    d2 ~900, d3 ~1230, d4 ~1300, d5 ~1500, d6 ~1840, d8 ~2260. Fra d3 e d4 la
- *    differenza sta dentro il rumore: senza altri parametri sarebbero lo stesso
- *    avversario con due nomi.
- *  - controintuitivo e verificato: la profondita' 1 e' PIU' FORTE della 2 (1113 contro
- *    903). A profondita' 1 contano quasi solo le catture, le valutazioni delle linee
- *    si separano molto, i costi diventano grandi e il campionamento si concentra sulla
- *    prima linea. Meno profondita' produce piu' determinismo, e a questi livelli il
- *    determinismo vale piu' della profondita'. Non usare d1 per fare un bot debole.
- *  - la disciplina delle posizioni decise ALZA IL PAVIMENTO della scala di circa 200
- *    punti, e colpisce soprattutto i livelli deboli, che erano quelli che buttavano
- *    via le partite gia' vinte. Ma un giocatore da 700 punti per definizione le butta
- *    via: non si possono avere insieme un avversario autenticamente da principianti e
- *    un bot che converte sempre. E' la stessa proprieta' con il segno opposto, ed e'
- *    il motivo per cui `decidedPawns` e' per livello.
+ * QUANTO VALGONO QUESTI NUMERI. Cento partite, non trenta, e non e' pedanteria: con
+ * trenta la stessa configurazione rimisurata dava scarti di 150-250 punti, e in una
+ * sola giornata quel rumore ha prodotto tre conclusioni sbagliate — "discreto si e'
+ * rafforzato a 1467" (era 1297), "la temperatura non regola piu' la forza" (regola,
+ * ~150-270 punti), "principiante e facile sono lo stesso avversario" (non lo sono).
+ * L'errore dichiarato dallo script (±64 su trenta partite) presuppone partite
+ * indipendenti, e non lo sono: condividono seed e avversario. Anche a cento partite
+ * due misure della stessa configurazione possono distare un centinaio di punti:
+ * questi numeri sono un ORDINAMENTO affidabile e una misura approssimata.
+ *
+ * I due livelli piu' bassi sono i meno attendibili di tutti: contro l'ancoraggio a
+ * 1320 raccolgono il 5-7%, e da un punteggio cosi' schiacciato l'Elo si ricava per
+ * estrapolazione. Stockfish non scende sotto 1320 con UCI_Elo, quindi per collocarli
+ * meglio servirebbe un confronto interno (`--vs`) invece che contro l'ancoraggio.
+ *
+ * COSA REGOLA COSA, misurato:
+ *  - PROFONDITA': il regolatore principale, ma quantizzato e a gradini grossi
+ *    (d2 ~900, d3 ~1280, d4 ~1530, d5 ~1720, d6 ~1890, d8 ~2350).
+ *  - TEMPERATURA: vale 100-270 punti a parita' di profondita' (d2: t45 = 871,
+ *    t20 = 982 in una misura, 808 e 1074 in un'altra — il verso e' sempre lo stesso,
+ *    la taglia e' incerta). Serve anche a dare varieta': senza, il bot ripete la
+ *    stessa partita e lo si riconosce dopo tre.
+ *  - DISTRAZIONE: ~100 punti in media (da 32 a 167), sempre nello stesso verso in
+ *    tutte e sette le righe. La costanza del segno vale piu' della singola misura.
+ *  - Controintuitivo e verificato: la profondita' 1 e' PIU' FORTE della 2 (1113
+ *    contro 903). A profondita' 1 contano quasi solo le catture, le valutazioni delle
+ *    linee si separano molto, i costi diventano grandi e il campionamento si
+ *    concentra sulla prima linea. Meno profondita' produce piu' determinismo, e a
+ *    questi livelli il determinismo vale piu' della vista.
+ *  - La disciplina delle posizioni decise ALZA IL PAVIMENTO della scala, e colpisce
+ *    soprattutto i livelli deboli, che erano quelli che buttavano via le partite gia'
+ *    vinte. Ma un giocatore da 700 punti per definizione le butta via: non si possono
+ *    avere insieme un avversario autenticamente da principianti e un bot che converte
+ *    sempre. E' il motivo per cui `decidedPawns` e' per livello.
  *
  * Ogni modifica al modo in cui il bot sceglie le mosse invalida la scala e va seguita
- * da una rimisurazione: i numeri qui sotto sono un risultato sperimentale, non una
- * scelta.
- *
- * Attenzione all'attendibilita'. Sotto i 1320 la stima e' un'ESTRAPOLAZIONE dal
- * punteggio, e ai livelli piu' bassi lo e' pesantemente: "principiante" ha fatto 0.5
- * punti su 30 contro l'ancoraggio, e da mezzo punto si ricava "612" con una barra
- * d'errore enorme. Prendere quei numeri come ordinamento, non come misura. Sopra vale
- * il problema simmetrico: i livelli forti si misurano contro un ancoraggio piu' alto
- * (1800), altrimenti vincono tutto e la stima e' aria fritta.
- *
- * Quanto e' ripetibile: "discreto" misurato su 20 partite ha dato 1467 e su 30 ne ha
- * dati 1297. Venti partite non bastano nemmeno a collocare un livello.
+ * da una rimisurazione: questi numeri sono un risultato sperimentale, non una scelta.
  */
 export const BOT_LEVELS: readonly BotLevel[] = [
   // I tre livelli bassi hanno la soglia del "decisa" molto piu' alta: la disciplina
@@ -102,7 +102,7 @@ export const BOT_LEVELS: readonly BotLevel[] = [
   // avversari credibili per chi comincia.
   {
     id: 'principiante',
-    elo: { attento: 968, distratto: 612 },
+    elo: { attento: 871, distratto: 808 },
     depth: 2,
     multiPV: 8,
     temperature: 45,
@@ -110,7 +110,7 @@ export const BOT_LEVELS: readonly BotLevel[] = [
   },
   {
     id: 'facile',
-    elo: { attento: 968, distratto: 612 },
+    elo: { attento: 982, distratto: 871 },
     depth: 2,
     multiPV: 8,
     temperature: 20,
@@ -118,18 +118,18 @@ export const BOT_LEVELS: readonly BotLevel[] = [
   },
   {
     id: 'medio',
-    elo: { attento: 1144, distratto: 938 },
+    elo: { attento: 1282, distratto: 1185 },
     depth: 3,
     multiPV: 6,
     temperature: 20,
     decidedPawns: 5,
   },
-  { id: 'discreto', elo: { attento: 1496, distratto: 1159 }, depth: 4, multiPV: 5, temperature: 22 },
-  { id: 'club', elo: { attento: 1580, distratto: 1467 }, depth: 5, multiPV: 5, temperature: 16 },
+  { id: 'discreto', elo: { attento: 1530, distratto: 1435 }, depth: 4, multiPV: 5, temperature: 22 },
+  { id: 'club', elo: { attento: 1722, distratto: 1555 }, depth: 5, multiPV: 5, temperature: 16 },
   // Misurati contro l'ancoraggio a 1800, non a 1320: contro il piu' debole vincevano
   // quasi tutte le partite e la stima sarebbe stata solo un'estrapolazione senza senso.
-  { id: 'esperto', elo: { attento: 1947, distratto: 1765 }, depth: 6, multiPV: 4, temperature: 13 },
-  { id: 'forte', elo: { attento: 2508, distratto: 2152 }, depth: 8, multiPV: 3, temperature: 8 },
+  { id: 'esperto', elo: { attento: 1892, distratto: 1860 }, depth: 6, multiPV: 4, temperature: 13 },
+  { id: 'forte', elo: { attento: 2352, distratto: 2236 }, depth: 8, multiPV: 3, temperature: 8 },
 ];
 
 
