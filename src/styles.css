@@ -53,6 +53,25 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 }
 @media (max-width: 780px) {
   .layout { grid-template-columns: 1fr; }
+
+  /*
+   * Su telefono la lista mosse diventa una striscia orizzontale.
+   *
+   * In colonna, sotto la scacchiera e sotto i comandi, per rivedere la quinta mossa
+   * bisogna scorrere mezzo schermo; e in verticale una lista di quaranta mosse spinge
+   * tutto il resto lontanissimo. In orizzontale sta in due righe, scorre da sola fino
+   * alla mossa corrente e non ruba altezza alla scacchiera.
+   */
+  .movelist { max-height: none; overflow-x: auto; }
+  .movelist ol { display: flex; gap: 8px; }
+  .movelist li {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    flex: none;
+    border: none;
+    padding: 0;
+  }
 }
 
 .board-column { display: flex; flex-direction: column; gap: 12px; }
@@ -67,10 +86,20 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   aspect-ratio: 1 / 1;
 }
 
+/* Tratto, valutazione e apertura: le tre cose che descrivono la posizione che si ha
+   davanti, su una riga sola sotto la scacchiera. Prima la valutazione era un pannello
+   nella colonna destra, dove su telefono finiva sotto la piega. */
+.board-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  min-height: 22px;
+}
+
 .status {
   font-size: 14px;
   color: var(--ink-soft);
-  min-height: 22px;
 }
 .status.over { color: var(--accent); font-weight: 600; }
 
@@ -123,8 +152,11 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
  */
 .controls { display: flex; flex-direction: column; gap: 10px; }
 
-.toolbar { display: flex; align-items: center; gap: 2px; }
-.toolbar button {
+/* A capo quando non ci sta: su telefono le icone diventano di 42 pixel e dieci in
+   fila sono piu' larghe dello schermo — senza questo era tutta la pagina a scorrere
+   di lato, scacchiera compresa. */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.icon-btn {
   width: 34px;
   height: 34px;
   display: grid;
@@ -136,11 +168,75 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   color: var(--ink-soft);
   cursor: pointer;
 }
-.toolbar button:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
-.toolbar button:disabled { opacity: 0.3; cursor: default; }
+.icon-btn:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+.icon-btn:disabled { opacity: 0.3; cursor: default; }
 /* Il tutor acceso e' uno STATO, non un'azione: si vede senza doverci passare sopra. */
-.toolbar button.on { color: var(--accent); background: var(--accent-soft); }
+.icon-btn.on { color: var(--accent); background: var(--accent-soft); }
 .toolbar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 7px; }
+
+/* Menu di un pulsante-icona (esporta). Ancorato al pulsante e sopra tutto il resto. */
+.toolbar .group { display: flex; align-items: center; gap: 2px; }
+.menu-wrap { position: relative; display: inline-flex; }
+.menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+.menu button {
+  font: inherit;
+  white-space: nowrap;
+  font-size: 13px;
+  text-align: left;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.menu button:hover { background: var(--accent-soft); color: var(--accent); }
+
+/* --- con che colore si gioca -------------------------------------------
+ * Due coppie di figurine invece di un menu a tendina: il colore e' un'informazione
+ * visiva, e la coppia dice anche che l'altro colore lo prende il bot.
+ */
+.side-choice { display: flex; gap: 4px; }
+.side-choice label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+/* Il radio vero resta nel DOM per la tastiera e i lettori di schermo, ma non si vede:
+   il suo stato lo mostra il bordo dell'etichetta. */
+.side-choice input { position: absolute; opacity: 0; width: 0; height: 0; }
+.side-choice label:hover { border-color: var(--accent); }
+.side-choice label:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.side-choice label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.side-icon { display: inline-flex; }
+/* Il contorno e' sempre scuro, altrimenti la figurina bianca sparirebbe sul fondo
+   chiaro; a cambiare e' solo il riempimento. */
+.side-icon svg { stroke: var(--ink); }
+.side-icon svg .body { fill: var(--ink); }
+.side-icon.light svg .body { fill: #fff; }
+.side-icon.dark svg .eye { fill: var(--panel); }
+.side-icon.light svg .eye { fill: var(--ink); }
 
 .actions, .settings { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 
@@ -193,9 +289,11 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 }
 
 /* --- valutazione --- */
-.evaluation { display: flex; align-items: baseline; gap: 8px; min-height: 24px; }
+.evaluation { display: flex; align-items: baseline; gap: 6px; }
 .eval-score {
-  font-size: 20px;
+  /* In linea con il resto: era 20px quando aveva un pannello tutto suo, e a quella
+     misura in mezzo alla riga di stato griderebbe piu' del tratto. */
+  font-size: 15px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -298,12 +396,54 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 /* Su schermo tattile le icone diventano piu' grandi: 34 pixel si centrano bene col
    mouse e male col pollice. */
 @media (pointer: coarse) {
-  .toolbar button { width: 42px; height: 42px; }
+  .icon-btn { width: 42px; height: 42px; }
   .toolbar .sep { margin: 0 4px; }
 }
 
-/* Comando d'uso raro: presente ma senza competere per l'attenzione. */
-.actions button.rare { color: var(--ink-soft); border-style: dashed; }
+
+/* --- impostazioni ------------------------------------------------------
+ * Roba che si sceglie una volta: sta in una finestra e non in una riga permanente.
+ */
+.settings-dialog {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  min-width: 280px;
+  background: var(--panel);
+  color: var(--ink);
+}
+.settings-dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+.settings-dialog h2 {
+  font-size: 15px;
+  margin: 0 0 14px;
+  font-weight: 600;
+}
+.settings-dialog .field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.settings-dialog .check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 14px;
+  cursor: pointer;
+}
+.settings-dialog .settings-close {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 14px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
 
 /* --- crediti --- */
 .credits { font-size: 12px; color: var(--ink-soft); }
@@ -329,3 +469,5 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 .credits ul { margin: 8px 0; padding-left: 18px; }
 .credits li { margin: 3px 0; }
 .credits a { color: var(--accent); }
+
+.menu button:disabled { color: var(--ink-soft); opacity: 0.5; cursor: default; background: none; }

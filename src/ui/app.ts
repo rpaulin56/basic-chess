@@ -118,6 +118,14 @@ export function mountApp(root: HTMLElement): void {
    */
   let forcedLine: { startFen: string; moves: readonly string[] } | null = null;
   let tutorEnabled = localStorage.getItem('basic-chess:tutor') !== 'off';
+  /**
+   * Se mostrare la valutazione del motore sotto la scacchiera.
+   *
+   * E' un'opzione e non una costante perche' il numero e' due cose insieme: una
+   * misura per chi sa leggerla e una stampella per chi non ancora. Chi vuole
+   * allenarsi a giudicare la posizione da solo deve poterlo spegnere.
+   */
+  let showEval = localStorage.getItem('basic-chess:eval') !== 'off';
   /** Apertura riconosciuta per la posizione mostrata (null = nessuna, o non ancora). */
   let opening: Opening | null = null;
   /** Nome con cui l'utente compare nel PGN. Vuoto = si usa "Human". */
@@ -681,6 +689,8 @@ export function mountApp(root: HTMLElement): void {
 
   function renderEnginePanel(): void {
     evalEl.replaceChildren();
+    evalEl.hidden = !showEval;
+    if (!showEval) return;
     const failure = engine.error();
     if (failure) {
       evalEl.append(text(t('engineFailed', { error: failure }), 'eval-note'));
@@ -694,10 +704,9 @@ export function mountApp(root: HTMLElement): void {
     // senza questo ramo il pannello restava a "analisi…" per sempre dopo il matto.
     const over = state.cursor === state.plies.length ? gameOver(state) : null;
     if (over) {
-      evalEl.append(
-        text(over.winner ? (over.winner === 'w' ? '1-0' : '0-1') : '½-½', 'eval-score'),
-        text(t(over.reason, { winner: over.winner ? t(over.winner === 'w' ? 'white' : 'black') : '' }), 'eval-note'),
-      );
+      // Solo il risultato: il MOTIVO ("scacco matto", "stallo") lo dice gia' la riga
+      // di stato qui accanto, e ripeterlo a mezzo centimetro di distanza e' rumore.
+      evalEl.append(text(over.winner ? (over.winner === 'w' ? '1-0' : '0-1') : '½-½', 'eval-score'));
       return;
     }
     if (!evaluation) {
@@ -727,63 +736,87 @@ export function mountApp(root: HTMLElement): void {
 
     const toolbar = document.createElement('div');
     toolbar.className = 'toolbar';
+    // Quattro gruppi: navigare, guardare, scambiare posizioni con l'esterno, gestire
+    // la sessione. Sono gruppi VERI e non solo separatori disegnati, perche' quando la
+    // barra va a capo (su telefono ci sta in due righe) deve spezzarsi fra un gruppo e
+    // l'altro: "esporta" in fondo a una riga e "importa" in cima a quella dopo
+    // dividerebbe proprio la coppia che si e' costruita per stare insieme.
     toolbar.append(
-      iconButton('first', t('first'), state.cursor === 0, () => seek(0)),
-      iconButton('previous', t('previous'), state.cursor === 0, () => seek(state.cursor - 1)),
-      iconButton('next', t('next'), state.cursor >= state.plies.length, () =>
-        seek(state.cursor + 1),
-      ),
-      iconButton('last', t('last'), state.cursor >= state.plies.length, () =>
-        seek(state.plies.length),
+      group(
+        iconButton('first', t('first'), state.cursor === 0, () => seek(0)),
+        iconButton('previous', t('previous'), state.cursor === 0, () => seek(state.cursor - 1)),
+        iconButton('next', t('next'), state.cursor >= state.plies.length, () =>
+          seek(state.cursor + 1),
+        ),
+        iconButton('last', t('last'), state.cursor >= state.plies.length, () =>
+          seek(state.plies.length),
+        ),
       ),
       separator(),
-      iconButton('flip', t('flipBoard'), false, () => {
-        orientation = orientation === 'white' ? 'black' : 'white';
-        refresh();
-      }),
-      iconButton(
-        'tutor',
-        tutorEnabled ? t('tutorOn') : t('tutorOff'),
-        false,
-        () => {
-          tutorEnabled = !tutorEnabled;
-          localStorage.setItem('basic-chess:tutor', tutorEnabled ? 'on' : 'off');
-          if (!tutorEnabled) review = null;
+      group(
+        iconButton('flip', t('flipBoard'), false, () => {
+          orientation = orientation === 'white' ? 'black' : 'white';
           refresh();
-        },
-        tutorEnabled,
+        }),
+        iconButton(
+          'tutor',
+          tutorEnabled ? t('tutorOn') : t('tutorOff'),
+          false,
+          () => {
+            tutorEnabled = !tutorEnabled;
+            localStorage.setItem('basic-chess:tutor', tutorEnabled ? 'on' : 'off');
+            if (!tutorEnabled) review = null;
+            refresh();
+          },
+          tutorEnabled,
+        ),
       ),
       separator(),
-      iconButton('pgn', t('exportPgn'), state.plies.length === 0, () => {
-        void copy(toPgn(state, pgnTags(), annotations()));
-      }),
-      iconButton('fen', t('copyFen'), false, () => {
-        void copy(currentFen(state));
-      }),
+      // Esporta e importa stanno vicini e sono due icone sole: sono la stessa cosa in
+      // due versi. Esportare puo' voler dire due cose (la partita o la posizione), e
+      // il menu e' il posto giusto per una scelta che si fa raramente - meglio di due
+      // pulsanti permanenti nella barra.
+      group(
+        // Il menu resta aperto anche a partita vuota: la POSIZIONE si esporta sempre
+        // (dopo aver importato un finale di mosse non ce n'e' nessuna, ed e' proprio
+        // il FEN che si vuole rimandare indietro). A spegnersi e' solo la voce della
+        // partita, quando di partita non ce n'e'.
+        menuButton('export', t('exportTitle'), false, [
+          {
+            label: t('exportPgn'),
+            run: () => void copy(toPgn(state, pgnTags(), annotations())),
+            disabled: state.plies.length === 0,
+          },
+          { label: t('exportFen'), run: () => void copy(currentFen(state)) },
+        ]),
+        iconButton('import', t('importTitle'), false, importPosition),
+      ),
       separator(),
-      // Ricominciare fa perdere la partita, quindi in teoria vorrebbe un'etichetta —
-      // ma con una conferma esplicita il clic per sbaglio non fa piu' danno, e
-      // l'icona torna legittima.
-      iconButton('newGame', t('newGame'), false, () => {
-        if (state.plies.length > 0 && !confirm(t('newGameConfirm'))) return;
-        state = newGame();
-        evaluation = null;
-        clearTutor();
-        refresh();
-      }),
+      group(
+        // Ricominciare fa perdere la partita, quindi in teoria vorrebbe un'etichetta -
+        // ma con una conferma esplicita il clic per sbaglio non fa piu' danno, e
+        // l'icona torna legittima.
+        iconButton('newGame', t('newGame'), false, () => {
+          if (state.plies.length > 0 && !confirm(t('newGameConfirm'))) return;
+          state = newGame();
+          evaluation = null;
+          clearTutor();
+          refresh();
+        }),
+        iconButton('settings', t('settings'), false, openSettings),
+      ),
     );
 
     const actions = document.createElement('div');
     actions.className = 'actions';
-    actions.append(
-      button(t('takeBack'), t('takeBack'), state.cursor === 0, takeBack),
-      // Uso raro: sta in fondo e non compete per l'attenzione con il resto.
-      button(t('importPosition'), t('importTitle'), false, importPosition, 'rare'),
-    );
+    actions.append(button(t('takeBack'), t('takeBack'), state.cursor === 0, takeBack));
 
+    // Nella riga restano le due impostazioni che si cambiano DA UNA PARTITA
+    // ALL'ALTRA. Nome, lingua e visibilita' della valutazione si scelgono una volta
+    // e poi ingombrerebbero per sempre: sono finite nella finestra delle impostazioni.
     const settings = document.createElement('div');
     settings.className = 'settings';
-    settings.append(nameInput(), levelSelect(), colorSelect(), languageSelect());
+    settings.append(levelSelect(), colorChoice());
 
     controlsEl.append(toolbar, actions, settings);
   }
@@ -802,6 +835,10 @@ export function mountApp(root: HTMLElement): void {
   ): HTMLElement {
     const element = document.createElement('button');
     element.type = 'button';
+    // La classe e non il discendente ".toolbar button": dentro la barra ci sono anche
+    // le voci del menu di "esporta", che sono pulsanti di testo e non quadrati di 34
+    // pixel. Selezionare per posizione le rendeva larghe quanto un'icona.
+    element.className = 'icon-btn';
     element.title = label;
     element.setAttribute('aria-label', label);
     if (active) {
@@ -811,6 +848,55 @@ export function mountApp(root: HTMLElement): void {
     element.disabled = disabled;
     element.append(createIcon(name));
     element.addEventListener('click', onClick);
+    return element;
+  }
+
+  /**
+   * Un'icona che apre un menu di due o tre voci. Il menu si chiude al primo clic
+   * fuori: e' l'unico comportamento che nessuno deve imparare.
+   */
+  function menuButton(
+    name: IconName,
+    label: string,
+    disabled: boolean,
+    items: readonly { label: string; run: () => void; disabled?: boolean }[],
+  ): HTMLElement {
+    const wrap = document.createElement('span');
+    wrap.className = 'menu-wrap';
+    const menu = document.createElement('div');
+    menu.className = 'menu';
+    menu.hidden = true;
+    for (const item of items) {
+      const entry = document.createElement('button');
+      entry.type = 'button';
+      entry.textContent = item.label;
+      entry.disabled = item.disabled ?? false;
+      entry.addEventListener('click', () => {
+        menu.hidden = true;
+        item.run();
+      });
+      menu.append(entry);
+    }
+    const trigger = iconButton(name, label, disabled, () => {
+      menu.hidden = !menu.hidden;
+      if (menu.hidden) return;
+      const close = (event: MouseEvent): void => {
+        if (wrap.contains(event.target as Node)) return;
+        menu.hidden = true;
+        document.removeEventListener('click', close);
+      };
+      // Nel prossimo giro di eventi: altrimenti il clic che apre il menu lo richiude.
+      setTimeout(() => document.addEventListener('click', close));
+    });
+    wrap.append(trigger, menu);
+    return wrap;
+  }
+
+  /** Un gruppo di icone che non si spezza quando la barra va a capo. */
+  function group(...children: readonly HTMLElement[]): HTMLElement {
+    const element = document.createElement('span');
+    element.className = 'group';
+    element.append(...children);
     return element;
   }
 
@@ -933,22 +1019,46 @@ export function mountApp(root: HTMLElement): void {
     return select;
   }
 
-  function colorSelect(): HTMLElement {
-    const select = document.createElement('select');
-    select.title = t('playAs');
+  /**
+   * Con che colore si gioca, come coppia di figurine invece che come menu a tendina.
+   *
+   * "Bianco"/"Nero" in un combo obbliga a leggere due parole per capire una cosa che
+   * e' visiva; e non dice l'altra meta' dell'informazione, cioe' che l'avversario e'
+   * il bot e prende l'altro colore. Le due coppie omino/robot la mostrano intera, e
+   * non hanno bisogno di traduzione.
+   */
+  function colorChoice(): HTMLElement {
+    const group = document.createElement('div');
+    group.className = 'side-choice';
+    group.setAttribute('role', 'radiogroup');
+    group.setAttribute('aria-label', t('playAs'));
     for (const color of ['w', 'b'] as const) {
-      const element = document.createElement('option');
-      element.value = color;
-      element.textContent = t(color === 'w' ? 'white' : 'black');
-      element.selected = color === humanColor;
-      select.append(element);
+      const label = document.createElement('label');
+      const title = t(color === 'w' ? 'playAsWhite' : 'playAsBlack');
+      label.title = title;
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'side';
+      input.value = color;
+      input.checked = color === humanColor;
+      input.setAttribute('aria-label', title);
+      input.addEventListener('change', () => {
+        if (!input.checked) return;
+        humanColor = color;
+        orientation = color === 'w' ? 'white' : 'black';
+        refresh();
+      });
+      label.append(input, sideIcon('person', color === 'w'), sideIcon('bot', color === 'b'));
+      group.append(label);
     }
-    select.addEventListener('change', () => {
-      humanColor = select.value === 'b' ? 'b' : 'w';
-      orientation = humanColor === 'w' ? 'white' : 'black';
-      refresh();
-    });
-    return select;
+    return group;
+  }
+
+  function sideIcon(name: IconName, light: boolean): HTMLElement {
+    const span = document.createElement('span');
+    span.className = light ? 'side-icon light' : 'side-icon dark';
+    span.append(createIcon(name));
+    return span;
   }
 
   function languageSelect(): HTMLElement {
@@ -966,6 +1076,65 @@ export function mountApp(root: HTMLElement): void {
       refresh();
     });
     return select;
+  }
+
+  /**
+   * Le impostazioni che si toccano una volta sola, in una finestra invece che in una
+   * riga sempre presente.
+   *
+   * E' una `<dialog>` nativa e non un pannello nostro: la modalita', la chiusura con
+   * Esc e la trappola del focus le fa il browser, e sono esattamente le tre cose che
+   * si sbagliano riscrivendole a mano.
+   */
+  function openSettings(): void {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'settings-dialog';
+
+    const title = document.createElement('h2');
+    title.textContent = t('settings');
+
+    const evalRow = document.createElement('label');
+    evalRow.className = 'check-row';
+    const evalBox = document.createElement('input');
+    evalBox.type = 'checkbox';
+    evalBox.checked = showEval;
+    evalBox.addEventListener('change', () => {
+      showEval = evalBox.checked;
+      localStorage.setItem('basic-chess:eval', showEval ? 'on' : 'off');
+      renderEnginePanel();
+    });
+    evalRow.append(evalBox, document.createTextNode(t('showEval')));
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'settings-close';
+    close.textContent = t('settingsClose');
+    close.addEventListener('click', () => dialog.close());
+
+    dialog.append(
+      title,
+      field(t('playerName'), nameInput()),
+      field(t('language'), languageSelect()),
+      evalRow,
+      close,
+    );
+    // Il cambio di lingua deve ridisegnare tutto, e finche' la finestra e' aperta
+    // ridisegnare sotto di lei sarebbe uno sfarfallio inutile: si aspetta la chiusura.
+    dialog.addEventListener('close', () => {
+      dialog.remove();
+      refresh();
+    });
+    document.body.append(dialog);
+    dialog.showModal();
+  }
+
+  function field(label: string, control: HTMLElement): HTMLElement {
+    const wrap = document.createElement('label');
+    wrap.className = 'field';
+    const caption = document.createElement('span');
+    caption.textContent = label;
+    wrap.append(caption, control);
+    return wrap;
   }
 
   /**
@@ -1052,6 +1221,16 @@ function buildLayout(root: HTMLElement) {
   boardWrap.className = 'board-wrap';
   const statusEl = document.createElement('div');
   statusEl.className = 'status';
+  /**
+   * La valutazione non e' piu' un pannello a destra ma un pezzo della riga di stato.
+   *
+   * Un pannello intero per due parole (un numero e una profondita') costava un titolo,
+   * un bordo e una posizione fissa nella colonna; e su telefono finiva sotto la piega,
+   * dove chi gioca non la vedeva mai. Qui sta accanto al tratto e all'apertura, cioe'
+   * insieme alle altre due cose che descrivono la posizione che si ha davanti.
+   */
+  const evalEl = document.createElement('div');
+  evalEl.className = 'evaluation';
   // Il nome dell'apertura sta sotto la scacchiera e non nella lista mosse: parla
   // della posizione che si ha davanti, non dell'elenco delle mosse fatte.
   const openingEl = document.createElement('div');
@@ -1064,7 +1243,10 @@ function buildLayout(root: HTMLElement) {
   const previewEl = document.createElement('div');
   previewEl.className = 'preview-bar';
   previewEl.hidden = true;
-  boardColumn.append(boardWrap, previewEl, statusEl, openingEl, controlsEl);
+  const infoRow = document.createElement('div');
+  infoRow.className = 'board-info';
+  infoRow.append(statusEl, evalEl, openingEl);
+  boardColumn.append(boardWrap, previewEl, infoRow, controlsEl);
 
   const side = document.createElement('aside');
 
@@ -1073,14 +1255,6 @@ function buildLayout(root: HTMLElement) {
   const tutorEl = document.createElement('section');
   tutorEl.className = 'panel tutor';
   tutorEl.hidden = true;
-
-  const evalPanel = document.createElement('section');
-  evalPanel.className = 'panel';
-  const evalTitle = document.createElement('h2');
-  evalTitle.textContent = t('evaluation');
-  const evalEl = document.createElement('div');
-  evalEl.className = 'evaluation';
-  evalPanel.append(evalTitle, evalEl);
 
   const recapPanel = document.createElement('section');
   recapPanel.className = 'panel';
@@ -1099,7 +1273,7 @@ function buildLayout(root: HTMLElement) {
   movesEl.className = 'movelist';
   movesPanel.append(movesTitle, movesEl);
 
-  side.append(tutorEl, evalPanel, recapPanel, movesPanel);
+  side.append(tutorEl, recapPanel, movesPanel);
   layout.append(boardColumn, side);
   root.append(header, layout);
   return {

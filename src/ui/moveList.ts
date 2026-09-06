@@ -41,8 +41,10 @@ export function renderMoveList(
   }
   container.append(list);
 
+  // Anche `inline`: su telefono la lista e' una striscia ORIZZONTALE, e senza questo
+  // la mossa corrente restava fuori dal bordo destro senza che nulla lo segnalasse.
   const current = container.querySelector('button.current');
-  current?.scrollIntoView({ block: 'nearest' });
+  current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 function numberCell(moveNumber: number): HTMLElement {
