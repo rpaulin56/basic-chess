@@ -110,6 +110,23 @@ const CP_PER_POINT = 10;
 const DECIDED_PAWNS = 3;
 
 /**
+ * Quanto puo' costare al massimo una mossa in posizione decisa. Oltre, la mossa non
+ * viene proprio considerata.
+ *
+ * E' un filtro netto e non un peso, e la differenza e' il punto. In una posizione
+ * decisa le valutazioni si COMPRIMONO: misurato su una partita reale, con il Nero a
+ * meno sette, lasciare una torre in presa costava mezzo pedone di valutazione, perche'
+ * tanto si perde comunque. Il campionamento esponenziale traduceva quel mezzo pedone
+ * in "una volta su cinque", e una volta su cinque il bot lasciava la torre — che e'
+ * l'unica cosa che uno che guarda non perdona, perche' e' assurda anche a mille punti
+ * Elo di distanza.
+ *
+ * Cinque punti valgono mezzo pedone: sopra quella soglia non c'e' piu' "una mossa
+ * leggermente peggiore", c'e' materiale regalato.
+ */
+const DECIDED_MAX_COST = 5;
+
+/**
  * Quanto costa una mossa rispetto alla migliore.
  *
  * Il massimo fra due misure, e non e' un dettaglio: l'aspettativa di vittoria e'
@@ -129,15 +146,24 @@ function moveCost(best: EngineLine, line: EngineLine): number {
 }
 
 /**
+ * La partita e' decisa? Serve anche fuori di qui: quando lo e', il bot cerca piu' a
+ * fondo prima di scegliere (vedi play.ts).
+ */
+export function isDecided(analysis: Analysis): boolean {
+  const best = analysis.lines.find((line) => line.pv.length > 0);
+  return best ? Math.abs(extendedCp(best)) / 100 >= DECIDED_PAWNS : false;
+}
+
+/**
  * Sceglie la mossa del bot fra le linee analizzate.
  * Restituisce una mossa in notazione UCI, o null se non c'e' nulla da giocare.
  */
 export function selectBotMove(analysis: Analysis, level: BotLevel, rng: Rng = Math.random): string | null {
-  const lines = analysis.lines.filter((line) => line.pv.length > 0);
-  if (lines.length === 0) return analysis.bestMove;
-  if (lines.length === 1) return lines[0]!.pv[0]!;
+  const all = analysis.lines.filter((line) => line.pv.length > 0);
+  if (all.length === 0) return analysis.bestMove;
+  if (all.length === 1) return all[0]!.pv[0]!;
 
-  const best = lines[0]!;
+  const best = all[0]!;
 
   // Partita decisa: il bot stringe i denti, con meno casualita' e molte meno papere.
   //
@@ -148,12 +174,21 @@ export function selectBotMove(analysis: Analysis, level: BotLevel, rng: Rng = Ma
   // semplicemente sgradevole da guardare.
   const decided = Math.abs(extendedCp(best)) / 100 >= DECIDED_PAWNS;
   const temperature = decided ? level.temperature * 0.4 : level.temperature;
-  const blunderRate = decided ? level.blunderRate * 0.25 : level.blunderRate;
+
+  // In posizione decisa si scartano del tutto le mosse che costano troppo, invece di
+  // renderle solo improbabili: e' l'unico modo di far sparire il regalo di materiale,
+  // perche' li' la valutazione non distingue piu' abbastanza da poterselo permettere.
+  // Almeno una linea sopravvive sempre: la migliore costa zero per definizione.
+  const lines = decided ? all.filter((line) => moveCost(best, line) <= DECIDED_MAX_COST) : all;
 
   // La svista: la peggiore fra le alternative CONSIDERATE, non una mossa a caso fra
   // tutte le legali. Un principiante che sbaglia gioca comunque una mossa che gli
   // sembrava sensata, non una mossa assurda.
-  if (rng() < blunderRate) {
+  //
+  // A partita decisa la svista sparisce del tutto: e' li' che il bot deve stringere i
+  // denti, e una papera gratuita mentre si converte (o si resiste) e' esattamente
+  // cio' che rende inutile l'allenamento.
+  if (!decided && rng() < level.blunderRate) {
     return lines[lines.length - 1]!.pv[0]!;
   }
 

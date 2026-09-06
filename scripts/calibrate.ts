@@ -21,7 +21,8 @@
 import { Chess } from 'chess.js';
 import { createEngine } from '../src/engine/uci.js';
 import type { Engine } from '../src/engine/types.js';
-import { BOT_LEVELS, levelById, selectBotMove, type BotLevel } from '../src/bot/bot.js';
+import { BOT_LEVELS, levelById, type BotLevel } from '../src/bot/bot.js';
+import { chooseBotMove } from '../src/bot/play.js';
 import { createNodeTransport } from './nodeTransport.js';
 
 // --- argomenti ------------------------------------------------------------
@@ -58,9 +59,11 @@ async function botPlayer(level: BotLevel, seed: number): Promise<Player> {
   };
   return {
     name: `bot:${level.id}`,
+    // La stessa strada che usa l'applicazione, ricerca compresa: misurare un bot
+    // diverso da quello che gioca davvero darebbe numeri di Elo di un giocatore
+    // immaginario.
     async move(fen) {
-      const analysis = await engine.analyse(fen, { depth: level.depth, multiPV: level.multiPV });
-      return selectBotMove(analysis, level, rng);
+      return chooseBotMove((options) => engine.analyse(fen, options), level, rng);
     },
     quit: () => engine.quit(),
   };

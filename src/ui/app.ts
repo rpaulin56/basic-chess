@@ -14,7 +14,8 @@ import {
 import { parseGameInput } from '../core/import.js';
 import { toFigurine } from '../core/notation.js';
 import { ANNOTATION_TAG, toPgn } from '../core/pgn.js';
-import { BOT_LEVELS, levelById, selectBotMove, type BotLevel } from '../bot/bot.js';
+import { BOT_LEVELS, levelById, type BotLevel } from '../bot/bot.js';
+import { chooseBotMove } from '../bot/play.js';
 import { formatScore } from '../engine/winProb.js';
 import type { Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
@@ -761,7 +762,8 @@ export function mountApp(root: HTMLElement): void {
     botThinking = true;
     renderStatus();
     const fen = currentFen(state);
-    const analysis = await engine.analyse(fen, { depth: level.depth, multiPV: level.multiPV });
+    const forced = forcedMove();
+    const chosen = forced ?? (await chooseBotMove((options) => engine.analyse(fen, options), level));
     botThinking = false;
     // La posizione e' cambiata mentre il bot pensava (l'utente ha ritirato una mossa o
     // ha navigato indietro): la mossa calcolata non c'entra piu' nulla.
@@ -769,12 +771,12 @@ export function mountApp(root: HTMLElement): void {
       renderStatus();
       return;
     }
-    if (!analysis) {
+    if (!chosen) {
       renderStatus();
       scheduleRetry();
       return;
     }
-    const uci = forcedMove() ?? selectBotMove(analysis, level);
+    const uci = chosen;
     const next = uci
       ? playMove(
           state,
