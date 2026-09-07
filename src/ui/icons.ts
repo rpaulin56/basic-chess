@@ -27,7 +27,6 @@ export type IconName =
   | 'settings'
   | 'position'
   | 'person'
-  | 'bot'
   | 'newGame';
 
 /**
@@ -100,16 +99,13 @@ const PATHS: Record<IconName, string> = {
   settings:
     '<path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h9M17 17h3" />' +
     '<circle cx="15" cy="7" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="15" cy="17" r="2" />',
-  // Chi gioca e chi risponde. Il colore delle due sagome lo decide il CSS (classe
-  // `body`): la stessa icona serve per il pezzo bianco e per quello nero.
+  // Chi gioca. Il colore della sagoma lo decide il CSS (classe `body`): la stessa
+  // icona serve per il Bianco e per il Nero.
+  // Centrata: era spostata a sinistra per lasciare posto al robot che le stava
+  // accanto, e da sola risultava storta nel suo riquadro.
   person:
-    '<circle class="body" cx="11" cy="7" r="3.4" />' +
-    '<path class="body" d="M4.4 19.6a6.6 6.6 0 0 1 13.2 0z" />',
-  bot:
-    '<path d="M11 2.6v2.6" />' +
-    '<rect class="body" x="3.6" y="5.4" width="14.8" height="11.6" rx="3" />' +
-    '<circle class="eye" cx="8.2" cy="11.2" r="1.3" stroke="none" />' +
-    '<circle class="eye" cx="13.8" cy="11.2" r="1.3" stroke="none" />',
+    '<circle class="body" cx="12" cy="7" r="3.4" />' +
+    '<path class="body" d="M5.4 19.6a6.6 6.6 0 0 1 13.2 0z" />',
   // Nuova partita: i due schieramenti allineati, ordinati e simmetrici.
   newGame:
     BOARD_FRAME +

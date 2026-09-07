@@ -1364,7 +1364,11 @@ export function mountApp(root: HTMLElement): void {
           // Non basta guardare se la partita ha mosse: giocando col Nero il bot muove
           // per primo, quindi non e' mai vuota, e due clic di fila ti riportavano al
           // punto di partenza dopo aver visto solo la mossa del bot. Visto in prova.
-          if (state.plies.length > 0 && !confirm(t('newGameConfirm'))) return;
+          // La conferma serve solo se c'e' qualcosa da perdere. A partita FINITA — per
+          // matto, per stallo, per abbandono o per patta — non c'e' piu' niente da
+          // buttare via, e chiedere "sei sicuro?" e' un ostacolo messo li' per abitudine.
+          const finished = outcome !== null || gameOver(goTo(state, state.plies.length)) !== null;
+          if (state.plies.length > 0 && !finished && !confirm(t('newGameConfirm'))) return;
           if (state.plies.some((ply) => ply.color === humanColor)) {
             humanColor = humanColor === 'w' ? 'b' : 'w';
             orientation = humanColor === 'w' ? 'white' : 'black';
@@ -1692,12 +1696,11 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /**
-   * Con che colore si gioca, come coppia di figurine invece che come menu a tendina.
+   * Con che colore si gioca, come figurina invece che come menu a tendina.
    *
    * "Bianco"/"Nero" in un combo obbliga a leggere due parole per capire una cosa che
-   * e' visiva; e non dice l'altra meta' dell'informazione, cioe' che l'avversario e'
-   * il bot e prende l'altro colore. Le due coppie omino/robot la mostrano intera, e
-   * non hanno bisogno di traduzione.
+   * e' visiva. Due sagome, una chiara e una scura, la dicono senza parole e senza
+   * bisogno di traduzione.
    */
   /**
    * L'attenzione dell'avversario, accanto al livello perche' e' una scelta dello
@@ -1770,7 +1773,10 @@ export function mountApp(root: HTMLElement): void {
         orientation = color === 'w' ? 'white' : 'black';
         refresh();
       });
-      label.append(input, sideIcon('person', color === 'w'), sideIcon('bot', color === 'b'));
+      // Solo la figurina, senza il robot accanto: da quando l'avversaria e' la Nonna
+      // un robot non c'e' piu', e disegnarlo direbbe una cosa falsa. La scelta e'
+      // "quale colore hai tu", e una sagoma bianca o nera lo dice per intero.
+      label.append(input, sideIcon('person', color === 'w'));
       group.append(label);
     }
     return group;

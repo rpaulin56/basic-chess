@@ -241,8 +241,6 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 .side-icon svg { stroke: var(--ink); }
 .side-icon svg .body { fill: var(--ink); }
 .side-icon.light svg .body { fill: #fff; }
-.side-icon.dark svg .eye { fill: var(--panel); }
-.side-icon.light svg .eye { fill: var(--ink); }
 
 .settings { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 
