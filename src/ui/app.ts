@@ -309,6 +309,7 @@ export function mountApp(root: HTMLElement): void {
     hintEl,
     endgameEl,
     offerEl,
+    movesTitle,
   } = buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
   const engine = createEngineSession(() => renderEnginePanel());
@@ -324,6 +325,12 @@ export function mountApp(root: HTMLElement): void {
     // ancora li'. Senza, la scacchiera restava bloccata proprio dopo il comando che
     // serve a riprovare.
     else board.render(state, orientation, humanColor, takenBackAt === state.cursor);
+    // Il numero di mosse nel riepilogo: chiusa, la lista deve dire almeno QUANTO
+    // contiene, o sembra vuota.
+    movesTitle.textContent =
+      state.plies.length === 0
+        ? t('moves')
+        : `${t('moves')} · ${moveNumberOf(state, state.plies.length - 1)}`;
     renderMoveList(movesEl, state, (cursor) => {
       state = goTo(state, cursor);
       evaluation = null;
@@ -2134,9 +2141,25 @@ function buildLayout(root: HTMLElement) {
   recapPanel.append(recapTitle, recapEl);
   recapPanel.hidden = true;
 
-  const movesPanel = document.createElement('section');
-  movesPanel.className = 'panel';
-  const movesTitle = document.createElement('h2');
+  /**
+   * La lista mosse e' un `<details>`, aperto su schermo largo e chiuso su telefono.
+   *
+   * In colonna singola tutto sta uno sotto l'altro, e la lista e' l'unico pannello
+   * che cresce senza fine: aperta, spinge fuori schermo quello che viene dopo e
+   * allunga la pagina ad ogni mossa. Ma e' anche l'unico pannello che si CONSULTA
+   * invece di doverlo leggere — la mossa appena giocata si vede sulla scacchiera, la
+   * lista serve per tornare indietro, cioe' quando la si cerca apposta.
+   *
+   * Chiusa non e' nascosta: il riepilogo dice quante mosse ci sono, ed e' un elemento
+   * nativo, quindi apertura, tastiera e lettori di schermo funzionano da soli.
+   *
+   * Su schermo largo resta aperta perche' li' non toglie spazio a nessuno: sta nella
+   * colonna di destra, che altrimenti sarebbe vuota.
+   */
+  const movesPanel = document.createElement('details');
+  movesPanel.className = 'panel moves';
+  movesPanel.open = !window.matchMedia('(max-width: 780px)').matches;
+  const movesTitle = document.createElement('summary');
   movesTitle.textContent = t('moves');
   const movesEl = document.createElement('div');
   movesEl.className = 'movelist';
@@ -2161,6 +2184,7 @@ function buildLayout(root: HTMLElement) {
     hintEl,
     endgameEl,
     offerEl,
+    movesTitle,
   };
 }
 

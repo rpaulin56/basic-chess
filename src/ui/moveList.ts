@@ -41,10 +41,30 @@ export function renderMoveList(
   }
   container.append(list);
 
-  // Anche `inline`: su telefono la lista e' una striscia ORIZZONTALE, e senza questo
-  // la mossa corrente restava fuori dal bordo destro senza che nulla lo segnalasse.
-  const current = container.querySelector('button.current');
-  current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const current = container.querySelector<HTMLElement>('button.current');
+  if (current) reveal(container, current);
+}
+
+/**
+ * Porta la mossa corrente dentro la parte visibile della lista, muovendo SOLO la
+ * lista.
+ *
+ * Qui prima c'era `scrollIntoView`, ed era il difetto piu' grave dell'uso su
+ * telefono. Quel metodo scorre tutti gli antenati necessari, PAGINA COMPRESA: in
+ * colonna singola la lista sta sotto la scacchiera, quindi ad ogni mossa il browser
+ * scorreva la pagina per mostrare la lista e si portava via la scacchiera. Si giocava
+ * una mossa e bisognava risalire per vedere il risultato.
+ *
+ * `block: 'nearest'` non bastava a impedirlo: "nearest" riguarda QUANTO scorrere, non
+ * SE farlo, e un elemento sotto la piega va comunque raggiunto.
+ */
+function reveal(container: HTMLElement, target: HTMLElement): void {
+  const view = container.getBoundingClientRect();
+  const item = target.getBoundingClientRect();
+  if (item.top < view.top) container.scrollTop -= view.top - item.top;
+  else if (item.bottom > view.bottom) container.scrollTop += item.bottom - view.bottom;
+  if (item.left < view.left) container.scrollLeft -= view.left - item.left;
+  else if (item.right > view.right) container.scrollLeft += item.right - view.right;
 }
 
 function numberCell(moveNumber: number): HTMLElement {

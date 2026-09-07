@@ -67,23 +67,13 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   .layout { grid-template-columns: 1fr; }
 
   /*
-   * Su telefono la lista mosse diventa una striscia orizzontale.
-   *
-   * In colonna, sotto la scacchiera e sotto i comandi, per rivedere la quinta mossa
-   * bisogna scorrere mezzo schermo; e in verticale una lista di quaranta mosse spinge
-   * tutto il resto lontanissimo. In orizzontale sta in due righe, scorre da sola fino
-   * alla mossa corrente e non ruba altezza alla scacchiera.
+   * Su telefono la lista mosse resta VERTICALE, ma chiusa (vedi il `<details>` in
+   * app.ts). Era una striscia orizzontale, ed era la scelta sbagliata: prendeva poca
+   * altezza, ma per raggiungere la mossa corrente il browser scorreva la pagina e si
+   * portava via la scacchiera ad ogni mossa. Chiusa non prende altezza affatto, e
+   * aperta si scorre da sola senza toccare la pagina.
    */
-  .movelist { max-height: none; overflow-x: auto; }
-  .movelist ol { display: flex; gap: 8px; }
-  .movelist li {
-    display: flex;
-    align-items: baseline;
-    gap: 2px;
-    flex: none;
-    border: none;
-    padding: 0;
-  }
+  .movelist { max-height: 45vh; }
 }
 
 .board-column { display: flex; flex-direction: column; gap: 12px; }
@@ -132,6 +122,20 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 }
 
 /* --- lista mosse --- */
+/* Il riepilogo del `<details>`: ha lo stesso aspetto dei titoli degli altri pannelli,
+   perche' e' la stessa cosa — il nome del pannello — con in piu' la freccia nativa
+   che dice che si apre. */
+.panel.moves { padding-bottom: 12px; }
+.panel.moves > summary {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  font-weight: 600;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.panel.moves[open] > summary { margin-bottom: 8px; }
 .movelist { max-height: 420px; overflow-y: auto; }
 .movelist .empty { color: var(--ink-soft); font-size: 14px; }
 .movelist ol { list-style: none; margin: 0; padding: 0; }
