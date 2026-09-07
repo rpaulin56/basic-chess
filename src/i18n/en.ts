@@ -1,7 +1,7 @@
 import type { it } from './it.js';
 
 export const en: Record<keyof typeof it, string> = {
-  appTitle: 'Basic Chess',
+  appTitle: 'GrandmaChess',
   credits: 'Credits and licences',
   creditsAuthorLabel: 'Concept and software design',
   creditsAuthorName: 'Riccardo Paulin',

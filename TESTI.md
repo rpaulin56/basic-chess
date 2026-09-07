@@ -9,7 +9,7 @@ I `{nomi}` fra graffe sono valori sostituiti a runtime e vanno lasciati come son
 
 | chiave | testo attuale | come lo diresti |
 |---|---|---|
-| `appTitle` | Basic Chess | |
+| `appTitle` | GrandmaChess | |
 | `moves` | Mosse | |
 | `noMoves` | Nessuna mossa giocata. | |
 | `newGame` | Nuova partita | |

@@ -1,8 +1,14 @@
-# Basic Chess
+# GrandmaChess
 
 Scacchiera didattica con tutor, pensata per la fascia bassa (indicativamente 600-1400 Elo)
 e per chi riprende a giocare dopo anni. Funziona **interamente nel browser**: nessun
 server, nessun account, nessun dato raccolto.
+
+Il nome viene dall'idea di come dovrebbe comportarsi il tutor: come un nonno o una
+nonna che ti insegna a giocare. Autorevole perché gli concedi fiducia, non perché si
+imponga; bonario ma senza lasciar correre per compiacerti; paziente, con tutto il
+tempo del mondo, e mai arrabbiato. Il repository si chiama ancora `basic-chess`, che
+per un repository va benissimo.
 
 ## Stato
 

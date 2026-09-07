@@ -127,7 +127,7 @@ export function toPgn(
   const today = new Date();
   const date = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
   const headers: Record<string, string> = {
-    Event: 'Basic Chess',
+    Event: 'GrandmaChess',
     Site: '?',
     Date: date,
     Round: '?',

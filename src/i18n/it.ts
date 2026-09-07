@@ -1,5 +1,5 @@
 export const it = {
-  appTitle: 'Basic Chess',
+  appTitle: 'GrandmaChess',
   credits: 'Crediti e licenze',
   creditsAuthorLabel: 'Concept e progetto software',
   creditsAuthorName: 'Riccardo Paulin',
