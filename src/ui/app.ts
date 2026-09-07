@@ -1253,16 +1253,43 @@ export function mountApp(root: HTMLElement): void {
     if (over) {
       // Solo il risultato: il MOTIVO ("scacco matto", "stallo") lo dice gia' la riga
       // di stato qui accanto, e ripeterlo a mezzo centimetro di distanza e' rumore.
-      evalEl.append(text(over.winner ? (over.winner === 'w' ? '1-0' : '0-1') : '½-½', 'eval-score'));
+      evalEl.append(
+        evalBar(over.winner ? (over.winner === 'w' ? 100 : 0) : 50),
+        text(over.winner ? (over.winner === 'w' ? '1-0' : '0-1') : '½-½', 'eval-score'),
+      );
       return;
     }
     if (!evaluation) {
       evalEl.append(text(t('analysing'), 'eval-note'));
       return;
     }
+    const forMover = winPercentOf(evaluation.line);
+    const white = evaluation.sideToMove === 'w' ? forMover : 100 - forMover;
     const score = formatScore(evaluation.line, evaluation.sideToMove);
-    evalEl.append(text(score, 'eval-score'));
+    evalEl.append(evalBar(white), text(score, 'eval-score'));
     if (showDepth) evalEl.append(text(t('evalDepth', { depth: evaluation.depth }), 'eval-note'));
+  }
+
+  /**
+   * La valutazione come barra, accanto al numero.
+   *
+   * Il numero resta col segno riferito al BIANCO, che e' la convenzione universale e
+   * quella che si ritrova ovunque fuori di qui. Ma a chi gioca il Nero quel segno
+   * chiede una traduzione ("meno uno e mezzo vuol dire che sto bene") che non insegna
+   * niente. La barra e' orientata COME LA SCACCHIERA e gira con lei: la parte piena
+   * dalla tua parte e' sempre la tua, chiunque tu sia.
+   */
+  function evalBar(whitePercent: number): HTMLElement {
+    const bar = document.createElement('div');
+    bar.className = 'eval-bar';
+    const fill = document.createElement('div');
+    // In basso nella scacchiera c'e' il colore di `orientation`: e' quella la meta'
+    // che la barra mostra a sinistra, cioe' quella che cresce quando vai bene.
+    const mine = orientation === 'white' ? whitePercent : 100 - whitePercent;
+    fill.className = orientation === 'white' ? 'eval-fill light' : 'eval-fill dark';
+    fill.style.width = `${Math.round(mine)}%`;
+    bar.append(fill);
+    return bar;
   }
 
   /**
@@ -1404,7 +1431,7 @@ export function mountApp(root: HTMLElement): void {
     settings.append(
       levelSelect(),
       distractionSelect(),
-      iconButton('hint', t('opponentHelp'), false, openOpponentHelp),
+      iconButton('help', t('opponentHelp'), false, openOpponentHelp),
       colorChoice(),
     );
 

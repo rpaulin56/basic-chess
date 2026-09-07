@@ -21,6 +21,7 @@ export type IconName =
   | 'tutor'
   | 'tutorOff'
   | 'hint'
+  | 'help'
   | 'undo'
   | 'resign'
   | 'draw'
@@ -35,9 +36,24 @@ export type IconName =
  * resto e' a filo.
  */
 
-/** La lampadina, con e senza sbarra. */
+/**
+ * La lampadina: "dammi un'idea". E' un pulsante, non un interruttore, e allora il
+ * vetro puo' essere colorato senza entrare in conflitto con nessuno stato.
+ */
 const BULB =
-  '<path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.6 10.8c.6.5.9 1.2 1 2.2h5.2c.1-1 .4-1.7 1-2.2A6 6 0 0 0 12 3z" />';
+  '<path class="glass" d="M12 3a6 6 0 0 0-3.6 10.8c.6.5.9 1.2 1 2.2h5.2c.1-1 .4-1.7 1-2.2A6 6 0 0 0 12 3z" />' +
+  '<path d="M9.5 18h5M10.5 21h3" />';
+
+/**
+ * Il fumetto: la Nonna che parla, sbarrato quando tace.
+ *
+ * Prima qui c'era la lampadina, ed era lo stesso disegno del comando "dammi un'idea":
+ * due cose diverse con la stessa icona. La distinzione giusta e' che la lampadina e'
+ * L'IDEA, mentre il fumetto e' LEI CHE PARLA — che e' esattamente cio' che
+ * l'interruttore accende e spegne.
+ */
+const BUBBLE =
+  '<path d="M6 4h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-6l-5 4v-4H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z" />';
 
 /**
  * Le due scacchiere: quella schierata e quella in mezzo alla partita.
@@ -49,16 +65,26 @@ const BULB =
  *
  * Le case scure sono un motivo 4x4 e non 8x8: a ventidue pixel una scacchiera vera
  * diventa un retino grigio, e resta solo un quadrato sporco.
+ *
+ * Sono le uniche due icone a colori, e il motivo e' che sono le uniche due che NON
+ * hanno uno stato: non si accendono mai, quindi il colore non deve competere con
+ * niente (mentre sul tutor, che e' un interruttore, l'acceso si legge proprio dal
+ * colore). Ed e' anche l'unica cosa che disegniamo che un colore ce l'ha davvero:
+ * una scacchiera ha le case chiare e le case scure, e i pezzi sono bianchi e neri.
  */
 const BOARD_FRAME =
   '<path d="M3 3h18v18H3z" />' +
-  '<path d="M3 3h4.5v4.5H3zM12 3h4.5v4.5H12zM7.5 7.5H12V12H7.5zM16.5 7.5H21V12h-4.5z' +
+  '<path class="sq" d="M3 3h4.5v4.5H3zM12 3h4.5v4.5H12zM7.5 7.5H12V12H7.5zM16.5 7.5H21V12h-4.5z' +
   'M3 12h4.5v4.5H3zM12 12h4.5v4.5H12zM7.5 16.5H12V21H7.5zM16.5 16.5H21V21h-4.5z" ' +
-  'fill="currentColor" fill-opacity=".15" stroke="none"/>';
+  'stroke="none"/>';
 
-/** Un pezzo: un punto pieno. Le sagome vere, a questa scala, sono macchie. */
-function dot(x: number, y: number, r = 1.15): string {
-  return `<circle cx="${x}" cy="${y}" r="${r}" fill="currentColor" stroke="none"/>`;
+/**
+ * Un pezzo: un punto pieno. Le sagome vere, a questa scala, sono macchie.
+ * `shade` dice se e' un pezzo bianco o nero — a due punti di colore diverso non serve
+ * nessuna didascalia per dire chi sta da che parte.
+ */
+function dot(x: number, y: number, shade: 'light' | 'dark', r = 1.15): string {
+  return `<circle class="piece-${shade}" cx="${x}" cy="${y}" r="${r}"/>`;
 }
 
 const PATHS: Record<IconName, string> = {
@@ -73,27 +99,28 @@ const PATHS: Record<IconName, string> = {
   // sbarrata: lo stato si legge dal DISEGNO e non solo dal colore di sfondo, che chi
   // guarda per la prima volta non sa interpretare (e che a un daltonico non dice
   // niente).
-  tutor: BULB,
+  tutor: BUBBLE,
+  tutorOff: BUBBLE + '<path d="M4 20 20 4" />',
+  // "Dammi un'idea": la lampadina.
+  hint: BULB,
   // Punto interrogativo, non un punto interrogativo DENTRO UN CERCHIO: quello e'
-  // l'icona universale della guida in linea, e questo non apre una guida — fa una
-  // domanda sulla posizione che si ha davanti.
-  hint:
+  // l'icona universale della guida in linea, e questa non apre una guida — spiega
+  // una scelta che si ha li' accanto.
+  help:
     '<path d="M8.6 8.6a3.5 3.5 0 1 1 4.6 3.3c-1 .35-1.5 1.15-1.5 2.2v.5" />' +
     '<circle cx="11.7" cy="18.3" r="1.15" fill="currentColor" stroke="none" />',
-  tutorOff: BULB + '<path d="M4 20 20 4" />',
   // Freccia che torna indietro: e' il gesto "annulla" ovunque. Non e' una freccia di
   // navigazione (quelle sono piene e triangolari): questa cambia la partita.
   undo: '<path d="M4.5 9.5h9a5.5 5.5 0 0 1 0 11H8" /><path d="M8.5 5 4 9.5 8.5 14" />',
-  // Bandiera ammainata: e' il gesto dell'abbandono in ogni sport. Non una bandiera
-  // bianca disegnata (a ventidue pixel il colore non si vede) ma l'asta con il drappo.
-  resign: '<path d="M6 3v18" /><path d="M6 4.2h11l-2.4 3.6L17 11.4H6z" />',
-  // Il mezzo punto: e' cosi' che la patta si scrive sul tabellone, e non ha bisogno di
-  // nessuna metafora. Due mani che si stringono, a questa dimensione, sono una macchia.
-  draw:
-    '<path d="M7.6 4.6h2.2l-3.4 5.2h3.6" />' +
-    '<path d="M13.2 20.4 18.6 3.6" />' +
-    '<path d="M14.6 14.2h4.8M17 12.4v3.6" fill="none" />' +
-    '<circle cx="16.9" cy="18.6" r="1.7" />',
+  // Bandiera bianca: il gesto dell'abbandono in ogni sport. Il drappo e' pieno di
+  // bianco e non solo contornato, perche' una bandiera bianca si riconosce se e'
+  // bianca — era l'unico modo di dirlo, e per questo il colore qui ci sta.
+  resign: '<path d="M6 3v18" /><path class="drape" d="M6 4.2h11l-2.4 3.6L17 11.4H6z" />',
+  // Il punto che si divide in due: mezzo a te, mezzo a me. Prima c'era un ½ con
+  // accanto un segno e un cerchio — tre elementi in ventidue pixel, cioe' una
+  // macchia. Qui gli elementi sono due, il cerchio e la sua meta' piena, ed e' la
+  // stessa immagine della barra di valutazione a fine partita.
+  draw: '<circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" />',
   // Cursori: e' l'icona che ovunque significa "impostazioni". Un ingranaggio, a 20
   // pixel e a filo, diventa una rotella dentata illeggibile.
   settings:
@@ -106,17 +133,18 @@ const PATHS: Record<IconName, string> = {
   person:
     '<circle class="body" cx="12" cy="7" r="3.4" />' +
     '<path class="body" d="M5.4 19.6a6.6 6.6 0 0 1 13.2 0z" />',
-  // Nuova partita: i due schieramenti allineati, ordinati e simmetrici.
+  // Nuova partita: i due schieramenti allineati, ordinati e simmetrici. In alto i
+  // Neri, in basso i Bianchi, come su una scacchiera vista dal Bianco.
   newGame:
     BOARD_FRAME +
-    dot(6.2, 6.2) + dot(10.1, 6.2) + dot(13.9, 6.2) + dot(17.8, 6.2) +
-    dot(6.2, 17.8) + dot(10.1, 17.8) + dot(13.9, 17.8) + dot(17.8, 17.8),
+    dot(6.2, 6.2, 'dark') + dot(10.1, 6.2, 'dark') + dot(13.9, 6.2, 'dark') + dot(17.8, 6.2, 'dark') +
+    dot(6.2, 17.8, 'light') + dot(10.1, 17.8, 'light') + dot(13.9, 17.8, 'light') + dot(17.8, 17.8, 'light'),
   // Posizione: gli stessi pezzi, ma sparsi come in una partita cominciata. Il
   // disordine e' il messaggio, quindi le posizioni sono scelte per non allinearsi
   // ne' in riga ne' in colonna.
   position:
     BOARD_FRAME +
-    dot(7.1, 6.6) + dot(13.4, 9.8) + dot(17.4, 6.9) + dot(9.9, 16.4),
+    dot(7.1, 6.6, 'dark') + dot(13.4, 9.8, 'light') + dot(17.4, 6.9, 'dark') + dot(9.9, 16.4, 'light'),
 };
 
 export function createIcon(name: IconName): SVGSVGElement {

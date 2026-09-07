@@ -175,6 +175,21 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 .icon-btn:disabled { opacity: 0.3; cursor: default; }
 /* Il tutor acceso e' uno STATO, non un'azione: si vede senza doverci passare sopra. */
 .icon-btn.on { color: var(--accent); background: var(--accent-soft); }
+
+/*
+ * Le parti colorate delle icone.
+ *
+ * Il resto del disegno resta a `currentColor`, che e' quello che fa funzionare da
+ * solo lo stato disabilitato, il passaggio del mouse e l'interruttore acceso. Il
+ * colore entra solo dove PORTA UN SIGNIFICATO che il contorno non riesce a dire: il
+ * vetro acceso della lampadina, il bianco della bandiera di resa, e le case e i pezzi
+ * delle due scacchiere.
+ */
+.icon-btn svg .glass { fill: var(--accent); fill-opacity: 0.3; }
+.icon-btn svg .drape { fill: #fff; }
+.icon-btn svg .sq { fill: var(--accent); fill-opacity: 0.34; }
+.icon-btn svg .piece-dark { fill: var(--ink); stroke: none; }
+.icon-btn svg .piece-light { fill: #fff; stroke: var(--ink); stroke-width: 0.9; }
 .toolbar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 7px; }
 
 /* Menu di un pulsante-icona (esporta). Ancorato al pulsante e sopra tutto il resto. */
@@ -300,6 +315,23 @@ select {
   font-variant-numeric: tabular-nums;
 }
 .eval-note { font-size: 12px; color: var(--ink-soft); }
+
+/* La barra: il fondo e' il colore in alto nella scacchiera, il pieno quello in basso. */
+.eval-bar {
+  width: 64px;
+  height: 10px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  align-self: center;
+  flex: none;
+}
+.eval-bar .eval-fill { height: 100%; transition: width 0.25s ease; }
+.eval-bar .eval-fill.light { background: #fff; }
+.eval-bar .eval-fill.dark { background: var(--ink); }
+/* Il fondo e' l'altro colore: si dipinge la barra e si scopre il pieno sopra. */
+.eval-bar:has(.light) { background: var(--ink); }
+.eval-bar:has(.dark) { background: #fff; }
 
 /* --- pannello del tutor --- */
 .tutor { border-left: 4px solid var(--accent); }
