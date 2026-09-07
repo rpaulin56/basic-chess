@@ -529,3 +529,6 @@ select {
   padding-left: 10px;
   border-left: 3px solid var(--line);
 }
+
+/* La dedica: piu' piccola dei crediti e in corsivo, come si scrive una dedica. */
+.credits-dedication { font-style: italic; margin: 0 0 6px; color: var(--ink); }

@@ -86,7 +86,15 @@ export function createCredits(): HTMLElement {
   const copyright = document.createElement('p');
   copyright.className = 'credits-copyright';
   copyright.textContent = t('creditsCopyright');
-  details.append(authors, copyright);
+
+  // La dedica sta con gli autori e non in fondo alle licenze: non e' una nota legale,
+  // e da' il nome alla persona da cui viene tutto il resto. Resta in italiano in ogni
+  // lingua — e' dedicata a una persona, e tradurla sarebbe come tradurre un nome.
+  const dedication = document.createElement('p');
+  dedication.className = 'credits-dedication';
+  dedication.textContent = t('creditsDedication');
+
+  details.append(authors, dedication, copyright);
 
   const intro = document.createElement('p');
   intro.textContent = t('creditsIntro');
