@@ -628,6 +628,10 @@ export function mountApp(root: HTMLElement): void {
     }
     previewEl.hidden = false;
     const total = preview.consequence.manifestAt;
+    const stepPossible = (delta: number): boolean => {
+      const next = (preview?.index ?? 0) + delta;
+      return next >= 0 && next <= total;
+    };
 
     const caption = document.createElement('span');
     caption.className = 'preview-caption';
@@ -642,18 +646,22 @@ export function mountApp(root: HTMLElement): void {
       .map(toFigurine)
       .join(' ');
 
-    const slider = document.createElement('input');
-    slider.type = 'range';
-    slider.min = '0';
-    slider.max = String(total);
-    slider.value = String(preview.index);
-    slider.addEventListener('input', () => {
-      if (!preview) return;
-      preview = { ...preview, index: Number(slider.value) };
-      refresh();
-    });
+    // Due passi avanti e indietro, non uno slider. I passi sono da due a otto: uno
+    // slider e' il comando giusto per scorrere un intervallo continuo e quello
+    // sbagliato per fare tre clic, dove costringe a mirare invece di premere.
+    const step = (delta: number, name: IconName, label: string): HTMLElement =>
+      iconButton(name, label, !stepPossible(delta), () => {
+        if (!preview) return;
+        preview = { ...preview, index: preview.index + delta };
+        refresh();
+      });
 
-    previewEl.append(caption, slider, moves);
+    previewEl.append(
+      caption,
+      step(-1, 'previous', t('previous')),
+      step(+1, 'next', t('next')),
+      moves,
+    );
   }
 
   // --- motore ------------------------------------------------------------
@@ -1210,7 +1218,14 @@ export function mountApp(root: HTMLElement): void {
     // e poi ingombrerebbero per sempre: sono finite nella finestra delle impostazioni.
     const settings = document.createElement('div');
     settings.className = 'settings';
-    settings.append(levelSelect(), distractionSelect(), colorChoice());
+    // Una "?" sola per i due selettori: la domanda vera non e' "cos'e' il livello" ma
+    // "quale coppia scelgo", e sono due meta' della stessa risposta.
+    settings.append(
+      levelSelect(),
+      distractionSelect(),
+      iconButton('hint', t('opponentHelp'), false, openOpponentHelp),
+      colorChoice(),
+    );
 
     controlsEl.append(toolbar, settings);
   }
@@ -1519,6 +1534,34 @@ export function mountApp(root: HTMLElement): void {
       refresh();
     });
     return select;
+  }
+
+  /**
+   * Spiega le due scelte insieme, e dice anche il PREZZO di ciascuna invece di
+   * venderle: un'avversaria distratta allena a cogliere l'errore altrui, ma abitua ad
+   * aspettarlo, e chi sceglie deve saperlo.
+   */
+  function openOpponentHelp(): void {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'settings-dialog';
+    const title = document.createElement('h2');
+    title.textContent = t('opponentHelpTitle');
+    dialog.append(title);
+    for (const key of ['opponentHelpLevel', 'opponentHelpCareful', 'opponentHelpSloppy', 'opponentHelpElo']) {
+      const paragraph = document.createElement('p');
+      paragraph.className = 'help-line';
+      paragraph.textContent = t(key);
+      dialog.append(paragraph);
+    }
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'settings-close';
+    close.textContent = t('settingsClose');
+    close.addEventListener('click', () => dialog.close());
+    dialog.append(close);
+    dialog.addEventListener('close', () => dialog.remove());
+    document.body.append(dialog);
+    dialog.showModal();
   }
 
   function colorChoice(): HTMLElement {

@@ -327,19 +327,19 @@ select {
 
 /* --- barra della conseguenza (sotto la scacchiera) --- */
 .preview-bar {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-areas: 'caption slider' 'moves moves';
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px 10px;
-  padding: 8px 10px;
+  gap: 4px 10px;
+  padding: 6px 10px;
   background: var(--accent-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
 }
-.preview-caption { grid-area: caption; font-size: 12px; color: var(--ink-soft); }
-.preview-bar input[type='range'] { grid-area: slider; width: 100%; accent-color: var(--accent); }
-.preview-moves { grid-area: moves; font-size: 15px; letter-spacing: 0.02em; }
+.preview-caption { font-size: 12px; color: var(--ink-soft); }
+/* Le mosse a capo, larghe quanto la barra: sono la cosa che si guarda, e in mezzo
+   ai comandi si leggerebbero peggio. */
+.preview-moves { flex-basis: 100%; font-size: 15px; letter-spacing: 0.02em; }
 
 .tutor-tag {
   display: inline-block;
@@ -515,3 +515,9 @@ select {
   border-radius: 4px;
   padding: 0 4px;
 }
+
+/* La "?" fra i selettori: piu' piccola delle icone della barra, che li' sarebbe
+   sproporzionata accanto a due menu a tendina. */
+.settings .icon-btn { width: 28px; height: 28px; }
+.settings .icon-btn svg { width: 17px; height: 17px; }
+.settings-dialog .help-line { font-size: 13px; line-height: 1.45; margin: 0 0 10px; max-width: 42em; }
