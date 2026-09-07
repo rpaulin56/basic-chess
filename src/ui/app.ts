@@ -32,10 +32,12 @@ import { findContinuations, findOpening, type Opening } from '../openings/openin
 import { buildHint } from '../tutor/hint.js';
 import { orientPosition } from '../tutor/orientation.js';
 import { moveNumberOf } from '../core/game.js';
+import type { Key } from 'chessground/types';
 import { createBoardView, type BoardView } from './boardView.js';
 import { createIcon, type IconName } from './icons.js';
 import { createCredits } from './credits.js';
 import { createEngineSession } from './engineSession.js';
+import { playChime } from './sound.js';
 import { renderMoveList } from './moveList.js';
 import { renderTutorPanel } from './tutorPanel.js';
 import { renderHintPanel, type HintView } from './hintPanel.js';
@@ -198,6 +200,15 @@ export function mountApp(root: HTMLElement): void {
    */
   let showBar = localStorage.getItem('basic-chess:evalBar') === 'on';
   /**
+   * Se la Nonna si fa sentire quando interviene.
+   *
+   * ACCESO di default, al contrario delle opzioni sulla valutazione: quelle mostrano
+   * qualcosa in piu' a chi la cerca, questo risolve un problema che l'utente ha senza
+   * saperlo — su telefono il pannello della Nonna sta sotto la piega, e chi non lo sa
+   * non pensa certo ad andare nelle impostazioni ad accendere un avviso.
+   */
+  let sound = localStorage.getItem('basic-chess:sound') !== 'off';
+  /**
    * Se mostrare anche la profondita' della ricerca accanto al punteggio.
    *
    * Spenta di default: "profondita' 14" e' un dettaglio del motore, non
@@ -324,7 +335,7 @@ export function mountApp(root: HTMLElement): void {
     // L'ultimo argomento: dopo un ritiro si puo' muovere anche se il seguito e'
     // ancora li'. Senza, la scacchiera restava bloccata proprio dopo il comando che
     // serve a riprovare.
-    else board.render(state, orientation, humanColor, takenBackAt === state.cursor);
+    else board.render(state, orientation, humanColor, takenBackAt === state.cursor, tutorMark());
     // Il numero di mosse nel riepilogo: chiusa, la lista deve dire almeno QUANTO
     // contiene, o sembra vuota.
     movesTitle.textContent =
@@ -965,6 +976,10 @@ export function mountApp(root: HTMLElement): void {
         missedChance: afterOpponentError,
         fenAfterMistake: pending.fenAfter,
       };
+      // Il richiamo suona QUI, dove la Nonna prende la parola, e non a ogni ridisegno
+      // del pannello: il pannello si ridisegna anche quando si cambia lingua o si
+      // apre un menu, e sentire il campanello in quei momenti sarebbe incomprensibile.
+      if (sound) playChime();
       // Il riepilogo si costruisce durante la partita: a fine partita le posizioni
       // intermedie non ci sono piu' e ricostruirlo costerebbe una rianalisi completa.
       mistakeLog.push({
@@ -1030,6 +1045,27 @@ export function mountApp(root: HTMLElement): void {
     } catch {
       // Spazio esaurito o memoria disabilitata: si gioca lo stesso, senza salvare.
     }
+  }
+
+  /**
+   * La freccia sulla mossa che la Nonna sta contestando.
+   *
+   * E' la mossa GIOCATA, non quella giusta: il pannello mostra la soluzione solo se
+   * la si chiede, e una freccia che la anticipasse svuoterebbe quella scelta. Qui la
+   * freccia dice "guarda cos'hai appena fatto", che e' la domanda da cui si parte.
+   *
+   * Rosso per gli errori gravi, giallo per gli altri: e' la stessa scala della
+   * gravita' che il pannello scrive a parole, e le due cose devono concordare.
+   */
+  function tutorMark(): { from: Key; to: Key; brush: string } | undefined {
+    if (!review) return undefined;
+    const ply = state.plies[state.cursor - 1];
+    if (!ply) return undefined;
+    return {
+      from: ply.from as Key,
+      to: ply.to as Key,
+      brush: review.verdict.severity === 'blunder' ? 'red' : 'yellow',
+    };
   }
 
   /** FEN senza i contatori: due percorsi diversi alla stessa posizione devono coincidere. */
@@ -1927,6 +1963,17 @@ export function mountApp(root: HTMLElement): void {
       localStorage.setItem('basic-chess:depth', on ? 'on' : 'off');
     });
 
+    // Fuori dal gruppo della valutazione, e senza rientro: non e' un modo di vedere
+    // il punteggio, e' come la Nonna si annuncia.
+    const soundRow = flag('showSound', sound, (on) => {
+      sound = on;
+      localStorage.setItem('basic-chess:sound', on ? 'on' : 'off');
+      // Un assaggio quando lo si accende: un interruttore su un suono che non si e'
+      // mai sentito e' una scommessa al buio.
+      if (on) playChime();
+    });
+    soundRow.classList.remove('nested');
+
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'settings-close';
@@ -1940,6 +1987,7 @@ export function mountApp(root: HTMLElement): void {
       barRow,
       evalRow,
       depthRow,
+      soundRow,
       close,
     );
     // Il cambio di lingua deve ridisegnare tutto, e finche' la finestra e' aperta

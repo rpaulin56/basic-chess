@@ -26,6 +26,15 @@ export interface BoardView {
      * dentro una partita la scacchiera resta in sola lettura.
      */
     resumable?: boolean,
+    /**
+     * Il segno che la Nonna mette sulla mossa appena giocata quando interviene.
+     *
+     * Marca la mossa GIOCATA, non quella giusta: dire subito la risposta toglierebbe
+     * l'unica cosa che fa imparare, cioe' cercarla. La freccia dice "guarda qui", non
+     * "fai questa" — e su telefono e' l'unico modo di accorgersi che la Nonna ha
+     * parlato, perche' il suo pannello sta sotto la piega.
+     */
+    mark?: { readonly from: Key; readonly to: Key; readonly brush: string },
   ): void;
   /**
    * Disegna una posizione qualunque, in sola lettura, con eventuali frecce. La usa il
@@ -52,7 +61,7 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
   });
 
   return {
-    render(state, orientation, humanColor, resumable = false) {
+    render(state, orientation, humanColor, resumable = false, mark) {
       const chess = positionAt(state);
       const turn: 'white' | 'black' = chess.turn() === 'w' ? 'white' : 'black';
       const lastPly = state.cursor > 0 ? state.plies[state.cursor - 1] : undefined;
@@ -76,7 +85,7 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
         lastMove: lastPly ? [lastPly.from as Key, lastPly.to as Key] : [],
         movable,
       });
-      api.setShapes([]);
+      api.setShapes(mark ? [{ orig: mark.from, dest: mark.to, brush: mark.brush }] : []);
     },
 
     renderPosition(fen, orientation, arrows, lastMove) {

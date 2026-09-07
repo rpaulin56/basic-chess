@@ -30,6 +30,7 @@ export const en: Record<keyof typeof it, string> = {
   showBar: 'As a bar beside the board',
   showEval: 'As a number under the board',
   showDepth: 'With the search depth',
+  showSound: 'Play a sound when Grandma speaks',
   levelName: 'Level {n}',
   levelElo: 'Estimated strength: {elo} Elo',
   playAsWhite: 'You have White',

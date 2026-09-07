@@ -28,6 +28,7 @@ export const it = {
   showBar: 'Come barra accanto alla scacchiera',
   showEval: 'Come numero sotto la scacchiera',
   showDepth: 'Con la profondità di analisi',
+  showSound: 'Suona quando la Nonna interviene',
   levelName: 'Livello {n}',
   levelElo: 'Forza stimata: {elo} Elo',
   playAsWhite: 'Hai il Bianco',
