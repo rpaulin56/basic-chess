@@ -521,3 +521,11 @@ select {
 .settings .icon-btn { width: 28px; height: 28px; }
 .settings .icon-btn svg { width: 17px; height: 17px; }
 .settings-dialog .help-line { font-size: 13px; line-height: 1.45; margin: 0 0 10px; max-width: 42em; }
+
+/* --- offerta di patta e abbandono --- */
+.offer { border-left-color: var(--accent); }
+.offer .offer-said {
+  font-weight: 600;
+  padding-left: 10px;
+  border-left: 3px solid var(--line);
+}

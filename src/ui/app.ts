@@ -23,7 +23,7 @@ import {
   type Distraction,
 } from '../bot/bot.js';
 import { chooseBotMove } from '../bot/play.js';
-import { formatScore } from '../engine/winProb.js';
+import { formatScore, winPercentOf } from '../engine/winProb.js';
 import type { Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
 import { classifyConsequence, transportArrows, type Consequence } from '../tutor/classify.js';
@@ -40,6 +40,8 @@ import { renderMoveList } from './moveList.js';
 import { renderTutorPanel } from './tutorPanel.js';
 import { renderHintPanel, type HintView } from './hintPanel.js';
 import { renderEndgamePanel, type EndgameView } from './endgamePanel.js';
+import { renderOfferPanel, type OfferView } from './offerPanel.js';
+import { acceptsDraw, judgeDraw, judgeResign } from '../tutor/adjudicate.js';
 import { classifyEndgame, type Endgame } from '../endgame/endgame.js';
 import { locale, setLocale, t, type LocaleCode } from '../i18n/index.js';
 
@@ -95,8 +97,22 @@ interface SavedGame {
   moves: string[];
   humanColor: Color;
   mistakes: MistakeEntry[];
+  /** Esito deciso dai giocatori invece che dalla scacchiera: abbandono o patta. */
+  outcome?: Outcome | null;
   /** Quante volte si e' chiesto "e adesso?": fa parte del bilancio della partita. */
   hints?: number;
+}
+
+/**
+ * Un esito concordato, che la posizione da sola non direbbe.
+ *
+ * Sta qui e non in core/game perche' non e' una proprieta' della POSIZIONE: la
+ * scacchiera dopo un abbandono e' identica a quella di un attimo prima, ed e' solo
+ * l'accordo fra i due giocatori ad averla chiusa.
+ */
+interface Outcome {
+  readonly result: '1-0' | '0-1' | '1/2-1/2';
+  readonly reason: 'resign' | 'draw';
 }
 
 export function mountApp(root: HTMLElement): void {
@@ -203,8 +219,6 @@ export function mountApp(root: HTMLElement): void {
    * guardando.
    */
   let gameOpening: Opening | null = null;
-  /** Nome con cui l'utente compare nel PGN. Vuoto = si usa "Human". */
-  let playerName = localStorage.getItem('basic-chess:player') ?? '';
   let botThinking = false;
   /**
    * Contatore di versione dello stato. Ogni analisi lo cattura prima di partire e lo
@@ -240,6 +254,15 @@ export function mountApp(root: HTMLElement): void {
    */
   let hintsUsed = saved?.hints ?? 0;
   /**
+   * La partita chiusa per accordo, se lo e'. Resta REVERSIBILE: la freccia indietro
+   * riapre una partita abbandonata, come per il ritiro della mossa. Qui si prova, non
+   * si scommette — e imparare a riconoscere quando e' finita richiede di poter
+   * sbagliare anche quella valutazione.
+   */
+  let outcome: Outcome | null = saved?.outcome ?? null;
+  /** L'offerta in corso, con il giudizio dell'avversaria. */
+  let offer: OfferView | null = null;
+  /**
    * I finali gia' segnalati in questa partita.
    *
    * Una volta per tipo e basta. La scheda dice una cosa vera e utile la prima volta
@@ -264,6 +287,7 @@ export function mountApp(root: HTMLElement): void {
     recapPanel,
     hintEl,
     endgameEl,
+    offerEl,
   } = buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
   const engine = createEngineSession(() => renderEnginePanel());
@@ -272,6 +296,9 @@ export function mountApp(root: HTMLElement): void {
     generation++;
     saveGame();
     if (preview) renderPreview();
+    // A partita chiusa per accordo la scacchiera e' in sola lettura: la posizione
+    // permette ancora di muovere, ma la partita no.
+    else if (outcome) board.renderPosition(currentFen(state), orientation, []);
     // L'ultimo argomento: dopo un ritiro si puo' muovere anche se il seguito e'
     // ancora li'. Senza, la scacchiera restava bloccata proprio dopo il comando che
     // serve a riprovare.
@@ -284,6 +311,7 @@ export function mountApp(root: HTMLElement): void {
     renderStatus();
     renderControls();
     renderHint();
+    renderOffer();
     updateEndgame();
     renderEnginePanel();
     renderOpening();
@@ -435,6 +463,75 @@ export function mountApp(root: HTMLElement): void {
       }
     }
     return null;
+  }
+
+  function renderOffer(): void {
+    renderOfferPanel(offerEl, offer, {
+      onConfirm: () => {
+        // Si abbandona: il risultato lo decide il colore di chi si arrende.
+        outcome = { result: humanColor === 'w' ? '0-1' : '1-0', reason: 'resign' };
+        offer = null;
+        refresh();
+      },
+      onCancel: () => {
+        offer = null;
+        refresh();
+      },
+    });
+  }
+
+  /**
+   * Abbandono e offerta di patta: prima il giudizio, poi la decisione.
+   *
+   * Il giudizio si fa alla profondita' del TUTOR, che deve dire la verita'. La
+   * risposta all'offerta invece la da' l'avversaria con la sua vista al suo livello:
+   * una da 900 punti che rifiuta una patta obiettivamente giusta e' realistica, e
+   * insegna la cosa che conta — che le offerte si valutano da soli.
+   */
+  async function makeOffer(kind: 'resign' | 'draw'): Promise<void> {
+    if (offer || outcome) return;
+    const mine = generation;
+    const fen = currentFen(state);
+    // Il numero di mossa si chiede alla POSIZIONE, non alla lista delle semi-mosse:
+    // importando un finale la partita non ha mosse ma siamo alla quarantesima, e
+    // contare le semi-mosse direbbe "prima mossa, troppo presto per la patta".
+    const moveNumber = positionAt(state).moveNumber();
+
+    // L'offerta prematura si respinge senza nemmeno guardare la posizione: la ragione
+    // non e' come sta la partita, e' che e' appena cominciata.
+    if (kind === 'draw' && judgeDraw(100, moveNumber) === 'tooEarly') {
+      offer = { kind, thinking: false, draw: 'tooEarly', accepted: null };
+      renderOffer();
+      return;
+    }
+
+    offer = { kind, thinking: true };
+    renderOffer();
+    const truth = await engine.analyse(fen, { depth: REVIEW_DEPTH, multiPV: 1 });
+    if (mine !== generation || !offer) return;
+    if (!truth || truth.lines.length === 0) {
+      offer = null;
+      refresh();
+      return;
+    }
+    const mineNow = winPercentOf(truth.lines[0]!);
+
+    if (kind === 'resign') {
+      offer = { kind, thinking: false, resign: judgeResign(mineNow) };
+      renderOffer();
+      return;
+    }
+
+    const verdict = judgeDraw(mineNow, moveNumber);
+    const opponent = await engine.analyse(fen, { depth: level.depth, multiPV: 1 });
+    if (mine !== generation || !offer) return;
+    // L'aspettativa dell'avversaria e' il complemento della nostra: il motore
+    // risponde sempre dal punto di vista di chi ha il tratto, e il tratto e' nostro.
+    const hers = opponent && opponent.lines.length > 0 ? 100 - winPercentOf(opponent.lines[0]!) : 50;
+    const accepted = acceptsDraw(hers);
+    offer = { kind, thinking: false, draw: verdict, accepted };
+    if (accepted) outcome = { result: '1/2-1/2', reason: 'draw' };
+    refresh();
   }
 
   function renderHint(): void {
@@ -671,6 +768,9 @@ export function mountApp(root: HTMLElement): void {
    * il suo turno, altrimenti valutare la posizione mostrata.
    */
   async function driveEngine(): Promise<void> {
+    // Partita chiusa per accordo, o offerta sul tavolo: il motore non ha piu' niente
+    // da fare finche' non si decide.
+    if (outcome || offer) return;
     // Finche' un verdetto e' sullo schermo il bot resta fermo: l'utente deve poter
     // ritirare la mossa senza che la partita gli scappi avanti.
     if (review) return;
@@ -845,6 +945,7 @@ export function mountApp(root: HTMLElement): void {
         humanColor,
         mistakes: mistakeLog,
         hints: hintsUsed,
+        outcome,
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
     } catch {
@@ -1010,6 +1111,8 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function commit(from: Square, to: Square, promotion?: Promotion): void {
+    outcome = null;
+    offer = null;
     hint = null;
     replaying = false;
     takenBackAt = null;
@@ -1048,6 +1151,11 @@ export function mountApp(root: HTMLElement): void {
     // Il verdetto finale si riferisce alla partita intera, non alla posizione che si
     // sta guardando: durante un rewind mostriamo di nuovo il tratto.
     const atEnd = state.cursor === state.plies.length;
+    if (outcome && atEnd) {
+      statusEl.textContent = t(outcome.reason === 'resign' ? 'outcomeResign' : 'outcomeDraw');
+      statusEl.className = 'status over';
+      return;
+    }
     const over = atEnd ? gameOver(state) : null;
     if (over) {
       const winner = over.winner ? t(over.winner === 'w' ? 'white' : 'black') : '';
@@ -1210,7 +1318,13 @@ export function mountApp(root: HTMLElement): void {
       // meglio di un separatore. Era un pulsante con l'etichetta perche' sembrava
       // distruttivo; da quando la mossa ritirata si puo' rimettere identica, non lo e'
       // piu', e si e' preso la sua icona come tutti gli altri.
-      group(iconButton('undo', t('takeBack'), state.cursor === 0, takeBack), 'push'),
+      // Le tre cose che chiudono o riaprono la partita, insieme e staccate dal resto.
+      group(
+        iconButton('draw', t('drawOffer'), !canOffer(), () => void makeOffer('draw')),
+        iconButton('resign', t('resign'), !canOffer(), () => void makeOffer('resign')),
+        iconButton('undo', t('takeBack'), state.cursor === 0, takeBack),
+        'push',
+      ),
     );
 
     // Nella riga restano le due impostazioni che si cambiano DA UNA PARTITA
@@ -1310,6 +1424,17 @@ export function mountApp(root: HTMLElement): void {
     return element;
   }
 
+  /** Si offre o si abbandona solo quando c'e' una partita e tocca a noi. */
+  function canOffer(): boolean {
+    return (
+      !outcome &&
+      offer === null &&
+      state.cursor === state.plies.length &&
+      gameOver(state) === null &&
+      positionAt(state).turn() === humanColor
+    );
+  }
+
   function separator(): HTMLElement {
     const element = document.createElement('span');
     element.className = 'sep';
@@ -1344,7 +1469,10 @@ export function mountApp(root: HTMLElement): void {
    * che serve a rileggerlo fra sei mesi. Per il bot si dichiara anche l'Elo misurato.
    */
   function pgnTags(): Record<string, string> {
-    const human = playerName.trim() || 'Human';
+    // Nessun nome: era un campo permanente per un dato che non serve a niente e che
+    // e' comunque personale. Nel PGN "You" dice esattamente quel che c'e' da dire, e
+    // chi vuole il proprio nome lo mette con un editor in due secondi.
+    const human = 'You';
     // Nel PGN il bot si presenta con entrambe le sue coordinate: fra sei mesi
     // "Bot discreto" da solo non direbbe se l'avversario regalava pezzi o no.
     const bot = `Bot ${level.id} (${distraction.id})`;
@@ -1356,9 +1484,12 @@ export function mountApp(root: HTMLElement): void {
     // ECO e Opening sono tag standard di fatto (li scrivono ChessBase, SCID, Lichess):
     // e' li' che il nome dell'apertura va a vivere quando sparisce dallo schermo, e da
     // li' lo rilegge qualunque altro programma.
+    // Il risultato concordato prevale su quello che direbbe la posizione: dopo un
+    // abbandono la scacchiera non sa di essere finita, ma la partita si'.
+    const decided = outcome ? { Result: outcome.result } : {};
     return gameOpening
-      ? { ...players, ECO: gameOpening.eco, Opening: gameOpening.name }
-      : players;
+      ? { ...players, ...decided, ECO: gameOpening.eco, Opening: gameOpening.name }
+      : { ...players, ...decided };
   }
 
   /**
@@ -1411,6 +1542,11 @@ export function mountApp(root: HTMLElement): void {
       seen.add(found.key);
       put(index, ENDGAME_EN[found.key] ?? found.key);
     });
+
+    // Come e' finita, quando non l'ha decisa la scacchiera.
+    if (outcome && state.plies.length > 0) {
+      put(state.plies.length - 1, outcome.reason === 'resign' ? 'resigned' : 'draw agreed');
+    }
 
     for (const entry of mistakeLog) {
       // Nel marcatore va SOLO cio' che non si puo' ricavare da altro. La gravita' non
@@ -1472,20 +1608,6 @@ export function mountApp(root: HTMLElement): void {
         corrected: undone === 'undone',
       });
     }
-  }
-
-  function nameInput(): HTMLElement {
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'name-input';
-    input.value = playerName;
-    input.placeholder = t('playerName');
-    input.title = t('playerName');
-    input.addEventListener('change', () => {
-      playerName = input.value;
-      localStorage.setItem('basic-chess:player', playerName);
-    });
-    return input;
   }
 
   function levelSelect(): HTMLElement {
@@ -1666,7 +1788,6 @@ export function mountApp(root: HTMLElement): void {
 
     dialog.append(
       title,
-      field(t('playerName'), nameInput()),
       field(t('language'), languageSelect()),
       evalRow,
       depthRow,
@@ -1727,6 +1848,8 @@ export function mountApp(root: HTMLElement): void {
    * fermo il bot.
    */
   function clearTutor(): void {
+    outcome = null;
+    offer = null;
     // Anche i finali gia' visti: appartengono alla partita, non alla sessione.
     endgamesSeen.clear();
     endgame = null;
@@ -1742,6 +1865,10 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function seek(cursor: number): void {
+    // Navigare riapre una partita chiusa per accordo: l'abbandono e' reversibile
+    // quanto una mossa ritirata.
+    outcome = null;
+    offer = null;
     hint = null;
     state = goTo(state, cursor);
     evaluation = null;
@@ -1823,6 +1950,12 @@ function buildLayout(root: HTMLElement) {
   hintEl.className = 'panel tutor hint';
   hintEl.hidden = true;
 
+  // Lo scambio sull'abbandono e sulla patta sta in cima a tutto: mentre e' aperto e'
+  // l'unica cosa che conta, e la partita e' ferma ad aspettare.
+  const offerEl = document.createElement('section');
+  offerEl.className = 'panel tutor offer';
+  offerEl.hidden = true;
+
   // La scheda del finale: stesso posto e stesso aspetto, ma non e' il tutor — non
   // giudica niente, dice solo che la posizione ha un nome e dove studiarla.
   const endgameEl = document.createElement('section');
@@ -1846,7 +1979,7 @@ function buildLayout(root: HTMLElement) {
   movesEl.className = 'movelist';
   movesPanel.append(movesTitle, movesEl);
 
-  side.append(tutorEl, hintEl, endgameEl, recapPanel, movesPanel);
+  side.append(offerEl, tutorEl, hintEl, endgameEl, recapPanel, movesPanel);
   layout.append(boardColumn, side);
   root.append(header, layout);
   return {
@@ -1862,6 +1995,7 @@ function buildLayout(root: HTMLElement) {
     recapPanel,
     hintEl,
     endgameEl,
+    offerEl,
   };
 }
 
@@ -2030,6 +2164,7 @@ function loadGame(): {
   humanColor: Color;
   mistakes: MistakeEntry[];
   hints: number;
+  outcome: Outcome | null;
 } | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -2051,6 +2186,7 @@ function loadGame(): {
       humanColor: saved.humanColor === 'b' ? 'b' : 'w',
       mistakes: Array.isArray(saved.mistakes) ? saved.mistakes : [],
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
+      outcome: saved.outcome ?? null,
     };
   } catch {
     return null;

@@ -22,6 +22,8 @@ export type IconName =
   | 'tutorOff'
   | 'hint'
   | 'undo'
+  | 'resign'
+  | 'draw'
   | 'settings'
   | 'position'
   | 'person'
@@ -83,6 +85,16 @@ const PATHS: Record<IconName, string> = {
   // Freccia che torna indietro: e' il gesto "annulla" ovunque. Non e' una freccia di
   // navigazione (quelle sono piene e triangolari): questa cambia la partita.
   undo: '<path d="M4.5 9.5h9a5.5 5.5 0 0 1 0 11H8" /><path d="M8.5 5 4 9.5 8.5 14" />',
+  // Bandiera ammainata: e' il gesto dell'abbandono in ogni sport. Non una bandiera
+  // bianca disegnata (a ventidue pixel il colore non si vede) ma l'asta con il drappo.
+  resign: '<path d="M6 3v18" /><path d="M6 4.2h11l-2.4 3.6L17 11.4H6z" />',
+  // Il mezzo punto: e' cosi' che la patta si scrive sul tabellone, e non ha bisogno di
+  // nessuna metafora. Due mani che si stringono, a questa dimensione, sono una macchia.
+  draw:
+    '<path d="M7.6 4.6h2.2l-3.4 5.2h3.6" />' +
+    '<path d="M13.2 20.4 18.6 3.6" />' +
+    '<path d="M14.6 14.2h4.8M17 12.4v3.6" fill="none" />' +
+    '<circle cx="16.9" cy="18.6" r="1.7" />',
   // Cursori: e' l'icona che ovunque significa "impostazioni". Un ingranaggio, a 20
   // pixel e a filo, diventa una rotella dentata illeggibile.
   settings:
