@@ -20,7 +20,7 @@ per un repository va benissimo.
 
 ## Online
 
-https://scacchi.riccardopaulin.com — sito statico sul VPS personale, nessun account,
+https://grandmachess.com — sito statico sul VPS personale, nessun account,
 nessun dato raccolto. Per pubblicare una nuova versione: `sh deploy/publish.sh`.
 
 ## Come si usa

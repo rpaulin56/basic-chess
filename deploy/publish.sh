@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pubblica la versione corrente su scacchi.riccardopaulin.com.
+# Pubblica la versione corrente su grandmachess.com.
 #
 #   sh deploy/publish.sh
 #
@@ -14,4 +14,4 @@ TARGET=/srv/basic-chess/dist
 
 npm run build
 tar -czf - -C dist . | ssh "$HOST" "rm -rf $TARGET && mkdir -p $TARGET && tar -xzf - -C $TARGET && chmod -R a+rX $TARGET"
-echo "Pubblicato su https://scacchi.riccardopaulin.com"
+echo "Pubblicato su https://grandmachess.com"

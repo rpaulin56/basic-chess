@@ -7,8 +7,17 @@
 #
 # Nessun header COOP/COEP: usiamo la build single-thread di Stockfish, che non ha
 # bisogno di SharedArrayBuffer (vedi src/engine/browserTransport.ts).
+#
+# L'indirizzo e' grandmachess.com, dominio proprio e non piu' un sottodominio. Il
+# vecchio scacchi.riccardopaulin.com non e' piu' servito: non c'e' nessun blocco per
+# lui, e Caddy a quel punto non risponde affatto su quel nome.
+#
+# Il dominio NUDO e' un record A verso l'IP della VPS, e non puo' essere altrimenti:
+# la radice di una zona DNS deve poter portare i propri NS e SOA, e un CNAME li
+# escluderebbe. Il www invece e' un CNAME verso il dominio nudo, e da qui viene
+# rimandato con un 301 sul nome senza www: un indirizzo solo, non due.
 
-scacchi.riccardopaulin.com {
+grandmachess.com {
 	root * /srv/basic-chess/dist
 	encode zstd gzip
 
@@ -23,4 +32,11 @@ scacchi.riccardopaulin.com {
 	header /openings.json Cache-Control "public, max-age=604800"
 
 	file_server
+}
+
+# Il www non serve una seconda copia del sito: rimanda al nome canonico. Un solo
+# indirizzo vero significa anche una sola partita salvata, perche' quella vive nel
+# localStorage del browser ed e' legata al dominio esatto.
+www.grandmachess.com {
+	redir https://grandmachess.com{uri} permanent
 }
