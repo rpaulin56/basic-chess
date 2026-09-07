@@ -44,6 +44,18 @@ header {
   margin-bottom: 16px;
 }
 header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px; }
+/* Nome e claim sulla stessa riga di base: il claim e' un'apposizione del nome,
+   non una seconda intestazione. */
+.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.tagline {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+/* Su schermo stretto sparisce: fra il claim e i "Crediti e licenze" (che sono un
+   obbligo di licenza) a cedere il posto e' il claim. */
+@media (max-width: 480px) { .tagline { display: none; } }
 
 .layout {
   display: grid;

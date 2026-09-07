@@ -1,5 +1,6 @@
 export const it = {
   appTitle: 'GrandmaChess',
+  tagline: 'Migliora il tuo gioco',
   credits: 'Crediti e licenze',
   creditsAuthorLabel: 'Concept e progetto software',
   creditsAuthorName: 'Riccardo Paulin',

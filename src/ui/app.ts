@@ -2038,9 +2038,19 @@ function buildLayout(root: HTMLElement) {
   const header = document.createElement('header');
   const title = document.createElement('h1');
   title.textContent = t('appTitle');
+  // Il claim sta accanto al nome e non sotto: e' la stessa riga, e dice a chi arriva
+  // per la prima volta cosa promette il programma. Non e' un titolo — resta piccolo e
+  // grigio, e sparisce quando la riga si stringe (vedi styles.css): a scacchiera
+  // ridotta serve lo spazio, e una frase gia' letta non ha bisogno di ripetersi.
+  const tagline = document.createElement('p');
+  tagline.className = 'tagline';
+  tagline.textContent = t('tagline');
+  const brand = document.createElement('div');
+  brand.className = 'brand';
+  brand.append(title, tagline);
   // I crediti stanno nell'intestazione e chiusi: sono un obbligo di licenza, non
   // qualcosa che l'utente deve leggere per giocare.
-  header.append(title, createCredits());
+  header.append(brand, createCredits());
 
   const layout = document.createElement('div');
   layout.className = 'layout';
