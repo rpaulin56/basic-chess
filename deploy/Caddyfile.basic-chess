@@ -31,6 +31,22 @@ grandmachess.com {
 	header /engine/* Cache-Control "public, max-age=604800"
 	header /openings.json Cache-Control "public, max-age=604800"
 
+	# HSTS: il browser che ha visto questa intestazione non prova nemmeno piu' a
+	# chiedere il sito in chiaro. Serve a chi scrive "grandmachess.com" senza
+	# prefisso, che altrimenti parte in http e ci arriva solo dopo un 308.
+	#
+	# max-age di UN GIORNO e non di un anno, ed e' una scelta prudente e non una
+	# svista. L'intestazione e' vincolante per il browser che l'ha ricevuta: finche'
+	# vale, un certificato rotto non e' piu' aggirabile con "procedi comunque" e il
+	# sito diventa irraggiungibile invece che brutto, e servire il dominio in http
+	# semplice (un parcheggio, un hosting di passaggio) non funziona piu'. Con un
+	# giorno l'effetto pratico c'e' tutto e l'impegno si esaurisce da solo.
+	#
+	# Niente includeSubDomains: vincolerebbe anche sottodomini che non esistono
+	# ancora, e non sappiamo cosa ci metteremo. Niente preload: quello si toglie in
+	# mesi, non in un giorno.
+	header Strict-Transport-Security "max-age=86400"
+
 	file_server
 }
 
