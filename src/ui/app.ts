@@ -188,6 +188,14 @@ export function mountApp(root: HTMLElement): void {
    */
   let showEval = localStorage.getItem('basic-chess:eval') !== 'off';
   /**
+   * Se mostrare la barra verticale accanto alla scacchiera.
+   *
+   * E' un'opzione SEPARATA dal numero, e non un modo diverso di disegnare la stessa
+   * cosa: la barra dice "come sto", il numero dice "di quanto", e sono due domande
+   * che non si fanno insieme. Spenta di default, come il numero non e'.
+   */
+  let showBar = localStorage.getItem('basic-chess:evalBar') === 'on';
+  /**
    * Se mostrare anche la profondita' della ricerca accanto al punteggio.
    *
    * Spenta di default: "profondita' 14" e' un dettaglio del motore, non
@@ -289,6 +297,8 @@ export function mountApp(root: HTMLElement): void {
     movesEl,
     controlsEl,
     evalEl,
+    barEl,
+    fillEl,
     tutorEl,
     previewEl,
     openingEl,
@@ -1235,9 +1245,13 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function renderEnginePanel(): void {
+    renderEvalBar();
     evalEl.replaceChildren();
-    evalEl.hidden = !showEval;
-    if (!showEval) return;
+    // Numero e profondita' sono due interruttori indipendenti: la riga serve se ne e'
+    // acceso almeno uno. E gli avvisi del motore (sta caricando, non parte) valgono
+    // per tutti e due, quindi stanno qui e non in ciascuno.
+    evalEl.hidden = !showEval && !showDepth;
+    if (evalEl.hidden) return;
     const failure = engine.error();
     if (failure) {
       evalEl.append(text(t('engineFailed', { error: failure }), 'eval-note'));
@@ -1253,43 +1267,47 @@ export function mountApp(root: HTMLElement): void {
     if (over) {
       // Solo il risultato: il MOTIVO ("scacco matto", "stallo") lo dice gia' la riga
       // di stato qui accanto, e ripeterlo a mezzo centimetro di distanza e' rumore.
-      evalEl.append(
-        evalBar(over.winner ? (over.winner === 'w' ? 100 : 0) : 50),
-        text(over.winner ? (over.winner === 'w' ? '1-0' : '0-1') : '½-½', 'eval-score'),
-      );
+      if (showEval) {
+        evalEl.append(text(over.winner ? (over.winner === 'w' ? '1-0' : '0-1') : '½-½', 'eval-score'));
+      }
       return;
     }
     if (!evaluation) {
       evalEl.append(text(t('analysing'), 'eval-note'));
       return;
     }
-    const forMover = winPercentOf(evaluation.line);
-    const white = evaluation.sideToMove === 'w' ? forMover : 100 - forMover;
-    const score = formatScore(evaluation.line, evaluation.sideToMove);
-    evalEl.append(evalBar(white), text(score, 'eval-score'));
+    if (showEval) {
+      evalEl.append(text(formatScore(evaluation.line, evaluation.sideToMove), 'eval-score'));
+    }
     if (showDepth) evalEl.append(text(t('evalDepth', { depth: evaluation.depth }), 'eval-note'));
   }
 
   /**
-   * La valutazione come barra, accanto al numero.
+   * La barra verticale accanto alla scacchiera.
    *
-   * Il numero resta col segno riferito al BIANCO, che e' la convenzione universale e
-   * quella che si ritrova ovunque fuori di qui. Ma a chi gioca il Nero quel segno
-   * chiede una traduzione ("meno uno e mezzo vuol dire che sto bene") che non insegna
-   * niente. La barra e' orientata COME LA SCACCHIERA e gira con lei: la parte piena
-   * dalla tua parte e' sempre la tua, chiunque tu sia.
+   * Verticale e non orizzontale, e fuori dalla riga di stato: e' l'unica informazione
+   * che si guarda MENTRE si guarda la scacchiera, con la coda dell'occhio e senza
+   * leggere, e allora deve stare alla stessa altezza e nello stesso colpo d'occhio.
+   *
+   * Il pieno cresce DAL BASSO, cioe' dalla parte in cui stai tu sulla scacchiera, e
+   * gira con lei quando la si ribalta: chi gioca il Nero non deve tradurre niente.
    */
-  function evalBar(whitePercent: number): HTMLElement {
-    const bar = document.createElement('div');
-    bar.className = 'eval-bar';
-    const fill = document.createElement('div');
-    // In basso nella scacchiera c'e' il colore di `orientation`: e' quella la meta'
-    // che la barra mostra a sinistra, cioe' quella che cresce quando vai bene.
-    const mine = orientation === 'white' ? whitePercent : 100 - whitePercent;
-    fill.className = orientation === 'white' ? 'eval-fill light' : 'eval-fill dark';
-    fill.style.width = `${Math.round(mine)}%`;
-    bar.append(fill);
-    return bar;
+  function renderEvalBar(): void {
+    barEl.hidden = !showBar;
+    if (!showBar) return;
+    const over = state.cursor === state.plies.length ? gameOver(state) : null;
+    let white: number | null = null;
+    if (over) white = over.winner ? (over.winner === 'w' ? 100 : 0) : 50;
+    else if (outcome) white = outcome.result === '1/2-1/2' ? 50 : outcome.result === '1-0' ? 100 : 0;
+    else if (evaluation) {
+      const forMover = winPercentOf(evaluation.line);
+      white = evaluation.sideToMove === 'w' ? forMover : 100 - forMover;
+    }
+    // Finche' non si sa niente (motore che carica, analisi in corso) la barra resta a
+    // meta': meglio ferma nel mezzo che scattante su un valore inventato.
+    const mine = white === null ? 50 : orientation === 'white' ? white : 100 - white;
+    barEl.className = orientation === 'white' ? 'eval-bar light' : 'eval-bar dark';
+    fillEl.style.height = `${Math.round(mine)}%`;
   }
 
   /**
@@ -1707,10 +1725,17 @@ export function mountApp(root: HTMLElement): void {
   function levelSelect(): HTMLElement {
     const select = document.createElement('select');
     select.title = t('levelTitle');
-    for (const option of BOT_LEVELS) {
+    for (const [index, option] of BOT_LEVELS.entries()) {
       const element = document.createElement('option');
       element.value = option.id;
-      element.textContent = `${option.id} · ${option.elo[distraction.id]}`;
+      // Un numero, non un aggettivo. "principiante", "club", "esperto" descrivevano
+      // CHI GIOCA, ed erano nati quando dall'altra parte c'era un motore: alla Nonna
+      // non si addicono, e "medio" detto di lei suona come un giudizio su di lei.
+      // La scala numerata dice l'unica cosa che serve — che sono in ordine.
+      element.textContent = t('levelName', { n: index + 1 });
+      // L'Elo resta, ma nel suggerimento: e' la risposta a "quanto forte, di preciso?",
+      // una domanda che si fa una volta e non ogni volta che si apre il menu.
+      element.title = t('levelElo', { elo: option.elo[distraction.id] });
       element.selected = option.id === level.id;
       select.append(element);
     }
@@ -1848,33 +1873,50 @@ export function mountApp(root: HTMLElement): void {
     const title = document.createElement('h2');
     title.textContent = t('settings');
 
-    const evalRow = document.createElement('label');
-    evalRow.className = 'check-row';
-    const evalBox = document.createElement('input');
-    evalBox.type = 'checkbox';
-    evalBox.checked = showEval;
-    evalBox.addEventListener('change', () => {
-      showEval = evalBox.checked;
-      localStorage.setItem('basic-chess:eval', showEval ? 'on' : 'off');
-      depthBox.disabled = !showEval;
-      renderEnginePanel();
-    });
-    evalRow.append(evalBox, document.createTextNode(t('showEval')));
+    /**
+     * Tre interruttori indipendenti sotto un titolo, invece di uno principale con due
+     * subordinati.
+     *
+     * Prima la profondita' era annidata sotto il numero e si spegneva con lui. Ma da
+     * quando la barra e il numero sono due oggetti diversi in due posti diversi —
+     * una accanto alla scacchiera, l'altro nella riga di stato — non c'e' piu' un
+     * "mostra la valutazione" che li contenga: ci sono tre cose che si vedono o non
+     * si vedono, e il titolo dice solo di cosa si sta parlando.
+     */
+    const evalTitle = document.createElement('div');
+    evalTitle.className = 'check-title';
+    evalTitle.textContent = t('showEvalTitle');
 
-    // La profondita' e' un dettaglio della valutazione: se la valutazione non si
-    // vede, la sua opzione non ha nulla a cui riferirsi e resta spenta.
-    const depthRow = document.createElement('label');
-    depthRow.className = 'check-row nested';
-    const depthBox = document.createElement('input');
-    depthBox.type = 'checkbox';
-    depthBox.checked = showDepth;
-    depthBox.disabled = !showEval;
-    depthBox.addEventListener('change', () => {
-      showDepth = depthBox.checked;
-      localStorage.setItem('basic-chess:depth', showDepth ? 'on' : 'off');
-      renderEnginePanel();
+    const flag = (
+      key: string,
+      checked: boolean,
+      apply: (on: boolean) => void,
+    ): HTMLElement => {
+      const row = document.createElement('label');
+      row.className = 'check-row nested';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = checked;
+      box.addEventListener('change', () => {
+        apply(box.checked);
+        renderEnginePanel();
+      });
+      row.append(box, document.createTextNode(t(key)));
+      return row;
+    };
+
+    const barRow = flag('showBar', showBar, (on) => {
+      showBar = on;
+      localStorage.setItem('basic-chess:evalBar', on ? 'on' : 'off');
     });
-    depthRow.append(depthBox, document.createTextNode(t('showDepth')));
+    const evalRow = flag('showEval', showEval, (on) => {
+      showEval = on;
+      localStorage.setItem('basic-chess:eval', on ? 'on' : 'off');
+    });
+    const depthRow = flag('showDepth', showDepth, (on) => {
+      showDepth = on;
+      localStorage.setItem('basic-chess:depth', on ? 'on' : 'off');
+    });
 
     const close = document.createElement('button');
     close.type = 'button';
@@ -1885,6 +1927,8 @@ export function mountApp(root: HTMLElement): void {
     dialog.append(
       title,
       field(t('language'), languageSelect()),
+      evalTitle,
+      barRow,
       evalRow,
       depthRow,
       close,
@@ -2030,7 +2074,18 @@ function buildLayout(root: HTMLElement) {
   const infoRow = document.createElement('div');
   infoRow.className = 'board-info';
   infoRow.append(statusEl, evalEl, openingEl);
-  boardColumn.append(boardWrap, previewEl, infoRow, controlsEl);
+  // La barra sta ACCANTO alla scacchiera, alla sua stessa altezza, e per questo le
+  // due cose vanno in una riga loro: dentro la colonna starebbero una sotto l'altra.
+  const barEl = document.createElement('div');
+  barEl.className = 'eval-bar light';
+  barEl.hidden = true;
+  const fillEl = document.createElement('div');
+  fillEl.className = 'eval-fill';
+  barEl.append(fillEl);
+  const boardRow = document.createElement('div');
+  boardRow.className = 'board-row';
+  boardRow.append(boardWrap, barEl);
+  boardColumn.append(boardRow, previewEl, infoRow, controlsEl);
 
   const side = document.createElement('aside');
 
@@ -2084,6 +2139,8 @@ function buildLayout(root: HTMLElement) {
     movesEl,
     controlsEl,
     evalEl,
+    barEl,
+    fillEl,
     tutorEl,
     previewEl,
     openingEl,

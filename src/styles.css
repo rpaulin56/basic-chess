@@ -316,22 +316,33 @@ select {
 }
 .eval-note { font-size: 12px; color: var(--ink-soft); }
 
-/* La barra: il fondo e' il colore in alto nella scacchiera, il pieno quello in basso. */
+/*
+ * La barra di valutazione: un oggetto a se', verticale, accanto alla scacchiera.
+ *
+ * Orizzontale e dentro la riga di stato era una cosa DA LEGGERE, in fila con le
+ * parole. Qui e' alla stessa altezza della scacchiera e si coglie con la coda
+ * dell'occhio senza staccare lo sguardo dai pezzi, che e' l'unico modo in cui una
+ * barra serve a qualcosa.
+ */
+.board-row { display: flex; align-items: stretch; gap: 10px; }
+.board-row .board-wrap { flex: 1 1 auto; }
 .eval-bar {
-  width: 64px;
-  height: 10px;
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  overflow: hidden;
-  align-self: center;
   flex: none;
+  width: 14px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+  /* Il pieno cresce dal basso: la parte in basso e' la tua, come sulla scacchiera. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
-.eval-bar .eval-fill { height: 100%; transition: width 0.25s ease; }
-.eval-bar .eval-fill.light { background: #fff; }
-.eval-bar .eval-fill.dark { background: var(--ink); }
-/* Il fondo e' l'altro colore: si dipinge la barra e si scopre il pieno sopra. */
-.eval-bar:has(.light) { background: var(--ink); }
-.eval-bar:has(.dark) { background: #fff; }
+.eval-bar .eval-fill { width: 100%; transition: height 0.25s ease; }
+/* Il fondo e' il colore in alto nella scacchiera, il pieno quello in basso. */
+.eval-bar.light { background: var(--ink); }
+.eval-bar.light .eval-fill { background: #fff; }
+.eval-bar.dark { background: #fff; }
+.eval-bar.dark .eval-fill { background: var(--ink); }
 
 /* --- pannello del tutor --- */
 .tutor { border-left: 4px solid var(--accent); }
@@ -460,7 +471,10 @@ select {
   margin-bottom: 10px;
   font-size: 13px;
 }
-.settings-dialog .check-row.nested { margin-left: 24px; }
+.settings-dialog .check-row.nested { margin-left: 22px; margin-bottom: 8px; }
+/* Il titolo di un gruppo di interruttori: non e' un'etichetta cliccabile, e' il
+   nome della cosa di cui i tre parlano. */
+.settings-dialog .check-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
 .settings-dialog .check-row:has(input:disabled) { color: var(--ink-soft); cursor: default; }
 .settings-dialog .check-row {
   display: flex;
