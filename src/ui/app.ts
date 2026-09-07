@@ -84,6 +84,15 @@ const REVIEW_DEPTH = 17;
 const HINT_DEPTH = 12;
 const HINT_MULTIPV = 20;
 
+/**
+ * Sopra questa aspettativa la partita e' decisa e la Nonna puo' proporre l'esercizio.
+ *
+ * E' la stessa soglia con cui il tutor smette di segnalare gli errori perche' "si
+ * vince comunque" (detect.ts, stillWinningAbove): sotto, la partita e' ancora una
+ * partita, e interromperla per fare scuola sarebbe fuori luogo.
+ */
+const DECIDED_ABOVE = 88;
+
 /** Pausa prima di riprovare dopo un guasto del motore. */
 const RETRY_DELAY_MS = 1500;
 
@@ -424,12 +433,63 @@ export function mountApp(root: HTMLElement): void {
         endgame = { endgame: ahead, entering: true };
       }
     }
+    // La sfida si ricalcola ogni volta: la scheda compare appena si arriva nel finale,
+    // ma la valutazione che dice CHI sta vincendo arriva un secondo dopo, e la proposta
+    // deve poter comparire allora invece di essere persa per un attimo di anticipo.
+    if (endgame && !endgame.entering) {
+      endgame = { ...endgame, challenge: challengeFor(endgame.endgame) };
+    }
     renderEndgamePanel(endgameEl, endgame, {
-      onClose: () => {
-        endgame = null;
-        renderEndgamePanel(endgameEl, null, { onClose: () => {} });
-      },
+      onClose: closeEndgame,
+      onSwap: swapSides,
     });
+  }
+
+  function closeEndgame(): void {
+    endgame = null;
+    renderEndgamePanel(endgameEl, null, { onClose: () => {}, onSwap: () => {} });
+  }
+
+  /**
+   * La proposta che accompagna un finale tipico, se ce n'e' una.
+   *
+   * Solo per i finali con una TECNICA, e solo quando la partita e' ormai decisa: la
+   * soglia e' la stessa con cui il tutor smette di segnalare gli errori perche' "si
+   * vince comunque". Sotto quella soglia la partita e' ancora una partita, e proporre
+   * un esercizio sarebbe interrompere il gioco per fare scuola.
+   */
+  function challengeFor(found: Endgame): 'swap' | 'convert' | null {
+    if (!found.technical || !evaluation) return null;
+    const percent = winPercentOf(evaluation.line);
+    // Il motore risponde dal punto di vista di chi ha il tratto: qui serve il nostro.
+    const mineNow = evaluation.sideToMove === humanColor ? percent : 100 - percent;
+    if (mineNow >= DECIDED_ABOVE) return 'convert';
+    if (mineNow <= 100 - DECIDED_ABOVE) return 'swap';
+    return null;
+  }
+
+  /**
+   * Si gira la scacchiera: la stessa posizione, ma il lato che vince passa a te.
+   *
+   * La partita vecchia si chiude, ed e' una scelta: era persa, e tenerla aperta
+   * accanto all'esercizio vorrebbe dire avere due partite in corso, che finora non
+   * esiste e non varrebbe la complicazione.
+   *
+   * Il finale resta segnato come gia' visto, altrimenti un istante dopo la Nonna
+   * proporrebbe la lezione appena data — dall'altra parte adesso a vincere sei tu, e
+   * scatterebbe la proposta "convert" sullo stesso identico finale.
+   */
+  function swapSides(): void {
+    const fen = currentFen(state);
+    const key = endgame?.endgame.key;
+    const winner: Color = humanColor === 'w' ? 'b' : 'w';
+    clearTutor();
+    state = newGame(fen);
+    humanColor = winner;
+    orientation = winner === 'w' ? 'white' : 'black';
+    if (key) endgamesSeen.add(key);
+    evaluation = null;
+    refresh();
   }
 
   /**
@@ -1065,6 +1125,9 @@ export function mountApp(root: HTMLElement): void {
       sideToMove: fen.split(' ')[1] === 'b' ? 'b' : 'w',
     };
     renderEnginePanel();
+    // La proposta di girare la scacchiera dipende da CHI sta vincendo, e si sa solo
+    // adesso: senza questa riga comparirebbe solo alla mossa dopo.
+    updateEndgame();
   }
 
   // --- mosse -------------------------------------------------------------

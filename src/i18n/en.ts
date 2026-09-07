@@ -190,4 +190,8 @@ export const en: Record<keyof typeof it, string> = {
   outcomeResign: 'You resigned.',
   outcomeDraw: 'Draw agreed.',
   creditsDedication: 'Per mia nonna Luisa Dordi, che mi ha insegnato a giocare.',
+  endgameSwapIntro: 'This game is lost for you: I would win it. But would you know how to win it? Study this endgame, then we swap sides and you try.',
+  endgameSwapAction: 'Let us swap sides',
+  endgameSwapDecline: 'No, let us finish this one',
+  endgameConvertIntro: 'You are winning this endgame: it is a technique, you learn it once and then you just do it. If you do not know it yet, look here before you move.',
 };

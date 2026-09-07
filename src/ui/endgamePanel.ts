@@ -16,6 +16,7 @@ import type { Endgame } from '../endgame/endgame.js';
 
 export interface EndgameHandlers {
   readonly onClose: () => void;
+  readonly onSwap: () => void;
 }
 
 export interface EndgameView {
@@ -29,6 +30,17 @@ export interface EndgameView {
    * la mossa sarebbe giocare al posto suo.
    */
   readonly entering: boolean;
+  /**
+   * La proposta che accompagna il finale, quando la partita e' ormai decisa.
+   *
+   * `swap`: sta vincendo lei, e ti propone di studiare e poi passare dall'altra parte.
+   * E' il momento piu' sprecato di una partita — sai gia' come finisce e giochi solo
+   * per arrivare in fondo — trasformato nell'esercizio migliore che ci sia.
+   *
+   * `convert`: stai vincendo tu, e ti offre la tecnica. Non c'e' niente da girare: la
+   * posizione da convertire ce l'hai gia' davanti, e te la sei guadagnata sul campo.
+   */
+  readonly challenge?: 'swap' | 'convert' | null;
 }
 
 export function renderEndgamePanel(
@@ -46,7 +58,15 @@ export function renderEndgamePanel(
   container.append(heading);
 
   const intro = document.createElement('p');
-  intro.textContent = t(entering ? 'endgameEnteringIntro' : 'endgameIntro');
+  intro.textContent = t(
+    view.challenge === 'swap'
+      ? 'endgameSwapIntro'
+      : view.challenge === 'convert'
+        ? 'endgameConvertIntro'
+        : entering
+          ? 'endgameEnteringIntro'
+          : 'endgameIntro',
+  );
   container.append(intro);
 
   const list = document.createElement('ul');
@@ -73,9 +93,17 @@ export function renderEndgamePanel(
 
   const actions = document.createElement('div');
   actions.className = 'tutor-actions';
+  if (view.challenge === 'swap') {
+    const swap = document.createElement('button');
+    swap.type = 'button';
+    swap.className = 'primary';
+    swap.textContent = t('endgameSwapAction');
+    swap.addEventListener('click', handlers.onSwap);
+    actions.append(swap);
+  }
   const close = document.createElement('button');
   close.type = 'button';
-  close.textContent = t('endgameClose');
+  close.textContent = t(view.challenge === 'swap' ? 'endgameSwapDecline' : 'endgameClose');
   close.addEventListener('click', handlers.onClose);
   actions.append(close);
   container.append(actions);

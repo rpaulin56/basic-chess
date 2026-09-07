@@ -31,6 +31,16 @@ export interface Endgame {
   /** Chiave i18n del nome del finale. */
   readonly key: string;
   readonly resources: readonly EndgameResource[];
+  /**
+   * Vero se vincerlo e' una TECNICA: una procedura che si impara una volta e poi si
+   * esegue, non una posizione da giocare bene.
+   *
+   * Serve alla proposta di girare la scacchiera: ha senso dire "sapresti vincerla?"
+   * solo dove la risposta e' insegnabile in mezz'ora. "Finale di Torri" e' vinto o
+   * perso a seconda di dove stanno i Pedoni, e proporlo come esercizio vorrebbe dire
+   * proporre di giocare meglio, che non e' un esercizio: e' tutto il gioco.
+   */
+  readonly technical?: boolean;
 }
 
 const WIKI_EN = 'https://en.wikipedia.org/wiki/';
@@ -115,6 +125,7 @@ function signature(strong: Count, weak: Count): string {
 const BY_SIGNATURE: Record<string, Endgame> = {
   KPvK: {
     key: 'egKPvK',
+    technical: true,
     resources: [
       { label: 'Wikipedia', url: `${WIKI_EN}King_and_pawn_versus_king_endgame` },
       { label: 'Lichess: opposition', url: `${PRACTICE}pawn-endgames/opposition/A4ujYOer`, practice: true },
@@ -124,18 +135,21 @@ const BY_SIGNATURE: Record<string, Endgame> = {
   },
   KQvK: {
     key: 'egKQvK',
+    technical: true,
     resources: [
       { label: 'Lichess: basic checkmates', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
     ],
   },
   KRvK: {
     key: 'egKRvK',
+    technical: true,
     resources: [
       { label: 'Lichess: basic checkmates', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
     ],
   },
   KBNvK: {
     key: 'egKBNvK',
+    technical: true,
     resources: [
       { label: 'Lichess: bishop and knight', url: `${PRACTICE}checkmates/knight-bishop-mate/ByhlXnmM`, practice: true },
       { label: 'Wikipedia', url: `${WIKI_EN}Bishop_and_knight_checkmate` },
@@ -147,16 +161,19 @@ const BY_SIGNATURE: Record<string, Endgame> = {
   },
   KBBvK: {
     key: 'egKBBvK',
+    technical: true,
     resources: [
       { label: 'Lichess: basic checkmates', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
     ],
   },
   KQvKP: {
     key: 'egKQvKP',
+    technical: true,
     resources: [{ label: 'Wikipedia', url: `${WIKI_EN}Queen_versus_pawn_endgame` }],
   },
   KRPvKR: {
     key: 'egKRPvKR',
+    technical: true,
     resources: [
       { label: 'Wikipedia: Lucena position', url: `${WIKI_EN}Lucena_position` },
       { label: 'Wikipedia: Philidor position', url: `${WIKI_EN}Philidor_position` },

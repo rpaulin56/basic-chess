@@ -188,4 +188,8 @@ export const it = {
   outcomeResign: 'Hai abbandonato.',
   outcomeDraw: 'Patta concordata.',
   creditsDedication: 'Per mia nonna Luisa Dordi, che mi ha insegnato a giocare.',
+  endgameSwapIntro: 'Da qui la partita per te è persa: io la vincerei. Ma tu sapresti vincerla? Studia questo finale, poi giriamo la scacchiera e ci provi tu.',
+  endgameSwapAction: 'Giriamo la scacchiera',
+  endgameSwapDecline: 'No, finiamo questa',
+  endgameConvertIntro: 'Questo finale lo vinci: è una tecnica, si impara una volta e poi si esegue. Se non la sai ancora, guarda qui prima di muovere.',
 } as const;
