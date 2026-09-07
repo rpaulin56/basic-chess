@@ -46,11 +46,11 @@ describe('toPgn', () => {
 
   it('appende il suffisso alla mossa sbagliata', () => {
     const annotations = new Map<number, Annotation>([
-      [2, { suffix: '??', comment: 'Blunder (tactical): 40 points of win expectancy lost.' }],
+      [2, { suffix: '??', comment: '[%bc tactical,40,kept]' }],
     ]);
     const pgn = toPgn(play(SCHOLAR), {}, annotations);
     expect(pgn).toContain('Bc4??');
-    expect(pgn).toContain('{Blunder (tactical): 40 points of win expectancy lost.}');
+    expect(pgn).toContain('{[%bc tactical,40,kept]}');
   });
 
   it('numera la mossa del Nero quando un commento ha interrotto il filo', () => {
@@ -71,8 +71,8 @@ describe('toPgn', () => {
 
   it('spezza i commenti lunghi senza rompere il PGN', () => {
     const lungo =
-      'Blunder (tactical): 39 points of win expectancy lost, and the refutation ' +
-      'follows immediately. [%bc blunder,tactical,39,kept]';
+      'Un commento lungo puo' + "'" + ' sempre arrivare da un PGN altrui, o da noi il ' +
+      'giorno che ci servisse: deve stare negli ottanta caratteri lo stesso.';
     const pgn = toPgn(play(SCHOLAR), {}, new Map([[2, { comment: lungo, suffix: '??' }]]));
     for (const line of pgn.split('\n')) expect(line.length).toBeLessThanOrEqual(80);
     // Spezzato in due righe, ma il commento e' lo stesso: dentro le graffe gli a capo
@@ -96,14 +96,14 @@ describe('toPgn', () => {
 
   it('si rilegge da solo, commenti compresi', () => {
     const annotations = new Map<number, Annotation>([
-      [4, { suffix: '?', comment: 'Mistake: 20 points. [%bc mistake,tactical,20,kept]' }],
+      [4, { suffix: '?', comment: '[%bc tactical,20,kept]' }],
     ]);
     const parsed = parsePgn(toPgn(play(SCHOLAR), { White: 'Human' }, annotations));
     expect(parsed.state.plies.map((ply) => ply.san)).toEqual([
       'e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6', 'Qxf7#',
     ]);
     expect(parsed.tags['White']).toBe('Human');
-    expect(parsed.comments.get(4)).toContain('[%bc mistake,tactical,20,kept]');
+    expect(parsed.comments.get(4)).toContain('[%bc tactical,20,kept]');
   });
 
   it('conserva la posizione di partenza attraverso un giro completo', () => {

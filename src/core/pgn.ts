@@ -34,15 +34,21 @@ export interface ParsedPgn {
  * i programmi che non la conoscono la ignorano e la conservano, quindi un PGN
  * annotato da noi resta leggibile ovunque e torna intatto se ci rientra.
  *
- * Il testo per gli umani viene PRIMA e il marcatore in coda: chi apre il file con un
- * altro programma vede una frase, non un codice.
+ * Il commento contiene SOLO il marcatore, senza prosa. Quella c'era, ed era un errore:
+ * i suffissi "?" e "??" erano nati per accorciare il PGN e si erano ritrovati sopra a
+ * una frase che ripeteva la stessa cosa a parole. Cio' che un lettore umano deve
+ * cogliere a colpo d'occhio sta gia' sulla mossa.
  *
  * Campi, separati da virgola e in quest'ordine:
- *   severity   blunder | mistake | inaccuracy
- *   category   trivial | tactical | strategic   (vuoto se non classificato)
+ *   category   oversight | tactical | strategic   (vuoto se non classificato)
  *   drop       punti di aspettativa persi, intero
  *   state      kept | undone
  *   san        solo se `undone`: la mossa ritirata, che nella partita non c'e' piu'
+ *
+ * La GRAVITA' non c'e', ed e' deliberato: la dice gia' il suffisso sulla mossa, ed e'
+ * comunque una funzione dello scarto. Nel marcatore sta solo cio' che non si ricava da
+ * altro — scrivere due volte lo stesso dato e' il modo piu' sicuro di ritrovarselo
+ * incoerente.
  */
 export const ANNOTATION_TAG = '%bc';
 

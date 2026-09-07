@@ -1179,7 +1179,17 @@ export function mountApp(root: HTMLElement): void {
         // ma con una conferma esplicita il clic per sbaglio non fa piu' danno, e
         // l'icona torna legittima.
         iconButton('newGame', t('newGame'), false, () => {
+          // I colori si scambiano, come si fa fra persone: chi aveva il Bianco passa
+          // al Nero. Ma solo se hai giocato TU almeno una mossa.
+          //
+          // Non basta guardare se la partita ha mosse: giocando col Nero il bot muove
+          // per primo, quindi non e' mai vuota, e due clic di fila ti riportavano al
+          // punto di partenza dopo aver visto solo la mossa del bot. Visto in prova.
           if (state.plies.length > 0 && !confirm(t('newGameConfirm'))) return;
+          if (state.plies.some((ply) => ply.color === humanColor)) {
+            humanColor = humanColor === 'w' ? 'b' : 'w';
+            orientation = humanColor === 'w' ? 'white' : 'black';
+          }
           state = newGame();
           evaluation = null;
           clearTutor();
@@ -1366,15 +1376,15 @@ export function mountApp(root: HTMLElement): void {
     };
 
     // Dove finisce la teoria, segnato sulla mossa che ci ha portati: rileggendo il PGN
-    // fra sei mesi e' esattamente il punto che si vuole ritrovare, perche' da li' in
-    // poi le mosse sono farina del sacco di chi ha giocato.
+    // fra sei mesi e' esattamente il punto che si vuole ritrovare.
     //
-    // Il confine e' l'ultima posizione che il libro CONOSCE, e la frase dice
-    // esattamente quello. Sullo schermo il nome sopravvive di una semi-mossa in piu'
-    // (vedi stillInTheory), ma quella e' una gentilezza per non farlo lampeggiare nei
-    // buchi dell'indice, non un'affermazione su dove finisca la teoria.
+    // Il NOME dell'apertura non si ripete qui: sta gia' nei tag ECO e Opening, e
+    // ripeterlo sarebbe la prolissita' che stiamo togliendo. Il confine e' l'ultima
+    // posizione che il libro CONOSCE — sullo schermo il nome sopravvive di una
+    // semi-mossa in piu' (vedi stillInTheory), ma quella e' una gentilezza per non
+    // farlo lampeggiare nei buchi dell'indice, non un'affermazione sulla teoria.
     if (gameOpening && gameOpening.plies > 0 && gameOpening.plies <= state.plies.length) {
-      put(gameOpening.plies - 1, `${gameOpening.name}: last position known to the opening book.`);
+      put(gameOpening.plies - 1, 'end of book');
     }
 
     // Dove comincia ogni finale tipico: e' l'altro punto che si cerca rileggendo una
@@ -1384,31 +1394,26 @@ export function mountApp(root: HTMLElement): void {
       const found = classifyEndgame(ply.fenAfter);
       if (!found || seen.has(found.key)) return;
       seen.add(found.key);
-      put(index, `${ENDGAME_EN[found.key] ?? found.key}.`);
+      put(index, ENDGAME_EN[found.key] ?? found.key);
     });
 
     for (const entry of mistakeLog) {
-      const severity = entry.severity;
-      const category = CATEGORY_EN[entry.category ?? ''] ?? '';
-      const drop = Math.round(entry.drop);
+      // Nel marcatore va SOLO cio' che non si puo' ricavare da altro. La gravita' non
+      // c'e' perche' e' due volte ridondante: la dice il suffisso sulla mossa, ed e'
+      // comunque una funzione dello scarto (vedi severityOf), che invece c'e'.
       const machine = [
-        severity,
-        category,
-        drop,
+        CATEGORY_EN[entry.category ?? ''] ?? '',
+        Math.round(entry.drop),
         entry.corrected ? 'undone' : 'kept',
         ...(entry.corrected ? [entry.san] : []),
       ].join(',');
-      const label = category ? `${SEVERITY_EN[severity] ?? severity} (${category})` : (SEVERITY_EN[severity] ?? severity);
-      const human = entry.corrected
-        ? `You had played ${entry.san} here and took it back: ${label}, ${drop} points of win expectancy.`
-        : `${label}: ${drop} points of win expectancy lost.`;
       // Il suffisso va sulla mossa solo se e' rimasta nella partita: quando l'errore
       // e' stato ritirato, la mossa che sta li' e' quella BUONA, e marcarla "??"
       // direbbe il contrario di quello che e' successo.
       put(
         entry.ply,
-        `${human} [${ANNOTATION_TAG} ${machine}]`,
-        entry.corrected ? undefined : SEVERITY_SUFFIX[severity],
+        `[${ANNOTATION_TAG} ${machine}]`,
+        entry.corrected ? undefined : SEVERITY_SUFFIX[entry.severity],
       );
     }
     return map;
@@ -1425,13 +1430,19 @@ export function mountApp(root: HTMLElement): void {
       const match = comment.match(new RegExp(`\\[${ANNOTATION_TAG}\\s+([^\\]]+)\\]`));
       if (!match) continue;
       const fields = match[1]!.split(',').map((field) => field.trim());
-      // Il formato ha cambiato ordine una volta (prima categoria, poi gravita'):
-      // si riconosce da quale dei due campi contiene una gravita' nota, cosi' i PGN
-      // esportati prima continuano a rientrare.
-      const [severity, category] = SEVERITY_EN[fields[0] ?? '']
-        ? [fields[0]!, fields[1] ?? '']
-        : [fields[1] ?? 'mistake', fields[0] ?? ''];
-      const [, , drop, undone, san] = fields;
+      /*
+       * Il marcatore ha cambiato forma due volte. Oggi e' `categoria,scarto,stato` e
+       * la gravita' si ricava dallo scarto; prima portava anche la gravita', in un
+       * ordine che a sua volta era cambiato. Si distingue senza ambiguita' guardando
+       * dove sta il numero, ed e' l'unico modo di non buttare i PGN gia' esportati:
+       * un formato di scambio che non rilegge se stesso non e' un formato di scambio.
+       */
+      const numberAt = fields.findIndex((field) => /^\d+$/.test(field));
+      const category = fields[0] && !/^\d+$/.test(fields[0]) ? fields[0] : (fields[1] ?? '');
+      const drop = Number(fields[numberAt] ?? 0) || 0;
+      const undone = fields[numberAt + 1];
+      const san = fields[numberAt + 2];
+      const severity = severityOf(drop);
       mistakeLog.push({
         ply,
         number: moveNumberOf(state, ply),
@@ -1442,7 +1453,7 @@ export function mountApp(root: HTMLElement): void {
         san: san ?? state.plies[ply]?.san ?? '?',
         severity,
         category: CATEGORY_IT[category] ?? (category || null),
-        drop: Number(drop) || 0,
+        drop,
         corrected: undone === 'undone',
       });
     }
@@ -1897,11 +1908,19 @@ interface MistakeEntry {
  * traduzioni che possono cambiare a piacere, questi sono valori di un formato di
  * scambio e cambiarli romperebbe i file gia' esportati.
  */
-const SEVERITY_EN: Record<string, string> = {
-  blunder: 'Blunder',
-  mistake: 'Mistake',
-  inaccuracy: 'Inaccuracy',
-};
+/**
+ * La gravita' dallo scarto di aspettativa, con le stesse soglie che usa detect.ts.
+ *
+ * Serve a rileggere i PGN: nel marcatore la gravita' non si scrive, perche' e'
+ * ricavabile: e' una funzione dello scarto, ed e' gia' scritta sulla mossa come
+ * suffisso. Scrivere due volte lo stesso dato e' il modo piu' sicuro di ritrovarselo
+ * incoerente.
+ */
+function severityOf(drop: number): string {
+  if (drop >= 30) return 'blunder';
+  if (drop >= 18) return 'mistake';
+  return 'inaccuracy';
+}
 
 const CATEGORY_EN: Record<string, string> = {
   banale: 'oversight',
