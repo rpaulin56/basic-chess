@@ -182,17 +182,19 @@ export function mountApp(root: HTMLElement): void {
   /**
    * Se mostrare la valutazione del motore sotto la scacchiera.
    *
-   * E' un'opzione e non una costante perche' il numero e' due cose insieme: una
-   * misura per chi sa leggerla e una stampella per chi non ancora. Chi vuole
-   * allenarsi a giudicare la posizione da solo deve poterlo spegnere.
+   * Il numero e' due cose insieme: una misura per chi sa leggerla e una stampella per
+   * chi non ancora. SPENTO di default, perche' finche' c'e' si guarda quello invece
+   * della posizione, e giudicare da soli e' esattamente cio' che si viene a imparare
+   * qui. Chi lo vuole lo accende — e chi lo vuole lo trova.
    */
-  let showEval = localStorage.getItem('basic-chess:eval') !== 'off';
+  let showEval = localStorage.getItem('basic-chess:eval') === 'on';
   /**
    * Se mostrare la barra verticale accanto alla scacchiera.
    *
    * E' un'opzione SEPARATA dal numero, e non un modo diverso di disegnare la stessa
    * cosa: la barra dice "come sto", il numero dice "di quanto", e sono due domande
-   * che non si fanno insieme. Spenta di default, come il numero non e'.
+   * che non si fanno insieme. Spenta di default come il numero: si comincia a
+   * guardare la scacchiera, non i suoi indicatori.
    */
   let showBar = localStorage.getItem('basic-chess:evalBar') === 'on';
   /**
