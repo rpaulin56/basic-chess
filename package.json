@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "review": "tsx scripts/review.ts",
     "explain": "tsx scripts/explain.ts",
-    "botprobe": "tsx scripts/botprobe.ts"
+    "botprobe": "tsx scripts/botprobe.ts",
+    "egprobe": "tsx scripts/egprobe.ts"
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {

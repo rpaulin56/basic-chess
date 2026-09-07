@@ -18,21 +18,35 @@ export interface EndgameHandlers {
   readonly onClose: () => void;
 }
 
+export interface EndgameView {
+  readonly endgame: Endgame;
+  /**
+   * Vero se il finale non c'e' ancora e ci si puo' arrivare con un cambio.
+   *
+   * E' il momento didatticamente prezioso: la domanda "questo cambio mi conviene?" si
+   * risponde sapendo com'e' fatto il finale che ne esce, e chi comincia non sa nemmeno
+   * che quella domanda esiste. La scheda dice solo QUALE finale, mai quale mossa: dire
+   * la mossa sarebbe giocare al posto suo.
+   */
+  readonly entering: boolean;
+}
+
 export function renderEndgamePanel(
   container: HTMLElement,
-  endgame: Endgame | null,
+  view: EndgameView | null,
   handlers: EndgameHandlers,
 ): void {
   container.replaceChildren();
-  container.hidden = !endgame;
-  if (!endgame) return;
+  container.hidden = !view;
+  if (!view) return;
+  const { endgame, entering } = view;
 
   const heading = document.createElement('h2');
   heading.textContent = t(endgame.key);
   container.append(heading);
 
   const intro = document.createElement('p');
-  intro.textContent = t('endgameIntro');
+  intro.textContent = t(entering ? 'endgameEnteringIntro' : 'endgameIntro');
   container.append(intro);
 
   const list = document.createElement('ul');

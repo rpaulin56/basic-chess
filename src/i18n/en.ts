@@ -167,4 +167,5 @@ export const en: Record<keyof typeof it, string> = {
   egOppositeBishops: 'Opposite-coloured bishops',
   egPawns: 'Pawn endgame',
   egRooks: 'Rook endgame',
+  endgameEnteringIntro: 'An exchange from here leads into this endgame. Worth knowing how it works before you go in: the question is whether the trade suits you.',
 };

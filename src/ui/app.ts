@@ -13,7 +13,7 @@ import {
 } from '../core/game.js';
 import { parseGameInput } from '../core/import.js';
 import { toFigurine } from '../core/notation.js';
-import { ANNOTATION_TAG, toPgn } from '../core/pgn.js';
+import { ANNOTATION_TAG, SEVERITY_SUFFIX, toPgn, type Annotation } from '../core/pgn.js';
 import {
   BOT_LEVELS,
   DISTRACTIONS,
@@ -39,7 +39,7 @@ import { createEngineSession } from './engineSession.js';
 import { renderMoveList } from './moveList.js';
 import { renderTutorPanel } from './tutorPanel.js';
 import { renderHintPanel, type HintView } from './hintPanel.js';
-import { renderEndgamePanel } from './endgamePanel.js';
+import { renderEndgamePanel, type EndgameView } from './endgamePanel.js';
 import { classifyEndgame, type Endgame } from '../endgame/endgame.js';
 import { locale, setLocale, t, type LocaleCode } from '../i18n/index.js';
 
@@ -248,7 +248,7 @@ export function mountApp(root: HTMLElement): void {
    */
   const endgamesSeen = new Set<string>();
   /** Il finale da mostrare adesso, se c'e'. */
-  let endgame: Endgame | null = null;
+  let endgame: EndgameView | null = null;
 
   root.replaceChildren();
   const {
@@ -384,9 +384,17 @@ export function mountApp(root: HTMLElement): void {
    */
   function updateEndgame(): void {
     const found = classifyEndgame(currentFen(state));
-    if (found && !endgamesSeen.has(found.key)) {
-      endgamesSeen.add(found.key);
-      endgame = found;
+    if (found) {
+      if (!endgamesSeen.has(found.key)) {
+        endgamesSeen.add(found.key);
+        endgame = { endgame: found, entering: false };
+      }
+    } else {
+      const ahead = endgameAhead();
+      if (ahead && !endgamesSeen.has(ahead.key)) {
+        endgamesSeen.add(ahead.key);
+        endgame = { endgame: ahead, entering: true };
+      }
     }
     renderEndgamePanel(endgameEl, endgame, {
       onClose: () => {
@@ -394,6 +402,39 @@ export function mountApp(root: HTMLElement): void {
         renderEndgamePanel(endgameEl, null, { onClose: () => {} });
       },
     });
+  }
+
+  /**
+   * Il finale tipico in cui si puo' entrare da qui con un cambio.
+   *
+   * Si guardano le mosse legali e, per le catture, anche la ripresa avversaria sulla
+   * stessa casa: un cambio sono due semi-mosse, e fermarsi alla prima non vedrebbe il
+   * caso piu' comune di tutti. Restituisce il primo finale RICONOSCIUTO che si trova,
+   * senza dire con quale mossa: sapere che dietro l'angolo c'e' "torre e pedone contro
+   * torre" e' l'informazione utile, sapere quale mossa ci porta sarebbe la soluzione.
+   *
+   * Costa qualche centinaio di conteggi di pezzi, cioe' niente, e solo quando tocca
+   * all'utente muovere.
+   */
+  function endgameAhead(): Endgame | null {
+    if (state.cursor !== state.plies.length) return null;
+    const chess = positionAt(state);
+    if (chess.turn() !== humanColor || chess.isGameOver()) return null;
+    for (const move of chess.moves({ verbose: true })) {
+      const after = new Chess(currentFen(state));
+      after.move(move.san);
+      const direct = classifyEndgame(after.fen());
+      if (direct) return direct;
+      if (!move.captured) continue;
+      for (const reply of after.moves({ verbose: true })) {
+        if (reply.to !== move.to) continue;
+        const traded = new Chess(after.fen());
+        traded.move(reply.san);
+        const found = classifyEndgame(traded.fen());
+        if (found) return found;
+      }
+    }
+    return null;
   }
 
   function renderHint(): void {
@@ -1296,17 +1337,34 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /**
-   * Il riepilogo degli errori come commenti PGN, uno per semi-mossa segnalata.
+   * Tutto quello che sappiamo della partita, come annotazioni PGN.
    *
-   * Cosi' il riepilogo viaggia insieme alla partita invece di essere un secondo
-   * testo da copiare a parte: un PGN annotato si apre in qualunque programma di
-   * scacchi, che mostra le note e le conserva, e rientrando qui le rileggiamo.
+   * SEMPRE IN INGLESE, qualunque sia la lingua dell'interfaccia. Il PGN e' un formato
+   * di scambio: lo aprira' un altro programma, o la stessa persona fra due anni con
+   * un'altra installazione, e mescolare le lingue dentro un file di dati non fa
+   * comodo a nessuno. La lingua naturale serve a parlare con chi gioca, non a
+   * etichettare i dati.
    *
-   * Le mosse RITIRATE non esistono piu' nella partita, quindi la loro nota si
-   * attacca alla mossa che le ha sostituite: "qui avevi giocato Cf6, poi ritirata".
+   * Gli errori portano anche il SUFFISSO sulla mossa ("??", "?", "?!"), che e' come
+   * si annotano gli errori negli scacchi da sempre e come li mostrera' qualunque
+   * altro programma senza sapere niente di noi.
+   *
+   * Le mosse RITIRATE non esistono piu' nella partita, quindi la loro nota si attacca
+   * alla mossa che le ha sostituite — e quella mossa NON prende il suffisso, perche'
+   * e' quella buona.
    */
-  function annotations(): Map<number, string> {
-    const map = new Map<number, string>();
+  function annotations(): Map<number, Annotation> {
+    const map = new Map<number, Annotation>();
+    const put = (ply: number, comment: string, suffix?: string): void => {
+      const previous = map.get(ply);
+      const kept = suffix ?? previous?.suffix;
+      map.set(ply, {
+        comment: previous?.comment ? `${previous.comment} ${comment}` : comment,
+        // Con exactOptionalPropertyTypes la chiave va OMESSA, non messa a undefined.
+        ...(kept ? { suffix: kept } : {}),
+      });
+    };
+
     // Dove finisce la teoria, segnato sulla mossa che ci ha portati: rileggendo il PGN
     // fra sei mesi e' esattamente il punto che si vuole ritrovare, perche' da li' in
     // poi le mosse sono farina del sacco di chi ha giocato.
@@ -1316,28 +1374,42 @@ export function mountApp(root: HTMLElement): void {
     // (vedi stillInTheory), ma quella e' una gentilezza per non farlo lampeggiare nei
     // buchi dell'indice, non un'affermazione su dove finisca la teoria.
     if (gameOpening && gameOpening.plies > 0 && gameOpening.plies <= state.plies.length) {
-      map.set(gameOpening.plies - 1, t('annotationTheory', { name: gameOpening.name }));
+      put(gameOpening.plies - 1, `${gameOpening.name}: last position known to the opening book.`);
     }
+
+    // Dove comincia ogni finale tipico: e' l'altro punto che si cerca rileggendo una
+    // partita, e costa un riconoscimento per semi-mossa (un conteggio di pezzi).
+    const seen = new Set<string>();
+    state.plies.forEach((ply, index) => {
+      const found = classifyEndgame(ply.fenAfter);
+      if (!found || seen.has(found.key)) return;
+      seen.add(found.key);
+      put(index, `${ENDGAME_EN[found.key] ?? found.key}.`);
+    });
+
     for (const entry of mistakeLog) {
-      const state_ = entry.corrected
-        ? t('annotationUndone', { move: toFigurine(entry.san) })
-        : t('annotationKept');
-      const human = t('annotationLine', {
-        kind: entry.category ? t(RECAP_CATEGORY[entry.category] ?? 'headStrategico') : '—',
-        severity: t(RECAP_SEVERITY[entry.severity] ?? 'tutorMistake'),
-        what: `-${Math.round(entry.drop)}`,
-        state: state_,
-      });
+      const severity = entry.severity;
+      const category = CATEGORY_EN[entry.category ?? ''] ?? '';
+      const drop = Math.round(entry.drop);
       const machine = [
-        entry.category ?? '',
-        entry.severity,
-        Math.round(entry.drop),
+        severity,
+        category,
+        drop,
         entry.corrected ? 'undone' : 'kept',
-        entry.san,
+        ...(entry.corrected ? [entry.san] : []),
       ].join(',');
-      const previous = map.get(entry.ply);
-      const comment = `${human} [${ANNOTATION_TAG} ${machine}]`;
-      map.set(entry.ply, previous ? `${previous} ${comment}` : comment);
+      const label = category ? `${SEVERITY_EN[severity] ?? severity} (${category})` : (SEVERITY_EN[severity] ?? severity);
+      const human = entry.corrected
+        ? `You had played ${entry.san} here and took it back: ${label}, ${drop} points of win expectancy.`
+        : `${label}: ${drop} points of win expectancy lost.`;
+      // Il suffisso va sulla mossa solo se e' rimasta nella partita: quando l'errore
+      // e' stato ritirato, la mossa che sta li' e' quella BUONA, e marcarla "??"
+      // direbbe il contrario di quello che e' successo.
+      put(
+        entry.ply,
+        `${human} [${ANNOTATION_TAG} ${machine}]`,
+        entry.corrected ? undefined : SEVERITY_SUFFIX[severity],
+      );
     }
     return map;
   }
@@ -1346,16 +1418,30 @@ export function mountApp(root: HTMLElement): void {
   function readAnnotations(comments: ReadonlyMap<number, string>): void {
     mistakeLog.length = 0;
     for (const [ply, comment] of [...comments].sort((a, b) => a[0] - b[0])) {
-      const match = comment.match(new RegExp(`\\[${ANNOTATION_TAG} ([^\\]]+)\\]`));
+      // Spazio bianco QUALUNQUE dopo il marcatore, e ripulito anche dentro: andando a
+      // capo per stare negli ottanta caratteri, l'export puo' spezzare il marcatore
+      // proprio li'. Pretendere uno spazio singolo faceva perdere l'annotazione a un
+      // PGN scritto da noi cinque minuti prima.
+      const match = comment.match(new RegExp(`\\[${ANNOTATION_TAG}\\s+([^\\]]+)\\]`));
       if (!match) continue;
-      const [category, severity, drop, undone, san] = match[1]!.split(',');
+      const fields = match[1]!.split(',').map((field) => field.trim());
+      // Il formato ha cambiato ordine una volta (prima categoria, poi gravita'):
+      // si riconosce da quale dei due campi contiene una gravita' nota, cosi' i PGN
+      // esportati prima continuano a rientrare.
+      const [severity, category] = SEVERITY_EN[fields[0] ?? '']
+        ? [fields[0]!, fields[1] ?? '']
+        : [fields[1] ?? 'mistake', fields[0] ?? ''];
+      const [, , drop, undone, san] = fields;
       mistakeLog.push({
         ply,
         number: moveNumberOf(state, ply),
         color: state.plies[ply]?.color ?? 'w',
-        san: san ?? '?',
-        severity: severity ?? 'mistake',
-        category: category || null,
+        // La mossa sta nel marcatore solo se e' stata RITIRATA, perche' in quel caso
+        // nella partita non c'e' piu'. Se e' stata tenuta, la mossa e' li' e prenderla
+        // dal marcatore sarebbe ripetersi.
+        san: san ?? state.plies[ply]?.san ?? '?',
+        severity,
+        category: CATEGORY_IT[category] ?? (category || null),
         drop: Number(drop) || 0,
         corrected: undone === 'undone',
       });
@@ -1805,6 +1891,46 @@ interface MistakeEntry {
   /** Vero se l'utente ha ritirato la mossa e ne ha giocata un'altra. */
   corrected: boolean;
 }
+
+/**
+ * I nomi in inglese per il PGN. Sono deliberatamente separati da i18n: quelle sono
+ * traduzioni che possono cambiare a piacere, questi sono valori di un formato di
+ * scambio e cambiarli romperebbe i file gia' esportati.
+ */
+const SEVERITY_EN: Record<string, string> = {
+  blunder: 'Blunder',
+  mistake: 'Mistake',
+  inaccuracy: 'Inaccuracy',
+};
+
+const CATEGORY_EN: Record<string, string> = {
+  banale: 'oversight',
+  tattico: 'tactical',
+  strategico: 'strategic',
+};
+
+/** L'inverso, per rileggere i PGN che abbiamo scritto noi. */
+const CATEGORY_IT: Record<string, string> = {
+  oversight: 'banale',
+  tactical: 'tattico',
+  strategic: 'strategico',
+};
+
+const ENDGAME_EN: Record<string, string> = {
+  egKPvK: 'King and pawn versus king',
+  egKQvK: 'Queen versus lone king',
+  egKRvK: 'Rook versus lone king',
+  egKBNvK: 'Bishop and knight mate',
+  egKNNvK: 'Two knights versus lone king',
+  egKBBvK: 'Two bishops mate',
+  egKQvKP: 'Queen versus pawn',
+  egKRPvKR: 'Rook and pawn versus rook',
+  egKRBvKR: 'Rook and bishop versus rook',
+  egKQPvKQ: 'Queen and pawn versus queen',
+  egOppositeBishops: 'Opposite-coloured bishops',
+  egPawns: 'Pawn endgame',
+  egRooks: 'Rook endgame',
+};
 
 const RECAP_SEVERITY: Record<string, string> = {
   blunder: 'tutorBlunder',

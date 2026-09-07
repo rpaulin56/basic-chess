@@ -8,12 +8,16 @@
  * scelta: questo programma non parla con la rete, e un link che l'utente clicca non
  * e' il programma che parla con la rete.
  *
- * Le risorse sono link curati a mano e verificati uno per uno. Non e' eleganza:
- * i link marciscono, e tenerli tutti in un posto solo fa si' che ripararli sia una
- * riga da cambiare invece di una caccia. Si preferisce Wikipedia in italiano quando
- * l'articolo esiste (per parecchi finali non esiste, e si ripiega sull'inglese) e le
- * lezioni UFFICIALI di Lichess, non gli studi degli utenti, che il proprietario puo'
- * cancellare domani.
+ * Le risorse sono link curati a mano e verificati uno per uno. Non e' eleganza: i
+ * link marciscono, e tenerli tutti in un posto solo fa si' che ripararli sia una riga
+ * da cambiare invece di una caccia.
+ *
+ * Il criterio di scelta e' la QUALITA' DELLA FONTE, non la lingua. Decisione
+ * dell'autore, e ha ragione: che l'interfaccia parli italiano e' una comodita', ma un
+ * rimando tecnico deve puntare alla risorsa migliore che esiste, e per i finali quella
+ * e' la Wikipedia inglese — le voci italiane, dove esistono, sono traduzioni parziali.
+ * Da Lichess solo le lezioni UFFICIALI, che sono interattive, mai gli studi degli
+ * utenti, che il proprietario puo' cancellare domani.
  */
 
 export interface EndgameResource {
@@ -29,7 +33,6 @@ export interface Endgame {
   readonly resources: readonly EndgameResource[];
 }
 
-const WIKI_IT = 'https://it.wikipedia.org/wiki/';
 const WIKI_EN = 'https://en.wikipedia.org/wiki/';
 const PRACTICE = 'https://lichess.org/practice/';
 
@@ -114,27 +117,27 @@ const BY_SIGNATURE: Record<string, Endgame> = {
     key: 'egKPvK',
     resources: [
       { label: 'Wikipedia', url: `${WIKI_EN}King_and_pawn_versus_king_endgame` },
-      { label: "Lichess: l'opposizione", url: `${PRACTICE}pawn-endgames/opposition/A4ujYOer`, practice: true },
-      { label: 'Lichess: le case chiave', url: `${PRACTICE}pawn-endgames/key-squares/xebrDvFe`, practice: true },
-      { label: 'Wikipedia: opposizione', url: `${WIKI_IT}Opposizione_(scacchi)` },
+      { label: 'Lichess: opposition', url: `${PRACTICE}pawn-endgames/opposition/A4ujYOer`, practice: true },
+      { label: 'Lichess: key squares', url: `${PRACTICE}pawn-endgames/key-squares/xebrDvFe`, practice: true },
+      { label: 'Wikipedia: opposition', url: `${WIKI_EN}Opposition_(chess)` },
     ],
   },
   KQvK: {
     key: 'egKQvK',
     resources: [
-      { label: 'Lichess: i matti elementari', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
+      { label: 'Lichess: basic checkmates', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
     ],
   },
   KRvK: {
     key: 'egKRvK',
     resources: [
-      { label: 'Lichess: i matti elementari', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
+      { label: 'Lichess: basic checkmates', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
     ],
   },
   KBNvK: {
     key: 'egKBNvK',
     resources: [
-      { label: 'Lichess: alfiere e cavallo', url: `${PRACTICE}checkmates/knight-bishop-mate/ByhlXnmM`, practice: true },
+      { label: 'Lichess: bishop and knight', url: `${PRACTICE}checkmates/knight-bishop-mate/ByhlXnmM`, practice: true },
       { label: 'Wikipedia', url: `${WIKI_EN}Bishop_and_knight_checkmate` },
     ],
   },
@@ -145,7 +148,7 @@ const BY_SIGNATURE: Record<string, Endgame> = {
   KBBvK: {
     key: 'egKBBvK',
     resources: [
-      { label: 'Lichess: i matti elementari', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
+      { label: 'Lichess: basic checkmates', url: `${PRACTICE}checkmates/piece-checkmates-i/BJy6fEDf`, practice: true },
     ],
   },
   KQvKP: {
@@ -155,10 +158,10 @@ const BY_SIGNATURE: Record<string, Endgame> = {
   KRPvKR: {
     key: 'egKRPvKR',
     resources: [
-      { label: 'Wikipedia: Lucena', url: `${WIKI_IT}Posizione_di_Lucena` },
-      { label: 'Wikipedia: Philidor', url: `${WIKI_IT}Posizione_di_Philidor` },
-      { label: 'Lichess: finali di torre', url: `${PRACTICE}rook-endgames/basic-rook-endgames/pqUSUw8Y`, practice: true },
-      { label: 'Wikipedia: la teoria completa', url: `${WIKI_EN}Rook_and_pawn_versus_rook_endgame` },
+      { label: 'Wikipedia: Lucena position', url: `${WIKI_EN}Lucena_position` },
+      { label: 'Wikipedia: Philidor position', url: `${WIKI_EN}Philidor_position` },
+      { label: 'Lichess: rook endgames', url: `${PRACTICE}rook-endgames/basic-rook-endgames/pqUSUw8Y`, practice: true },
+      { label: 'Wikipedia: the full theory', url: `${WIKI_EN}Rook_and_pawn_versus_rook_endgame` },
     ],
   },
   KRBvKR: {
@@ -215,10 +218,10 @@ export function classifyEndgame(fen: string): Endgame | null {
     return {
       key: 'egPawns',
       resources: [
-        { label: "Lichess: l'opposizione", url: `${PRACTICE}pawn-endgames/opposition/A4ujYOer`, practice: true },
-        { label: 'Lichess: le case chiave', url: `${PRACTICE}pawn-endgames/key-squares/xebrDvFe`, practice: true },
+        { label: 'Lichess: opposition', url: `${PRACTICE}pawn-endgames/opposition/A4ujYOer`, practice: true },
+        { label: 'Lichess: key squares', url: `${PRACTICE}pawn-endgames/key-squares/xebrDvFe`, practice: true },
         { label: 'Wikipedia', url: `${WIKI_EN}Pawn_endgame` },
-        { label: 'Wikipedia: pedone passato', url: `${WIKI_IT}Pedone_passato` },
+        { label: 'Wikipedia: passed pawn', url: `${WIKI_EN}Passed_pawn` },
       ],
     };
   }
@@ -228,10 +231,10 @@ export function classifyEndgame(fen: string): Endgame | null {
     return {
       key: 'egRooks',
       resources: [
-        { label: 'Lichess: finali di torre', url: `${PRACTICE}rook-endgames/basic-rook-endgames/pqUSUw8Y`, practice: true },
-        { label: 'Lichess: finali intermedi', url: `${PRACTICE}rook-endgames/intermediate-rook-endings/heQDnvq7`, practice: true },
-        { label: 'Wikipedia: Lucena', url: `${WIKI_IT}Posizione_di_Lucena` },
-        { label: 'Wikipedia: Philidor', url: `${WIKI_IT}Posizione_di_Philidor` },
+        { label: 'Lichess: rook endgames', url: `${PRACTICE}rook-endgames/basic-rook-endgames/pqUSUw8Y`, practice: true },
+        { label: 'Lichess: intermediate rook endings', url: `${PRACTICE}rook-endgames/intermediate-rook-endings/heQDnvq7`, practice: true },
+        { label: 'Wikipedia: Lucena position', url: `${WIKI_EN}Lucena_position` },
+        { label: 'Wikipedia: Philidor position', url: `${WIKI_EN}Philidor_position` },
       ],
     };
   }

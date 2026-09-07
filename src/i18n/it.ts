@@ -165,4 +165,5 @@ export const it = {
   egOppositeBishops: 'Alfieri di colore contrario',
   egPawns: 'Finale di pedoni',
   egRooks: 'Finale di torri',
+  endgameEnteringIntro: 'Da qui un cambio porta in questo finale. Vale la pena sapere com’è fatto prima di entrarci: la domanda è se il cambio ti conviene.',
 } as const;
