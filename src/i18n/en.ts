@@ -2,7 +2,7 @@ import type { it } from './it.js';
 
 export const en: Record<keyof typeof it, string> = {
   appTitle: 'GrandmaChess',
-  tagline: 'Improve your game',
+  tagline: 'Learn from your mistakes',
   credits: 'Credits and licences',
   creditsAuthorLabel: 'Concept and software design',
   creditsAuthorName: 'Riccardo Paulin',
