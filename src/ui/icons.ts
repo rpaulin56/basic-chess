@@ -161,18 +161,24 @@ const PATHS: Record<IconName, string> = {
     '<circle cx="12" cy="12" r="9" />' +
     '<path d="M3 12h18" />' +
     '<path d="M12 3a13 13 0 0 1 0 18a13 13 0 0 1 0-18z" />',
-  // Posizione: due frecce opposte, non una scacchiera.
+  // Posizione: un foglio di testo.
   //
-  // Era una scacchiera coi pezzi sparsi, pensata per leggersi IN COPPIA con quella
-  // schierata di "nuova partita": ordine contro disordine. Il ragionamento vale
-  // quando le due icone si confrontano, e crolla quando se ne cerca una — li' la
-  // somiglianza e' tutto cio' che si vede. E' costato a un utente una partita intera:
-  // ha premuto "nuova partita" volendo esportare la posizione.
+  // E' la terza versione di questa icona, e le prime due sbagliavano per motivi
+  // opposti. Era una scacchiera coi pezzi sparsi, pensata per leggersi in coppia con
+  // quella schierata di "nuova partita": troppo simile, ed e' costata a un utente una
+  // partita intera. Poi due frecce opposte: inconfondibili ma vaghe, dicevano
+  // "scambio" e basta.
   //
-  // Adesso il disegno dice cosa fa il menu — far entrare e uscire posizioni — e non
-  // somiglia a niente altro nella barra. "Nuova partita" resta l'unica scacchiera, e
-  // una scacchiera schierata dice "posizione di partenza" anche da sola.
-  position: '<path d="M3.5 9h13.5l-3.8-3.8" /><path d="M20.5 15H7l3.8 3.8" />',
+  // Un foglio con delle righe dice la cosa vera e letterale: quel menu fa entrare e
+  // uscire del TESTO, perche' un PGN e un FEN sono testo. Non somiglia a nessun'altra
+  // icona della barra, e non ha bisogno di essere interpretato.
+  //
+  // L'angolo ripiegato non e' decorazione: e' cio' che distingue un foglio da un
+  // rettangolo con dentro delle righe.
+  position:
+    '<path d="M6 3h7.5L19 8.5V21H6z" />' +
+    '<path d="M13.5 3v5.5H19" />' +
+    '<path d="M9 12.5h7M9 16h7M9 9h2.5" />',
 };
 
 export function createIcon(name: IconName): SVGSVGElement {
