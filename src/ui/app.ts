@@ -706,10 +706,12 @@ export function mountApp(root: HTMLElement): void {
     const analyses: Analysis[] = [];
     for (let cursor = 0; cursor <= state.plies.length; cursor++) {
       const fen = currentFen(goTo(state, cursor));
-      const analysis = await engine.analyse(fen, {
-        depth: POSTMORTEM_DEPTH,
-        multiPV: 1,
-      });
+      const analysis =
+        terminalAnalysis(fen) ??
+        (await engine.analyse(fen, {
+          depth: POSTMORTEM_DEPTH,
+          multiPV: 1,
+        }));
       // La partita e' cambiata sotto (nuova partita, importazione): l'analisi in corso
       // parla di una partita che non c'e' piu'.
       if (mark !== generation) return;
@@ -1204,6 +1206,38 @@ export function mountApp(root: HTMLElement): void {
    * valutazione aveva gia' prodotto mentre l'utente pensava. Ricalcolarla
    * raddoppierebbe l'attesa per un risultato identico.
    */
+  /**
+   * L'analisi di una posizione in cui la partita e' FINITA.
+   *
+   * Il motore non puo' produrla, e non per un guasto: in una posizione di stallo o di
+   * matto non ci sono mosse da cercare, quindi Stockfish non emette nessuna linea e
+   * risponde profondita' zero. Il filtro anti-rumore del tutor — "non giudicare su
+   * un'analisi troppo superficiale" — buttava via proprio quel verdetto, e il
+   * risultato era che la Nonna taceva ESATTAMENTE sulla mossa che chiude la partita.
+   * Un utente ha trasformato un matto in tre in uno stallo e non ha sentito una parola.
+   *
+   * Il danno era doppio e il secondo era invisibile: senza valutazione il codice
+   * ripiegava su "meta'", quindi DARE MATTO veniva registrato come una perdita di
+   * cinquanta punti nella post-analisi.
+   *
+   * Qui non serve cercare niente, perche' il risultato e' gia' noto con certezza: chi
+   * ha il tratto o e' matto (zero per lui, cioe' cento per chi ha appena mosso) o non
+   * lo e', e allora e' patta (cinquanta per entrambi).
+   */
+  function terminalAnalysis(fen: string): Analysis | null {
+    const chess = new Chess(fen);
+    if (!chess.isGameOver()) return null;
+    const mated = chess.isCheckmate();
+    return {
+      fen,
+      // La profondita' dichiarata e' quella della revisione: non e' una bugia, e' che
+      // qui la certezza non viene dalla ricerca ma dalle regole del gioco.
+      depth: REVIEW_DEPTH,
+      bestMove: null,
+      lines: [{ multipv: 1, scoreCp: mated ? null : 0, mateIn: mated ? -1 : null, pv: [] }],
+    };
+  }
+
   async function runReview(): Promise<void> {
     const pending = pendingReview;
     pendingReview = null;
@@ -1225,10 +1259,12 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     if (mine !== generation) return;
-    const after = await engine.analyse(pending.fenAfter, {
-      depth: REVIEW_DEPTH,
-      multiPV: ANALYSIS_MULTIPV,
-    });
+    const after =
+      terminalAnalysis(pending.fenAfter) ??
+      (await engine.analyse(pending.fenAfter, {
+        depth: REVIEW_DEPTH,
+        multiPV: ANALYSIS_MULTIPV,
+      }));
     if (!after) {
       refresh();
       return;
