@@ -29,7 +29,8 @@ export type IconName =
   | 'settings'
   | 'position'
   | 'person'
-  | 'newGame';
+  | 'newGame'
+  | 'world';
 
 /**
  * Ogni icona e' il contenuto di un viewBox 24x24. Tratto e riempimento sono decisi
@@ -134,6 +135,14 @@ const PATHS: Record<IconName, string> = {
     BOARD_FRAME +
     dot(6.2, 6.2, 'dark') + dot(10.1, 6.2, 'dark') + dot(13.9, 6.2, 'dark') + dot(17.8, 6.2, 'dark') +
     dot(6.2, 17.8, 'light') + dot(10.1, 17.8, 'light') + dot(13.9, 17.8, 'light') + dot(17.8, 17.8, 'light'),
+  // Il mappamondo: la lingua. Tre elementi soli — il cerchio, l'equatore e un
+  // meridiano — perche' a ventidue pixel un mappamondo con i continenti e' una
+  // macchia. Non una bandiera: una bandiera dice UN PAESE, e l'inglese non e' il
+  // paese di chi lo parla.
+  world:
+    '<circle cx="12" cy="12" r="9" />' +
+    '<path d="M3 12h18" />' +
+    '<path d="M12 3a13 13 0 0 1 0 18a13 13 0 0 1 0-18z" />',
   // Posizione: gli stessi pezzi, ma sparsi come in una partita cominciata. Il
   // disordine e' il messaggio, quindi le posizioni sono scelte per non allinearsi
   // ne' in riga ne' in colonna.

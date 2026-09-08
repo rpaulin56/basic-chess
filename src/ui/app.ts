@@ -364,6 +364,11 @@ export function mountApp(root: HTMLElement): void {
     endgameEl,
     offerEl,
     movesTitle,
+    langEl,
+    flashEl,
+    tagline,
+    recapTitle,
+    creditsEl,
   } = buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
   const engine = createEngineSession(() => renderEnginePanel());
@@ -395,6 +400,20 @@ export function mountApp(root: HTMLElement): void {
     // qualcosa che sta ancora succedendo non ha senso.
     if (!finished()) postMortem = 'hidden';
     else if (postMortem === 'hidden') postMortem = 'offered';
+    langEl.replaceChildren(languageButton());
+    // I testi costruiti UNA VOLTA SOLA nell'intestazione e nei titoli dei pannelli
+    // restavano nella lingua di partenza: si vedeva "Learn from your mistakes" sopra
+    // una scacchiera che diceva "Tocca al Bianco". Era un difetto che c'era gia', ma
+    // invisibile finche' la lingua si cambiava da dentro una finestra; ora che il
+    // mappamondo e' li' in alto, si cambia lingua per curiosita' e si vede subito.
+    tagline.textContent = t('tagline');
+    recapTitle.textContent = t('recap');
+    // I crediti si ricostruiscono solo quando la lingua cambia davvero: sono un
+    // `<details>`, e rifarli ad ogni mossa li richiuderebbe a chi li sta leggendo.
+    if (renderedLocale !== locale()) {
+      renderedLocale = locale();
+      creditsEl.replaceChildren(createCredits());
+    }
     renderStatus();
     renderControls();
     renderHint();
@@ -1799,6 +1818,27 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /**
+   * Vero sui dispositivi che si toccano invece di puntare. Si legge una volta sola:
+   * non cambia mentre la pagina e' aperta, salvo casi di lana caprina (un tablet a cui
+   * si attacca un mouse), e rileggerlo ad ogni pulsante costerebbe un calcolo di stile
+   * per ognuno.
+   */
+  const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+  let flashTimer: number | undefined;
+  /** In che lingua e' disegnato adesso cio' che non si ridisegna da solo. */
+  let renderedLocale = locale();
+
+  /** Mostra per un istante il nome del comando appena toccato. */
+  function flash(label: string): void {
+    flashEl.textContent = label;
+    flashEl.hidden = false;
+    window.clearTimeout(flashTimer);
+    flashTimer = window.setTimeout(() => {
+      flashEl.hidden = true;
+    }, 1400);
+  }
+
+  /**
    * Un comando innocuo: solo l'icona, con la parola nel suggerimento e
    * nell'etichetta accessibile (che serve a chi usa un lettore di schermo e a chi
    * naviga da tastiera).
@@ -1818,6 +1858,15 @@ export function mountApp(root: HTMLElement): void {
     element.className = 'icon-btn';
     element.title = label;
     element.setAttribute('aria-label', label);
+    // Su schermo tattile il `title` non esiste: non c'e' un puntatore da fermare
+    // sopra, e il nome del comando era semplicemente irraggiungibile per meta' di chi
+    // gioca. Dieci icone senza nome sono dieci indovinelli.
+    //
+    // L'etichetta compare AL TOCCO, mentre l'azione si esegue: si impara il nome
+    // usando il pulsante, invece che leggendo una legenda che nessuno apre. Solo dove
+    // il puntatore e' grosso, cosi' su desktop resta il tooltip e non si vedono due
+    // cose che dicono la stessa.
+    if (coarsePointer) element.addEventListener('click', () => flash(label));
     if (active) {
       element.classList.add('on');
       element.setAttribute('aria-pressed', 'true');
@@ -2164,21 +2213,33 @@ export function mountApp(root: HTMLElement): void {
     return span;
   }
 
-  function languageSelect(): HTMLElement {
-    const select = document.createElement('select');
-    select.title = t('language');
-    for (const code of ['it', 'en'] as const) {
-      const option = document.createElement('option');
-      option.value = code;
-      option.textContent = code.toUpperCase();
-      option.selected = locale() === code;
-      select.append(option);
-    }
-    select.addEventListener('change', () => {
-      setLocale(select.value as LocaleCode);
+  /**
+   * La lingua: un mappamondo nell'intestazione, non una voce nelle impostazioni.
+   *
+   * Sepolta li' dentro era irraggiungibile per chi apre il programma e non capisce
+   * cosa c'e' scritto — che e' esattamente la persona a cui serve. Ed e' un
+   * INTERRUTTORE e non un menu, perche' le lingue sono due: un menu a tendina per una
+   * scelta fra due e' un clic in piu' per niente.
+   *
+   * L'etichetta nomina la lingua in cui si ANDREBBE, non quella corrente: un pulsante
+   * dice cosa fa, non dove sei.
+   */
+  function languageButton(): HTMLElement {
+    const other: LocaleCode = locale() === 'it' ? 'en' : 'it';
+    const element = document.createElement('button');
+    element.type = 'button';
+    element.className = 'icon-btn lang';
+    element.title = t('switchTo', { lang: t(other === 'it' ? 'italian' : 'english') });
+    element.setAttribute('aria-label', element.title);
+    element.append(createIcon('world'));
+    const code = document.createElement('span');
+    code.textContent = other.toUpperCase();
+    element.append(code);
+    element.addEventListener('click', () => {
+      setLocale(other);
       refresh();
     });
-    return select;
+    return element;
   }
 
   /**
@@ -2260,7 +2321,6 @@ export function mountApp(root: HTMLElement): void {
 
     dialog.append(
       title,
-      field(t('language'), languageSelect()),
       evalTitle,
       barRow,
       evalRow,
@@ -2276,15 +2336,6 @@ export function mountApp(root: HTMLElement): void {
     });
     document.body.append(dialog);
     dialog.showModal();
-  }
-
-  function field(label: string, control: HTMLElement): HTMLElement {
-    const wrap = document.createElement('label');
-    wrap.className = 'field';
-    const caption = document.createElement('span');
-    caption.textContent = label;
-    wrap.append(caption, control);
-    return wrap;
   }
 
   /**
@@ -2414,7 +2465,17 @@ function buildLayout(root: HTMLElement) {
   brand.append(title, tagline);
   // I crediti stanno nell'intestazione e chiusi: sono un obbligo di licenza, non
   // qualcosa che l'utente deve leggere per giocare.
-  header.append(brand, createCredits());
+  // Mappamondo e crediti stanno insieme a destra: sono le due cose che non
+  // riguardano la partita ma il programma. Il mappamondo si ridisegna ad ogni cambio
+  // di lingua (l'etichetta nomina l'altra lingua), i crediti no — sono un `<details>`
+  // e ricrearli li richiuderebbe sotto le dita di chi li sta leggendo.
+  const langEl = document.createElement('div');
+  const creditsEl = document.createElement('div');
+  creditsEl.append(createCredits());
+  const corner = document.createElement('div');
+  corner.className = 'corner';
+  corner.append(langEl, creditsEl);
+  header.append(brand, corner);
 
   const layout = document.createElement('div');
   layout.className = 'layout';
@@ -2442,6 +2503,11 @@ function buildLayout(root: HTMLElement) {
   openingEl.hidden = true;
   const controlsEl = document.createElement('div');
   controlsEl.className = 'controls';
+  // Il nome del comando appena toccato, su telefono. Sta sotto la barra e non sopra:
+  // sopra finirebbe sotto il dito che ha appena premuto.
+  const flashEl = document.createElement('div');
+  flashEl.className = 'flash';
+  flashEl.hidden = true;
   // Lo slider della conseguenza sta SOTTO la scacchiera, non nel pannello laterale:
   // si guarda il diagramma mentre lo si scorre, non si cerca il comando altrove.
   const previewEl = document.createElement('div');
@@ -2461,7 +2527,7 @@ function buildLayout(root: HTMLElement) {
   const boardRow = document.createElement('div');
   boardRow.className = 'board-row';
   boardRow.append(boardWrap, barEl);
-  boardColumn.append(boardRow, previewEl, infoRow, controlsEl);
+  boardColumn.append(boardRow, previewEl, infoRow, controlsEl, flashEl);
 
   const side = document.createElement('aside');
 
@@ -2542,6 +2608,11 @@ function buildLayout(root: HTMLElement) {
     endgameEl,
     offerEl,
     movesTitle,
+    langEl,
+    flashEl,
+    tagline,
+    recapTitle,
+    creditsEl,
   };
 }
 

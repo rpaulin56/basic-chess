@@ -170,8 +170,15 @@ export function renderTutorPanel(
   } else {
     buttons.append(
       action(t('tutorTakeBack'), actions.onTakeBack, 'primary'),
-      action(t('tutorContinue'), actions.onContinue, '', t('tutorContinueTitle')),
+      action(t('tutorContinue'), actions.onContinue),
     );
+    // "Se la tieni, ti faccio vedere" stava nel suggerimento di quel pulsante, cioe'
+    // in nessun posto su telefono. Dice cosa succede DOPO aver scelto, ed e' proprio
+    // l'informazione che serve prima di scegliere: adesso e' una riga di testo.
+    const note = document.createElement('p');
+    note.className = 'tutor-note';
+    note.textContent = t('tutorContinueTitle');
+    container.append(note);
     if (consequence) buttons.append(action(t('tutorShowConsequence'), actions.onShowConsequence));
     if (!betterSans) buttons.append(action(t('tutorShowBest'), actions.onReveal));
   }

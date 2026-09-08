@@ -15,10 +15,22 @@ const DICTS: Record<LocaleCode, Dict> = { it, en };
 
 let current: LocaleCode = detectLocale();
 
+/**
+ * La lingua di partenza e' l'INGLESE, e non quella del browser.
+ *
+ * Prima si seguiva `navigator.language`, che a un browser italiano dava l'italiano.
+ * Sembra piu' gentile, e per un visitatore italiano lo e'; ma il programma sta su un
+ * dominio proprio e si chiama GrandmaChess, e la maggioranza di chi lo aprira' non
+ * parla italiano. Fra le due scelte, quella che scontenta meno persone e' l'inglese.
+ *
+ * Ed e' una scelta che si paga poco proprio perche' l'abbiamo presa insieme al
+ * mappamondo nell'intestazione: cambiare lingua e' un tocco, sempre visibile, e non
+ * una voce sepolta in una finestra di impostazioni.
+ */
 function detectLocale(): LocaleCode {
   const saved = localStorage.getItem('basic-chess:locale');
   if (saved === 'it' || saved === 'en') return saved;
-  return navigator.language.toLowerCase().startsWith('it') ? 'it' : 'en';
+  return 'en';
 }
 
 export function locale(): LocaleCode {
