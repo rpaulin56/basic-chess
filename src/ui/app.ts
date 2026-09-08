@@ -2144,10 +2144,17 @@ export function mountApp(root: HTMLElement): void {
       // non si addicono, e "medio" detto di lei suona come un giudizio su di lei.
       // La scala numerata dice l'unica cosa che serve — che sono in ordine.
       //
-      // L'Elo torna nell'etichetta e non solo nel suggerimento: su telefono il
-      // suggerimento non si vede affatto — non c'e' un puntatore da fermare sopra una
-      // voce — e li' il numero sarebbe semplicemente inaccessibile.
-      element.textContent = t('levelName', { n: index + 1, elo: option.elo[distraction.id] });
+      // L'Elo NON sta qui, e ci e' stato per mezza giornata. Sul telefono il
+      // suggerimento non esiste, quindi il numero era irraggiungibile e l'avevamo
+      // messo in etichetta; ma cosi' occupava meta' del controllo principale, e chi
+      // sceglie leggeva prima il numero del livello. E il numero non serve a
+      // scegliere: si provano i livelli e si trova il proprio.
+      //
+      // Adesso vive nel dialogo del "?", che sul telefono si apre col dito. Ed e' il
+      // posto in cui quel numero significa davvero qualcosa, perche' li' si vede
+      // ACCANTO AGLI ALTRI: un Elo isolato non dice niente, una scala di cinque dice
+      // tutto.
+      element.textContent = t('levelName', { n: index + 1 });
       element.title = t('levelElo', { elo: option.elo[distraction.id] });
       element.selected = option.id === level.id;
       select.append(element);
@@ -2200,12 +2207,42 @@ export function mountApp(root: HTMLElement): void {
     const title = document.createElement('h2');
     title.textContent = t('opponentHelpTitle');
     dialog.append(title);
-    for (const key of ['opponentHelpLevel', 'opponentHelpCareful', 'opponentHelpSloppy', 'opponentHelpElo']) {
+    for (const key of ['opponentHelpLevel', 'opponentHelpCareful', 'opponentHelpSloppy']) {
       const paragraph = document.createElement('p');
       paragraph.className = 'help-line';
       paragraph.textContent = t(key);
       dialog.append(paragraph);
     }
+    // La tabella di tutti i livelli, con le due colonne dell'attenzione accanto:
+    // e' la sola forma in cui l'Elo aiuta a scegliere, perche' mostra le DISTANZE.
+    // Mostra anche, senza doverlo spiegare, quanto pesa la distrazione.
+    const table = document.createElement('table');
+    table.className = 'level-table';
+    const head = document.createElement('tr');
+    for (const label of ['', t('distractionCareful'), t('distractionSloppy')]) {
+      const cell = document.createElement('th');
+      cell.textContent = label;
+      head.append(cell);
+    }
+    table.append(head);
+    for (const [index, option] of BOT_LEVELS.entries()) {
+      const row = document.createElement('tr');
+      if (option.id === level.id) row.className = 'current';
+      const name = document.createElement('th');
+      name.textContent = t('levelName', { n: index + 1 });
+      row.append(name);
+      for (const id of ['attento', 'distratto'] as const) {
+        const cell = document.createElement('td');
+        cell.textContent = String(option.elo[id]);
+        row.append(cell);
+      }
+      table.append(row);
+    }
+    dialog.append(table);
+    const note = document.createElement('p');
+    note.className = 'help-line';
+    note.textContent = t('opponentHelpElo');
+    dialog.append(note);
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'settings-close';

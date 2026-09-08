@@ -511,6 +511,14 @@ select {
 /* Il titolo di un gruppo di interruttori: non e' un'etichetta cliccabile, e' il
    nome della cosa di cui i tre parlano. */
 .settings-dialog .check-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+
+/* La tabella dei livelli nel dialogo del "?": il posto in cui l'Elo serve, perche'
+   li' si vedono le distanze fra i livelli invece di un numero isolato. */
+.level-table { border-collapse: collapse; margin: 4px 0 12px; font-size: 13px; }
+.level-table th, .level-table td { padding: 3px 12px 3px 0; text-align: left; font-weight: 400; }
+.level-table tr:first-child th { color: var(--ink-soft); font-size: 12px; }
+.level-table td { font-variant-numeric: tabular-nums; }
+.level-table tr.current { font-weight: 600; color: var(--accent); }
 .settings-dialog .check-row:has(input:disabled) { color: var(--ink-soft); cursor: default; }
 .settings-dialog .check-row {
   display: flex;

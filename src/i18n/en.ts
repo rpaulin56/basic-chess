@@ -44,7 +44,7 @@ export const en: Record<keyof typeof it, string> = {
   whyLine: '{number}. {san} — {drop} points lost',
   whyBetter: 'better {san}',
   whyNothing: 'I find no moments worth going over: you played steadily.',
-  levelName: 'Level {n} (Elo ~{elo})',
+  levelName: 'Level {n}',
   levelElo: 'Estimated strength: {elo} Elo',
   playAsWhite: 'You have White',
   playAsBlack: 'You have Black',

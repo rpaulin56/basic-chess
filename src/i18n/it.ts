@@ -42,7 +42,7 @@ export const it = {
   whyLine: '{number}. {san} — {drop} punti persi',
   whyBetter: 'meglio {san}',
   whyNothing: 'Non trovo momenti che valga la pena rivedere: hai giocato regolare.',
-  levelName: 'Livello {n} (Elo ~{elo})',
+  levelName: 'Livello {n}',
   levelElo: 'Forza stimata: {elo} Elo',
   playAsWhite: 'Hai il Bianco',
   playAsBlack: 'Hai il Nero',
