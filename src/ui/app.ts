@@ -1989,9 +1989,15 @@ export function mountApp(root: HTMLElement): void {
     // e' comunque personale. Nel PGN "You" dice esattamente quel che c'e' da dire, e
     // chi vuole il proprio nome lo mette con un editor in due secondi.
     const human = 'You';
-    // Nel PGN il bot si presenta con entrambe le sue coordinate: fra sei mesi
-    // "Bot discreto" da solo non direbbe se l'avversario regalava pezzi o no.
-    const bot = `Bot ${level.id} (${distraction.id})`;
+    // La Nonna si presenta con entrambe le sue coordinate: fra sei mesi il livello da
+    // solo non direbbe se regalava pezzi o no.
+    //
+    // In inglese e con il NUMERO del livello, non con l'identificatore interno. Prima
+    // usciva "Bot forte (attento)": due parole italiane in un PGN che abbiamo deciso
+    // di scrivere sempre in inglese, e per giunta un nome che sullo schermo non compare
+    // piu' da quando i livelli sono numerati.
+    const number = BOT_LEVELS.indexOf(level) + 1;
+    const bot = `Grandma level ${number} (${distraction.id === 'attento' ? 'focused' : 'distracted'})`;
     const elo = String(level.elo[distraction.id]);
     const players =
       humanColor === 'w'
