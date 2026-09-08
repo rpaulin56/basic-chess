@@ -163,6 +163,8 @@ interface SavedGame {
   outcome?: Outcome | null;
   /** Quante volte si e' chiesto "e adesso?": fa parte del bilancio della partita. */
   hints?: number;
+  /** Quante mosse gia' giocate sono state ritirate per giocarne un'altra. */
+  takeBacks?: number;
   /** Quanto e' costata OGNI mossa giudicata, non solo quelle segnalate. */
   losses?: MoveLoss[];
 }
@@ -353,7 +355,6 @@ export function mountApp(root: HTMLElement): void {
   let postMortem: 'hidden' | 'offered' | 'foreign' | 'thinking' | 'shown' = 'hidden';
   /** Alzata per fermare la rianalisi in corso: la controlla il ciclo ad ogni posizione. */
   let stopStudy = false;
-  /** La riga "Fammi pensare…", tenuta da parte per aggiornarne l'avanzamento. */
   let thinkingEl: HTMLElement | null = null;
   /**
    * Il suggerimento aperto, se c'e'. `revealed` distingue il primo livello (quante
@@ -369,6 +370,19 @@ export function mountApp(root: HTMLElement): void {
    * diventa una stampella invisibile.
    */
   let hintsUsed = saved?.hints ?? 0;
+  /**
+   * Quante volte si e' tornati indietro per rigiocare diversamente.
+   *
+   * Sta accanto al conteggio degli aiuti per la stessa ragione: "ho ritirato nove
+   * mosse" e' un'informazione su di se' esattamente come "ho fatto tre errori gravi",
+   * e senza contarla il ripensamento diventa una stampella invisibile. Il ritiro qui
+   * e' legittimo e voluto — si impara riprovando — ma una partita vinta al terzo
+   * tentativo non e' la stessa cosa di una vinta al primo, e il PGN deve poterlo dire.
+   *
+   * Non conta il "rifai": rigiocare la STESSA mossa che si era tolta rimette la
+   * partita dov'era, e non e' un ripensamento.
+   */
+  let takeBacks = saved?.takeBacks ?? 0;
   /**
    * La partita chiusa per accordo, se lo e'. Resta REVERSIBILE: la freccia indietro
    * riapre una partita abbandonata, come per il ritiro della mossa. Qui si prova, non
@@ -406,9 +420,9 @@ export function mountApp(root: HTMLElement): void {
     hintEl,
     endgameEl,
     offerEl,
+    whyEl,
     movesTitle,
     langEl,
-    flashEl,
     recoverEl,
     tagline,
     recapTitle,
@@ -459,6 +473,7 @@ export function mountApp(root: HTMLElement): void {
       creditsEl.replaceChildren(createCredits());
     }
     renderStatus();
+    renderPostMortem();
     renderRecover();
     renderControls();
     renderHint();
@@ -544,7 +559,7 @@ export function mountApp(root: HTMLElement): void {
     // dire: e' PROPRIO il caso interessante — nessun errore segnalato, e la partita
     // persa lo stesso.
     const offering = finished() && postMortem !== 'hidden';
-    recapPanel.hidden = mistakeLog.length === 0 && hintsUsed === 0 && !offering;
+    recapPanel.hidden = mistakeLog.length === 0 && hintsUsed === 0 && takeBacks === 0 && !offering;
     if (recapPanel.hidden) return;
     const list = document.createElement('ul');
     for (const entry of mistakeLog) {
@@ -555,7 +570,9 @@ export function mountApp(root: HTMLElement): void {
     }
     if (mistakeLog.length > 0) recapEl.append(list);
     if (hintsUsed > 0) recapEl.append(text(t('recapHints', { count: hintsUsed }), 'recap-hints'));
-    renderPostMortem();
+    if (takeBacks > 0) {
+      recapEl.append(text(t('recapTakeBacks', { count: takeBacks }), 'recap-hints'));
+    }
   }
 
   /**
@@ -571,7 +588,9 @@ export function mountApp(root: HTMLElement): void {
    * voglia di sentirselo dire.
    */
   function renderPostMortem(): void {
-    if (!finished() || postMortem === 'hidden') return;
+    whyEl.replaceChildren();
+    whyEl.hidden = !finished() || postMortem === 'hidden';
+    if (whyEl.hidden) return;
     // La partita non porta i nostri appunti: prima di mettercisi mezzo minuto, lo
     // dice e chiede il permesso. Il tempo e' dell'utente, non nostro.
     if (postMortem === 'foreign') {
@@ -589,10 +608,10 @@ export function mountApp(root: HTMLElement): void {
       never.textContent = t('whyStop');
       never.addEventListener('click', () => {
         postMortem = 'offered';
-        renderRecap();
+        renderPostMortem();
       });
       box.append(study, never);
-      recapEl.append(box);
+      whyEl.append(box);
       return;
     }
     if (postMortem === 'thinking') {
@@ -609,7 +628,7 @@ export function mountApp(root: HTMLElement): void {
       stop.addEventListener('click', () => {
         stopStudy = true;
       });
-      recapEl.append(thinkingEl, stop);
+      whyEl.append(thinkingEl, stop);
       return;
     }
     if (postMortem === 'offered') {
@@ -618,7 +637,7 @@ export function mountApp(root: HTMLElement): void {
       ask.className = 'why-ask';
       ask.textContent = humanLost() ? t('whyLost') : t('whyReview');
       ask.addEventListener('click', showPostMortem);
-      recapEl.append(ask);
+      whyEl.append(ask);
       return;
     }
     // postMortem === 'shown'
@@ -628,7 +647,7 @@ export function mountApp(root: HTMLElement): void {
     box.append(text(t('whyTitle'), 'why-title'));
     if (worst.length === 0) {
       box.append(text(t('whyNothing'), 'why-note'));
-      recapEl.append(box);
+      whyEl.append(box);
       return;
     }
     // La spiegazione "hai perso senza sbagliare" compare solo se e' VERA, e la verita'
@@ -658,7 +677,7 @@ export function mountApp(root: HTMLElement): void {
       list.append(item);
     }
     box.append(list);
-    recapEl.append(box);
+    whyEl.append(box);
   }
 
   /** Le tre mosse piu' costose, in ordine di partita e non di gravita'. */
@@ -694,14 +713,14 @@ export function mountApp(root: HTMLElement): void {
     // Meta' delle mosse basta a dire "il dato c'e'": le prime mosse di libro non
     // vengono giudicate, e rianalizzare per quelle sarebbe attesa sprecata.
     postMortem = judged >= Math.ceil(mine / 2) ? 'shown' : 'foreign';
-    renderRecap();
+    renderPostMortem();
   }
 
   /** Rianalizza la partita da capo, dopo che l'utente ha detto di si'. */
   async function study_(): Promise<void> {
     postMortem = 'thinking';
     stopStudy = false;
-    renderRecap();
+    renderPostMortem();
     const mark = generation;
     const analyses: Analysis[] = [];
     for (let cursor = 0; cursor <= state.plies.length; cursor++) {
@@ -718,14 +737,14 @@ export function mountApp(root: HTMLElement): void {
       // L'utente ha detto basta: si torna all'offerta, cosi' puo' ripensarci.
       if (stopStudy) {
         postMortem = 'offered';
-        renderRecap();
+        renderPostMortem();
         return;
       }
       // Motore caduto a meta' strada: meglio niente che una classifica costruita su
       // mezza partita, che indicherebbe come "momento peggiore" l'ultimo analizzato.
       if (!analysis) {
         postMortem = 'offered';
-        renderRecap();
+        renderPostMortem();
         return;
       }
       analyses.push(analysis);
@@ -746,7 +765,7 @@ export function mountApp(root: HTMLElement): void {
     }
     postMortem = 'shown';
     saveGame();
-    renderRecap();
+    renderPostMortem();
   }
 
   /**
@@ -1415,6 +1434,7 @@ export function mountApp(root: HTMLElement): void {
         mistakes: mistakeLog,
         losses,
         hints: hintsUsed,
+        takeBacks,
         outcome,
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
@@ -1640,7 +1660,10 @@ export function mountApp(root: HTMLElement): void {
         return;
       }
     }
-    if (hasFuture(state)) state = truncateHere(state);
+    if (hasFuture(state)) {
+      takeBacks++;
+      state = truncateHere(state);
+    }
 
     if (needsPromotion(state, origin, target)) {
       askPromotion(boardWrap, (piece) => {
@@ -1999,26 +2022,21 @@ export function mountApp(root: HTMLElement): void {
     controlsEl.append(toolbar, settings);
   }
 
-  /**
-   * Vero sui dispositivi che si toccano invece di puntare. Si legge una volta sola:
-   * non cambia mentre la pagina e' aperta, salvo casi di lana caprina (un tablet a cui
-   * si attacca un mouse), e rileggerlo ad ogni pulsante costerebbe un calcolo di stile
-   * per ognuno.
+  /*
+   * Qui c'era un'etichetta che compariva al tocco col nome del comando premuto, per
+   * rimediare al fatto che su telefono il `title` non esiste. E' durata mezza
+   * giornata, e l'ha bocciata l'uso: faceva muovere la pagina sotto le dita, e i nomi
+   * che dava non servivano a nessuno.
+   *
+   * Rifatto il giro delle dieci icone, una per una, non ce n'e' UNA che abbia bisogno
+   * di un nome. Avanti e indietro si capiscono da soli; il ribaltamento si prova una
+   * volta e non si dimentica, e comunque si annulla ripremendolo; impostazioni,
+   * posizione, patta e abbandono aprono tutte un dialogo o un menu che si spiega da
+   * se'; il suggerimento apre una finestra; nuova partita chiede conferma e comunque
+   * il suo effetto e' evidente. Il tooltip resta per chi ha un puntatore, dove non
+   * costa niente.
    */
-  const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
-  let flashTimer: number | undefined;
-  /** In che lingua e' disegnato adesso cio' che non si ridisegna da solo. */
   let renderedLocale = locale();
-
-  /** Mostra per un istante il nome del comando appena toccato. */
-  function flash(label: string): void {
-    flashEl.textContent = label;
-    flashEl.hidden = false;
-    window.clearTimeout(flashTimer);
-    flashTimer = window.setTimeout(() => {
-      flashEl.hidden = true;
-    }, 1400);
-  }
 
   /**
    * Un comando innocuo: solo l'icona, con la parola nel suggerimento e
@@ -2040,15 +2058,6 @@ export function mountApp(root: HTMLElement): void {
     element.className = 'icon-btn';
     element.title = label;
     element.setAttribute('aria-label', label);
-    // Su schermo tattile il `title` non esiste: non c'e' un puntatore da fermare
-    // sopra, e il nome del comando era semplicemente irraggiungibile per meta' di chi
-    // gioca. Dieci icone senza nome sono dieci indovinelli.
-    //
-    // L'etichetta compare AL TOCCO, mentre l'azione si esegue: si impara il nome
-    // usando il pulsante, invece che leggendo una legenda che nessuno apre. Solo dove
-    // il puntatore e' grosso, cosi' su desktop resta il tooltip e non si vedono due
-    // cose che dicono la stessa.
-    if (coarsePointer) element.addEventListener('click', () => flash(label));
     if (active) {
       element.classList.add('on');
       element.setAttribute('aria-pressed', 'true');
@@ -2161,6 +2170,18 @@ export function mountApp(root: HTMLElement): void {
       humanColor === 'w'
         ? { White: human, Black: bot, BlackElo: elo }
         : { White: bot, Black: human, WhiteElo: elo };
+    // Aiuti e ripensamenti nel PGN, che finora non ci finivano affatto: erano contati
+    // solo sullo schermo e sparivano esportando. Sono tag non standard, ma il formato
+    // li ammette, e rileggendo la partita fra sei mesi dicono una cosa che nessuna
+    // mossa puo' dire — quanto e' stata aiutata.
+    //
+    // Si scrivono solo se sono maggiori di zero: un tag "Hints 0" su ogni partita e'
+    // rumore che si impara a saltare, e allora smette di farsi leggere anche quando
+    // vale tre.
+    const effort = {
+      ...(hintsUsed > 0 ? { Hints: String(hintsUsed) } : {}),
+      ...(takeBacks > 0 ? { Takebacks: String(takeBacks) } : {}),
+    };
     // ECO e Opening sono tag standard di fatto (li scrivono ChessBase, SCID, Lichess):
     // e' li' che il nome dell'apertura va a vivere quando sparisce dallo schermo, e da
     // li' lo rilegge qualunque altro programma.
@@ -2168,8 +2189,8 @@ export function mountApp(root: HTMLElement): void {
     // abbandono la scacchiera non sa di essere finita, ma la partita si'.
     const decided = outcome ? { Result: outcome.result } : {};
     return gameOpening
-      ? { ...players, ...decided, ECO: gameOpening.eco, Opening: gameOpening.name }
-      : { ...players, ...decided };
+      ? { ...players, ...decided, ...effort, ECO: gameOpening.eco, Opening: gameOpening.name }
+      : { ...players, ...decided, ...effort };
   }
 
   /**
@@ -2748,9 +2769,6 @@ function buildLayout(root: HTMLElement) {
   controlsEl.className = 'controls';
   // Il nome del comando appena toccato, su telefono. Sta sotto la barra e non sopra:
   // sopra finirebbe sotto il dito che ha appena premuto.
-  const flashEl = document.createElement('div');
-  flashEl.className = 'flash';
-  flashEl.hidden = true;
   // Il salvavita della partita precedente. Sotto i comandi, dove si guarda dopo aver
   // premuto qualcosa — che e' il momento in cui uno si accorge di aver sbagliato.
   const recoverEl = document.createElement('div');
@@ -2775,7 +2793,7 @@ function buildLayout(root: HTMLElement) {
   const boardRow = document.createElement('div');
   boardRow.className = 'board-row';
   boardRow.append(boardWrap, barEl);
-  boardColumn.append(boardRow, previewEl, infoRow, controlsEl, flashEl, recoverEl);
+  boardColumn.append(boardRow, previewEl, infoRow, controlsEl, recoverEl);
 
   const side = document.createElement('aside');
 
@@ -2784,6 +2802,21 @@ function buildLayout(root: HTMLElement) {
   const tutorEl = document.createElement('section');
   tutorEl.className = 'panel tutor';
   tutorEl.hidden = true;
+
+  /*
+   * La post-analisi ha un pannello suo, IN CIMA.
+   *
+   * Stava dentro "Mosse critiche", che e' il quinto pannello della colonna: su
+   * telefono finiva sotto la scacchiera, sotto i comandi e sotto tutto il resto. Un
+   * utente che voleva rivedere la partita appena persa non l'ha trovata — e questo
+   * basta a dire che era nel posto sbagliato.
+   *
+   * Ha l'aspetto del pannello del tutor perche' e' la stessa voce: e' la Nonna che
+   * commenta la partita finita, non un riepilogo automatico.
+   */
+  const whyEl = document.createElement('section');
+  whyEl.className = 'panel tutor';
+  whyEl.hidden = true;
 
   // Il suggerimento sta subito sotto il tutor e ha lo stesso aspetto: e' la stessa
   // voce che parla, con la differenza che questa risponde invece di intervenire.
@@ -2836,7 +2869,7 @@ function buildLayout(root: HTMLElement) {
   movesEl.className = 'movelist';
   movesPanel.append(movesTitle, movesEl);
 
-  side.append(offerEl, tutorEl, hintEl, endgameEl, recapPanel, movesPanel);
+  side.append(offerEl, whyEl, tutorEl, hintEl, endgameEl, recapPanel, movesPanel);
   layout.append(boardColumn, side);
   root.append(header, layout);
   return {
@@ -2855,9 +2888,9 @@ function buildLayout(root: HTMLElement) {
     hintEl,
     endgameEl,
     offerEl,
+    whyEl,
     movesTitle,
     langEl,
-    flashEl,
     recoverEl,
     tagline,
     recapTitle,
@@ -3031,6 +3064,7 @@ interface LoadedGame {
   mistakes: MistakeEntry[];
   losses: MoveLoss[];
   hints: number;
+  takeBacks: number;
   outcome: Outcome | null;
 }
 
@@ -3063,6 +3097,7 @@ function loadFrom(saved: SavedGame): LoadedGame | null {
       mistakes: Array.isArray(saved.mistakes) ? saved.mistakes : [],
       losses: Array.isArray(saved.losses) ? saved.losses : [],
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
+      takeBacks: typeof saved.takeBacks === 'number' ? saved.takeBacks : 0,
       outcome: saved.outcome ?? null,
     };
   } catch {

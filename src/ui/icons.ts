@@ -57,38 +57,6 @@ const BULB =
 const BUBBLE =
   '<path d="M6 4h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-6l-5 4v-4H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z" />';
 
-/**
- * Le due scacchiere: quella schierata e quella in mezzo alla partita.
- *
- * Funzionano IN COPPIA, ed e' il motivo per cui funzionano. Una scacchiera puntinata
- * da sola non dice "nuova partita" — l'avevamo provata e non si leggeva. Messa
- * accanto a una scacchiera con i pezzi sparsi, la differenza fra ordine e disordine
- * dice "inizio" contro "partita in corso" senza bisogno di nessun simbolo astratto.
- *
- * Le case scure sono un motivo 4x4 e non 8x8: a ventidue pixel una scacchiera vera
- * diventa un retino grigio, e resta solo un quadrato sporco.
- *
- * Sono le uniche due icone a colori, e il motivo e' che sono le uniche due che NON
- * hanno uno stato: non si accendono mai, quindi il colore non deve competere con
- * niente (mentre sul tutor, che e' un interruttore, l'acceso si legge proprio dal
- * colore). Ed e' anche l'unica cosa che disegniamo che un colore ce l'ha davvero:
- * una scacchiera ha le case chiare e le case scure, e i pezzi sono bianchi e neri.
- */
-const BOARD_FRAME =
-  '<path d="M3 3h18v18H3z" />' +
-  '<path class="sq" d="M3 3h4.5v4.5H3zM12 3h4.5v4.5H12zM7.5 7.5H12V12H7.5zM16.5 7.5H21V12h-4.5z' +
-  'M3 12h4.5v4.5H3zM12 12h4.5v4.5H12zM7.5 16.5H12V21H7.5zM16.5 16.5H21V21h-4.5z" ' +
-  'stroke="none"/>';
-
-/**
- * Un pezzo: un punto pieno. Le sagome vere, a questa scala, sono macchie.
- * `shade` dice se e' un pezzo bianco o nero — a due punti di colore diverso non serve
- * nessuna didascalia per dire chi sta da che parte.
- */
-function dot(x: number, y: number, shade: 'light' | 'dark', r = 1.15): string {
-  return `<circle class="piece-${shade}" cx="${x}" cy="${y}" r="${r}"/>`;
-}
-
 const PATHS: Record<IconName, string> = {
   previous: '<path d="M15.5 5.5v13L7 12z" fill="currentColor"/>',
   next: '<path d="M8.5 5.5v13L17 12z" fill="currentColor"/>',
@@ -147,12 +115,21 @@ const PATHS: Record<IconName, string> = {
   person:
     '<circle class="body" cx="12" cy="7" r="3.4" />' +
     '<path class="body" d="M5.4 19.6a6.6 6.6 0 0 1 13.2 0z" />',
-  // Nuova partita: i due schieramenti allineati, ordinati e simmetrici. In alto i
-  // Neri, in basso i Bianchi, come su una scacchiera vista dal Bianco.
+  // Nuova partita: una damiera 3x3, e basta.
+  //
+  // Era una scacchiera 4x4 con otto pezzi schierati, disegnata per leggersi IN COPPIA
+  // con quella coi pezzi sparsi di "posizione". Quella coppia non esiste piu' — la
+  // posizione e' diventata un foglio di testo — e senza il confronto gli otto pallini
+  // erano solo affollamento: a ventidue pixel un pezzo e' un punto, e otto punti sono
+  // un retino.
+  //
+  // Tre caselle per lato invece di quattro: le case diventano di sette pixel invece
+  // che di cinque, e la scacchiera si legge come scacchiera invece che come griglia
+  // grigia. Il motivo alternato e' l'unica cosa che serve — un tabellone a scacchi
+  // dice "una partita" senza bisogno di pezzi sopra.
   newGame:
-    BOARD_FRAME +
-    dot(6.2, 6.2, 'dark') + dot(10.1, 6.2, 'dark') + dot(13.9, 6.2, 'dark') + dot(17.8, 6.2, 'dark') +
-    dot(6.2, 17.8, 'light') + dot(10.1, 17.8, 'light') + dot(13.9, 17.8, 'light') + dot(17.8, 17.8, 'light'),
+    '<path d="M3 3h18v18H3z" />' +
+    '<path class="sq" d="M3 3h6v6H3zM15 3h6v6h-6zM9 9h6v6H9zM3 15h6v6H3zM15 15h6v6h-6z" stroke="none"/>',
   // Il mappamondo: la lingua. Tre elementi soli — il cerchio, l'equatore e un
   // meridiano — perche' a ventidue pixel un mappamondo con i continenti e' una
   // macchia. Non una bandiera: una bandiera dice UN PAESE, e l'inglese non e' il

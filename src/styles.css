@@ -224,22 +224,6 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 .icon-btn svg .piece-light { fill: #fff; stroke: var(--ink); stroke-width: 0.9; }
 .toolbar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 7px; }
 
-/* Il nome del comando appena toccato: serve solo su schermo tattile, dove il
-   suggerimento del browser non esiste. Non e' un avviso e non deve sembrarlo —
-   sparisce da solo, e mentre c'e' l'azione e' gia' stata eseguita. */
-/* Il salvavita: si vede, ma non allarma. Chi ha premuto apposta non deve nemmeno
-   accorgersene; chi ha sbagliato lo trova esattamente dove sta guardando. */
-.recover { margin-top: 2px; }
-
-.flash {
-  font-size: 13px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: 6px;
-  padding: 4px 10px;
-  align-self: flex-start;
-}
-
 /* Menu di un pulsante-icona (esporta). Ancorato al pulsante e sopra tutto il resto. */
 .toolbar .group { display: flex; align-items: center; gap: 2px; }
 /* Spinto a destra: il ritiro e' l'unico comando che cambia la partita, e la distanza
