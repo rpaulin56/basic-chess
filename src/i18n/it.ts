@@ -2,6 +2,7 @@ export const it = {
   appTitle: 'GrandmaChess',
   tagline: 'Impara dai tuoi errori',
   credits: 'Crediti e licenze',
+  about: 'Informazioni',
   aboutTitle: 'Che cos’è, e che cosa non è',
   aboutDoes:
     'GrandmaChess ti fa giocare contro un’avversaria della tua forza che ti ferma quando sbagli, ti dice quanto è costato l’errore e ti lascia rifare la mossa. A fine partita ti mostra i momenti in cui la partita ti è scivolata via. Riconosce le aperture e i finali che hanno un nome, e quando ci arrivi ti dice dove studiarli.',

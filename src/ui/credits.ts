@@ -79,8 +79,38 @@ export function createCredits(): HTMLElement {
   details.className = 'credits';
 
   const summary = document.createElement('summary');
-  summary.textContent = t('credits');
+  summary.textContent = t('about');
   details.append(summary);
+
+  /*
+   * Si chiude cliccando fuori, non solo ritornando sulla "i".
+   *
+   * Un `<details>` nativo si chiude solo dal suo riassunto, ed e' il comportamento
+   * giusto per un paragrafo che si espande dentro un testo. Questo pero' e' un
+   * pannello sovrapposto: si comporta come un menu, e un menu si chiude cliccando
+   * altrove. Con Esc pure, che e' la scorciatoia che chi la conosce prova per prima.
+   *
+   * L'ascoltatore si registra all'apertura e si toglie alla chiusura: uno appeso al
+   * documento per sempre e' il modo con cui si accumulano perdite di memoria in un
+   * pannello che viene ricostruito ad ogni cambio di lingua.
+   */
+  details.addEventListener('toggle', () => {
+    if (!details.open) return;
+    const close = (event: Event): void => {
+      const outside = event.type === 'keydown'
+        ? (event as KeyboardEvent).key === 'Escape'
+        : !details.contains(event.target as Node);
+      if (!outside) return;
+      details.open = false;
+      document.removeEventListener('click', close);
+      document.removeEventListener('keydown', close);
+    };
+    // Nel prossimo giro di eventi: altrimenti il clic che apre il pannello lo richiude.
+    setTimeout(() => {
+      document.addEventListener('click', close);
+      document.addEventListener('keydown', close);
+    });
+  });
 
   /*
    * La dichiarazione d'intenti, PRIMA di tutto il resto.
@@ -167,9 +197,15 @@ export function createCredits(): HTMLElement {
 
   details.append(authors, dedication, photoRights, copyright);
 
+  // Da qui in giu' sono i crediti veri e propri, e adesso hanno bisogno di un titolo:
+  // il pannello non si chiama piu' "Crediti e licenze" ma "Informazioni", perche' la
+  // prima cosa che contiene non e' un obbligo di licenza ma cosa fa il programma.
+  const creditsTitle = document.createElement('p');
+  creditsTitle.className = 'credits-about-title';
+  creditsTitle.textContent = t('credits');
   const intro = document.createElement('p');
   intro.textContent = t('creditsIntro');
-  details.append(intro);
+  details.append(creditsTitle, intro);
 
   const list = document.createElement('ul');
   for (const credit of CREDITS) {

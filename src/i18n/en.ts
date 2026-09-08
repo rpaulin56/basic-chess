@@ -4,6 +4,7 @@ export const en: Record<keyof typeof it, string> = {
   appTitle: 'GrandmaChess',
   tagline: 'Learn from your mistakes',
   credits: 'Credits and licences',
+  about: 'About',
   aboutTitle: 'What it is, and what it is not',
   aboutDoes:
     'GrandmaChess lets you play an opponent at your own strength who stops you when you go wrong, tells you what the mistake cost and lets you play the move again. At the end it shows you where the game slipped away. It knows the openings and the endgames that have a name, and tells you where to study them when you reach one.',
