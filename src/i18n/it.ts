@@ -98,6 +98,7 @@ export const it = {
   recapCorrected: 'ritirata',
   recapKept: 'mantenuta',
   newGameConfirm: 'Vuoi davvero ricominciare? La partita in corso va persa.',
+  recoverGame: 'Riprendi la partita di prima ({count} semi-mosse)',
   recapLine: '{number} {san} — {kind}, {severity}: {what} ({state})',
   catBanaleText: 'Perdi subito {what}.',
   lossExchange: 'la qualità',

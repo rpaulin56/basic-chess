@@ -140,6 +140,18 @@ const RETRY_DELAY_MS = 1500;
 /** Chiave della partita salvata. Cambiarla invalida i salvataggi vecchi. */
 const SAVE_KEY = 'basic-chess:game/1';
 
+/**
+ * La partita precedente, messa da parte quando se ne comincia un'altra.
+ *
+ * Nasce da un danno vero: un utente ha premuto "nuova partita" volendo esportare la
+ * posizione, a partita finita — dove non chiediamo conferma — e ha perso una partita
+ * lunga che voleva ancora analizzare. Non e' bastato rendere le due icone diverse:
+ * quella conferma non la rimettiamo (chiedere "sei sicuro?" ad ogni nuova partita e'
+ * un pedaggio pagato da tutti per un incidente raro), ma l'azione DEVE essere
+ * reversibile, ed e' una risposta migliore di una domanda.
+ */
+const PREVIOUS_KEY = 'basic-chess:game/previous';
+
 /** Cosa si conserva di una partita fra un accesso e l'altro. */
 interface SavedGame {
   startFen: string;
@@ -397,6 +409,7 @@ export function mountApp(root: HTMLElement): void {
     movesTitle,
     langEl,
     flashEl,
+    recoverEl,
     tagline,
     recapTitle,
     creditsEl,
@@ -446,6 +459,7 @@ export function mountApp(root: HTMLElement): void {
       creditsEl.replaceChildren(createCredits());
     }
     renderStatus();
+    renderRecover();
     renderControls();
     renderHint();
     renderOffer();
@@ -1326,6 +1340,36 @@ export function mountApp(root: HTMLElement): void {
    * intero: rigiocarle ricostruisce tutto, e un salvataggio di una partita lunga resta
    * di pochi kilobyte.
    */
+  /**
+   * Mette da parte la partita corrente prima di sostituirla.
+   *
+   * Solo se contiene qualcosa: sovrascrivere il salvavita con una partita vuota lo
+   * renderebbe inutile proprio quando serve — due "nuova partita" di fila.
+   */
+  function stashGame(): void {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as SavedGame;
+      if (!Array.isArray(saved.moves) || saved.moves.length === 0) return;
+      localStorage.setItem(PREVIOUS_KEY, raw);
+    } catch {
+      // Spazio esaurito o memoria disabilitata: si gioca lo stesso, senza salvavita.
+    }
+  }
+
+  /** La partita messa da parte, se c'e' e se e' ancora recuperabile. */
+  function stashed(): SavedGame | null {
+    try {
+      const raw = localStorage.getItem(PREVIOUS_KEY);
+      if (!raw) return null;
+      const saved = JSON.parse(raw) as SavedGame;
+      return Array.isArray(saved.moves) && saved.moves.length > 0 ? saved : null;
+    } catch {
+      return null;
+    }
+  }
+
   function saveGame(): void {
     try {
       const payload: SavedGame = {
@@ -1608,6 +1652,48 @@ export function mountApp(root: HTMLElement): void {
   }
 
   // --- pannelli ----------------------------------------------------------
+  /**
+   * "Riprendi la partita precedente", quando ce n'e' una da parte.
+   *
+   * Compare finche' NON SI E' MOSSO: e' il segnale che la partita nuova non e' ancora
+   * cominciata davvero, ed e' la finestra esatta in cui un "nuova partita" premuto per
+   * sbaglio va annullato. Alla prima mossa sparisce, perche' da li' in poi la partita
+   * corrente vale piu' di quella vecchia.
+   *
+   * Non e' un avviso e non deve sembrarlo: chi ha premuto apposta non deve nemmeno
+   * accorgersene.
+   */
+  function renderRecover(): void {
+    recoverEl.replaceChildren();
+    const previous = stashed();
+    const mosso = state.plies.some((ply) => ply.color === humanColor);
+    recoverEl.hidden = previous === null || mosso;
+    if (recoverEl.hidden || !previous) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'why-ask ghost';
+    button.textContent = t('recoverGame', { count: previous.moves.length });
+    button.addEventListener('click', () => {
+      const restored = loadFrom(previous);
+      if (!restored) return;
+      localStorage.removeItem(PREVIOUS_KEY);
+      state = restored.state;
+      humanColor = restored.humanColor;
+      orientation = humanColor === 'w' ? 'white' : 'black';
+      mistakeLog.length = 0;
+      mistakeLog.push(...restored.mistakes);
+      losses.length = 0;
+      losses.push(...restored.losses);
+      hintsUsed = restored.hints;
+      outcome = restored.outcome;
+      evaluation = null;
+      lastWhitePercent = null;
+      clearTutor();
+      refresh();
+    });
+    recoverEl.append(button);
+  }
+
   function renderStatus(): void {
     // Il verdetto finale si riferisce alla partita intera, non alla posizione che si
     // sta guardando: durante un rewind mostriamo di nuovo il tratto.
@@ -1812,6 +1898,9 @@ export function mountApp(root: HTMLElement): void {
           // buttare via, e chiedere "sei sicuro?" e' un ostacolo messo li' per abitudine.
           const finished = outcome !== null || gameOver(goTo(state, state.plies.length)) !== null;
           if (state.plies.length > 0 && !finished && !confirm(t('newGameConfirm'))) return;
+          // Il salvavita: la partita che si sta lasciando resta recuperabile finche'
+          // non se ne gioca un'altra.
+          stashGame();
           if (state.plies.some((ply) => ply.color === humanColor)) {
             humanColor = humanColor === 'w' ? 'b' : 'w';
             orientation = humanColor === 'w' ? 'white' : 'black';
@@ -2429,6 +2518,7 @@ export function mountApp(root: HTMLElement): void {
     if (!text) return;
     try {
       const imported = parseGameInput(text);
+      stashGame();
       state = imported.state;
       // Partita diversa: il valore vecchio non descrive piu' niente.
       lastWhitePercent = null;
@@ -2596,6 +2686,11 @@ function buildLayout(root: HTMLElement) {
   const flashEl = document.createElement('div');
   flashEl.className = 'flash';
   flashEl.hidden = true;
+  // Il salvavita della partita precedente. Sotto i comandi, dove si guarda dopo aver
+  // premuto qualcosa — che e' il momento in cui uno si accorge di aver sbagliato.
+  const recoverEl = document.createElement('div');
+  recoverEl.className = 'recover';
+  recoverEl.hidden = true;
   // Lo slider della conseguenza sta SOTTO la scacchiera, non nel pannello laterale:
   // si guarda il diagramma mentre lo si scorre, non si cerca il comando altrove.
   const previewEl = document.createElement('div');
@@ -2615,7 +2710,7 @@ function buildLayout(root: HTMLElement) {
   const boardRow = document.createElement('div');
   boardRow.className = 'board-row';
   boardRow.append(boardWrap, barEl);
-  boardColumn.append(boardRow, previewEl, infoRow, controlsEl, flashEl);
+  boardColumn.append(boardRow, previewEl, infoRow, controlsEl, flashEl, recoverEl);
 
   const side = document.createElement('aside');
 
@@ -2698,6 +2793,7 @@ function buildLayout(root: HTMLElement) {
     movesTitle,
     langEl,
     flashEl,
+    recoverEl,
     tagline,
     recapTitle,
     creditsEl,
@@ -2864,18 +2960,27 @@ function recapLine(entry: MistakeEntry): string {
  * piu') si risolve ricominciando da capo invece che con una schermata rotta: una
  * partita persa e' un fastidio, un programma che non parte e' un guasto.
  */
-function loadGame(): {
+interface LoadedGame {
   state: GameState;
   humanColor: Color;
   mistakes: MistakeEntry[];
   losses: MoveLoss[];
   hints: number;
   outcome: Outcome | null;
-} | null {
+}
+
+function loadGame(): LoadedGame | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const saved = JSON.parse(raw) as SavedGame;
+    return raw ? loadFrom(JSON.parse(raw) as SavedGame) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ricostruisce una partita salvata rigiocandone le mosse. */
+function loadFrom(saved: SavedGame): LoadedGame | null {
+  try {
     let state = newGame(saved.startFen);
     for (const uci of saved.moves) {
       const next = playMove(

@@ -161,12 +161,18 @@ const PATHS: Record<IconName, string> = {
     '<circle cx="12" cy="12" r="9" />' +
     '<path d="M3 12h18" />' +
     '<path d="M12 3a13 13 0 0 1 0 18a13 13 0 0 1 0-18z" />',
-  // Posizione: gli stessi pezzi, ma sparsi come in una partita cominciata. Il
-  // disordine e' il messaggio, quindi le posizioni sono scelte per non allinearsi
-  // ne' in riga ne' in colonna.
-  position:
-    BOARD_FRAME +
-    dot(7.1, 6.6, 'dark') + dot(13.4, 9.8, 'light') + dot(17.4, 6.9, 'dark') + dot(9.9, 16.4, 'light'),
+  // Posizione: due frecce opposte, non una scacchiera.
+  //
+  // Era una scacchiera coi pezzi sparsi, pensata per leggersi IN COPPIA con quella
+  // schierata di "nuova partita": ordine contro disordine. Il ragionamento vale
+  // quando le due icone si confrontano, e crolla quando se ne cerca una — li' la
+  // somiglianza e' tutto cio' che si vede. E' costato a un utente una partita intera:
+  // ha premuto "nuova partita" volendo esportare la posizione.
+  //
+  // Adesso il disegno dice cosa fa il menu — far entrare e uscire posizioni — e non
+  // somiglia a niente altro nella barra. "Nuova partita" resta l'unica scacchiera, e
+  // una scacchiera schierata dice "posizione di partenza" anche da sola.
+  position: '<path d="M3.5 9h13.5l-3.8-3.8" /><path d="M20.5 15H7l3.8 3.8" />',
 };
 
 export function createIcon(name: IconName): SVGSVGElement {

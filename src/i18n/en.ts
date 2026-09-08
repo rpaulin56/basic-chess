@@ -100,6 +100,7 @@ export const en: Record<keyof typeof it, string> = {
   recapCorrected: 'taken back',
   recapKept: 'kept',
   newGameConfirm: 'Start a new game? The current one will be lost.',
+  recoverGame: 'Go back to the previous game ({count} half-moves)',
   recapLine: '{number} {san} — {kind}, {severity}: {what} ({state})',
   catBanaleText: 'You lose {what} straight away.',
   lossExchange: 'the exchange',
