@@ -186,6 +186,16 @@ interface MoveLoss {
   san: string;
   /** Punti di aspettativa persi rispetto alla mossa migliore. */
   drop: number;
+  /**
+   * Aspettativa PRIMA della mossa, dal punto di vista di chi l'ha giocata.
+   *
+   * Serve a una domanda sola, ma importante: a fine partita, come si chiede all'utente
+   * se vuole l'analisi. Una patta puo' essere un mezzo passo falso o un mezzo miracolo,
+   * e senza sapere se si stava vincendo non si puo' distinguere — "vuoi vedere perche'
+   * non hai vinto?" detto a chi si e' salvato da una posizione persa gli toglierebbe
+   * un merito.
+   */
+  before: number;
   /** La mossa che teneva, in SAN. Vuota se non e' stato possibile ricavarla. */
   best: string;
 }
@@ -635,7 +645,15 @@ export function mountApp(root: HTMLElement): void {
       const ask = document.createElement('button');
       ask.type = 'button';
       ask.className = 'why-ask';
-      ask.textContent = humanLost() ? t('whyLost') : t('whyReview');
+      // Tre domande diverse, perche' sono tre partite diverse. La patta e' il caso in
+      // cui la domanda neutra fa piu' danno: a chi ha buttato una vittoria non dice
+      // niente, e a chi si e' salvato da una posizione persa toglierebbe un merito se
+      // gliela facessimo comunque come "perche' non hai vinto".
+      ask.textContent = humanLost()
+        ? t('whyLost')
+        : humanDrew() && wasWinning()
+          ? t('whyNotWon')
+          : t('whyReview');
       ask.addEventListener('click', showPostMortem);
       whyEl.append(ask);
       return;
@@ -691,6 +709,24 @@ export function mountApp(root: HTMLElement): void {
 
   function finished(): boolean {
     return outcome !== null || gameOver(goTo(state, state.plies.length)) !== null;
+  }
+
+  /**
+   * Si e' mai stati in netto vantaggio in questa partita?
+   *
+   * La soglia e' la stessa con cui il tutor chiama "netto vantaggio" una posizione:
+   * il 70% corrisponde a circa un pedone e mezzo. Duplicata di proposito da detect.ts,
+   * perche' li' serve a decidere se una mossa merita un rimprovero e qui a scegliere
+   * una domanda — legarle renderebbe solidali per sbaglio due cose diverse.
+   */
+  function wasWinning(): boolean {
+    return losses.some((loss) => turnAfter(loss.ply) === humanColor && loss.before >= 70);
+  }
+
+  function humanDrew(): boolean {
+    if (outcome) return outcome.result === '1/2-1/2';
+    const over = gameOver(goTo(state, state.plies.length));
+    return over !== null && !over.winner;
   }
 
   function humanLost(): boolean {
@@ -761,7 +797,7 @@ export function mountApp(root: HTMLElement): void {
     for (let ply = 0; ply < state.plies.length; ply++) {
       if (turnAfter(ply) !== humanColor) continue;
       const verdict = detectMistake(analyses[ply]!, analyses[ply + 1]!);
-      recordLoss(ply, verdict.drop, verdict.bestMove);
+      recordLoss(ply, verdict.drop, verdict.bestMove, verdict.winPercentBefore);
     }
     postMortem = 'shown';
     saveGame();
@@ -1315,7 +1351,7 @@ export function mountApp(root: HTMLElement): void {
     // Il costo si registra SEMPRE, anche quando la Nonna tace: e' il materiale della
     // post-analisi, e senza non si puo' dire niente a chi ha perso senza sbagliare
     // niente di segnalabile.
-    recordLoss(state.plies.length - 1, verdict.drop, verdict.bestMove);
+    recordLoss(state.plies.length - 1, verdict.drop, verdict.bestMove, verdict.winPercentBefore);
     if (isImportant(verdict)) {
       // La confutazione e' il seguito previsto dopo la mossa giocata: e' la risposta
       // alla domanda "perche' e' un errore".
@@ -1494,7 +1530,7 @@ export function mountApp(root: HTMLElement): void {
    * indietro la mossa a quel ply e' un'altra, e due righe per lo stesso momento della
    * partita direbbero una cosa che non e' mai accaduta.
    */
-  function recordLoss(ply: number, drop: number, bestMove: string | null): void {
+  function recordLoss(ply: number, drop: number, bestMove: string | null, before: number): void {
     const san = state.plies[ply]?.san;
     if (!san) return;
     const entry: MoveLoss = {
@@ -1502,6 +1538,7 @@ export function mountApp(root: HTMLElement): void {
       number: moveNumberOf(state, ply),
       san,
       drop: Math.max(0, drop),
+      before,
       best: (bestMove ? sanAt(ply, bestMove) : null) ?? '',
     };
     const existing = losses.findIndex((loss) => loss.ply === ply);
