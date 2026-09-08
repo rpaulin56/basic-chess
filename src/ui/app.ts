@@ -317,6 +317,17 @@ export function mountApp(root: HTMLElement): void {
    * una scommessa. E' la condizione che rende non distruttivo il pulsante.
    */
   let replaying = false;
+  /**
+   * Il cursore in cui la Nonna ha appena tolto una mossa con "Ritira e ripensaci".
+   *
+   * Serve a dire la frase giusta: li' non ci sei arrivato navigando, ti ci ha portato
+   * lei, e "stai guardando la mossa 27 di 28" sarebbe una descrizione esatta e inutile.
+   *
+   * E' un CURSORE e non una bandiera, cosi' si spegne da solo appena ci si sposta:
+   * una bandiera andrebbe abbassata in ogni punto in cui la partita si muove, ed e'
+   * lo stesso errore che ci e' appena costato un marcatore sbagliato nel PGN.
+   */
+  let retryAt: number | null = null;
   /** Apertura riconosciuta per la posizione mostrata (null = nessuna, o non ancora). */
   let opening: Opening | null = null;
   /**
@@ -506,6 +517,7 @@ export function mountApp(root: HTMLElement): void {
         // perche' una bandiera alzata qui andrebbe abbassata in ogni punto in cui la
         // mossa puo' tornare al suo posto — e uno di quei punti ce lo eravamo scordato.
         renderRecap();
+        retryAt = Math.max(0, state.cursor - 1);
         review = null;
         preview = null;
         forcedLine = null;
@@ -1813,14 +1825,24 @@ export function mountApp(root: HTMLElement): void {
      * il modo con cui si ritira una mossa, e vale la pena che si impari.
      */
     if (!atEnd) {
+      // Due frasi diverse per due modi diversi di essere finiti qui. Se ci si e'
+      // arrivati navigando, la cosa da dire e' dove si e'; se ce l'ha portato la
+      // Nonna togliendo una mossa, quella e' una descrizione esatta e inutile — la
+      // cosa da dire e' che tocca riprovare.
+      const retrying = retryAt === state.cursor;
       const number = moveNumberOf(state, Math.max(0, state.cursor - 1));
       const total = moveNumberOf(state, state.plies.length - 1);
       statusEl.className = 'status rewind';
-      statusEl.append(text(t('rewindNotice', { number, total }), 'rewind-text'));
+      statusEl.append(
+        text(retrying ? t('rewindRetry') : t('rewindNotice', { number, total }), 'rewind-text'),
+      );
       const back = document.createElement('button');
       back.type = 'button';
       back.className = 'rewind-back';
-      back.textContent = t('rewindBack');
+      // Tornare alla fine, dopo un ritiro, vuol dire rimettere la mossa dov'era: e'
+      // una scelta legittima ("ci ho ripensato, la tengo") e va detta con le sue
+      // parole, non con quelle della navigazione.
+      back.textContent = retrying ? t('rewindRedo') : t('rewindBack');
       back.addEventListener('click', () => seek(state.plies.length));
       statusEl.append(back);
       return;

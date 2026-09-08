@@ -60,6 +60,8 @@ export const en: Record<keyof typeof it, string> = {
   turnWhite: 'White to move',
   rewindNotice: 'You are looking at move {number} of {total}: play to carry on from here,',
   rewindBack: 'or jump back to the end',
+  rewindRetry: 'I have taken your move back: try another one,',
+  rewindRedo: 'or put it back as it was',
   turnBlack: 'Black to move',
   checkmate: 'Checkmate: {winner} wins.',
   stalemate: 'Stalemate: draw.',

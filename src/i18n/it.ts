@@ -58,6 +58,8 @@ export const it = {
   turnWhite: 'Tocca al Bianco',
   rewindNotice: 'Stai guardando la mossa {number} di {total}: gioca per riprendere da qui,',
   rewindBack: 'oppure torna alla fine',
+  rewindRetry: "Ho tolto la tua mossa: provane un'altra,",
+  rewindRedo: "oppure rimettila com'era",
   turnBlack: 'Tocca al Nero',
   checkmate: 'Scacco matto: vince {winner}.',
   stalemate: 'Stallo: patta.',
