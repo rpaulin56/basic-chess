@@ -56,6 +56,8 @@ export const it = {
   overwriteFuture:
     'Stai guardando una posizione precedente. Giocando qui cancelli le {count} mosse successive. Procedere?',
   turnWhite: 'Tocca al Bianco',
+  rewindNotice: 'Stai guardando la mossa {number} di {total}: gioca per riprendere da qui,',
+  rewindBack: 'oppure torna alla fine',
   turnBlack: 'Tocca al Nero',
   checkmate: 'Scacco matto: vince {winner}.',
   stalemate: 'Stallo: patta.',

@@ -1791,9 +1791,38 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function renderStatus(): void {
+    statusEl.replaceChildren();
     // Il verdetto finale si riferisce alla partita intera, non alla posizione che si
     // sta guardando: durante un rewind mostriamo di nuovo il tratto.
     const atEnd = state.cursor === state.plies.length;
+
+    /*
+     * "Stai guardando una posizione precedente", con il modo di tornare.
+     *
+     * Era il buco piu' grosso rimasto, e l'ha trovato l'uso: un utente si e' ritrovato
+     * con tre comandi spenti — suggerimento, patta e abbandono — senza capire perche'.
+     * Erano spenti giustamente, perche' guardava una mossa passata: ma NIENTE glielo
+     * diceva. La scacchiera e' identica, i pezzi si muovono lo stesso, e l'unico
+     * segnale era la mossa evidenziata nella lista, che su telefono e' chiusa.
+     *
+     * Le icone spente non bastano: dicono che qualcosa non va, non cosa.
+     *
+     * Il messaggio dice anche cosa si PUO' fare, perche' da qui si puo' giocare: e'
+     * il modo con cui si ritira una mossa, e vale la pena che si impari.
+     */
+    if (!atEnd) {
+      const number = moveNumberOf(state, Math.max(0, state.cursor - 1));
+      const total = moveNumberOf(state, state.plies.length - 1);
+      statusEl.className = 'status rewind';
+      statusEl.append(text(t('rewindNotice', { number, total }), 'rewind-text'));
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'rewind-back';
+      back.textContent = t('rewindBack');
+      back.addEventListener('click', () => seek(state.plies.length));
+      statusEl.append(back);
+      return;
+    }
     if (outcome && atEnd) {
       statusEl.textContent = t(outcome.reason === 'resign' ? 'outcomeResign' : 'outcomeDraw');
       statusEl.className = 'status over';

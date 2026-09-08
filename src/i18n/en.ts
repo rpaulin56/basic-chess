@@ -58,6 +58,8 @@ export const en: Record<keyof typeof it, string> = {
   overwriteFuture:
     'You are viewing an earlier position. Playing here discards the following {count} moves. Continue?',
   turnWhite: 'White to move',
+  rewindNotice: 'You are looking at move {number} of {total}: play to carry on from here,',
+  rewindBack: 'or jump back to the end',
   turnBlack: 'Black to move',
   checkmate: 'Checkmate: {winner} wins.',
   stalemate: 'Stalemate: draw.',
