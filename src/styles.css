@@ -622,6 +622,10 @@ select {
 .credits-authors { margin: 0 0 6px; }
 .credits-authors dt { color: var(--ink-soft); }
 .credits-authors dd { margin: 0 0 4px; color: var(--ink); }
+/* La dichiarazione d'intenti: e' l'unica parte dei crediti che si legge per capire,
+   non per verificare, e sta staccata dal resto da una riga. */
+.credits-about { border-bottom: 1px solid var(--line); margin-bottom: 10px; padding-bottom: 4px; }
+.credits-about-title { font-weight: 600; color: var(--ink); margin: 0 0 6px; }
 .credits-copyright { margin: 0 0 10px; }
 
 /* --- suggerimento ("e adesso?") --- */
@@ -671,6 +675,17 @@ select {
   margin-bottom: 6px;
 }
 .why-note { font-size: 13px; margin-bottom: 8px; }
+/* Il titoletto delle mosse buone: verde e non marrone, perche' e' l'unica cosa del
+   pannello che non e' un rimprovero. */
+.why-good-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #3d6431;
+  font-weight: 600;
+  margin-top: 10px;
+  margin-bottom: 6px;
+}
 .why-units { font-size: 12px; color: var(--ink-soft); margin-top: 8px; }
 .why ul { margin: 0; padding-left: 18px; font-size: 13px; }
 .why li { margin-bottom: 3px; }

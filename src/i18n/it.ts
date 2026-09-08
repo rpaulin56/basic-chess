@@ -2,6 +2,15 @@ export const it = {
   appTitle: 'GrandmaChess',
   tagline: 'Impara dai tuoi errori',
   credits: 'Crediti e licenze',
+  aboutTitle: 'Che cos’è, e che cosa non è',
+  aboutDoes:
+    'GrandmaChess ti fa giocare contro un’avversaria della tua forza che ti ferma quando sbagli, ti dice quanto è costato l’errore e ti lascia rifare la mossa. A fine partita ti mostra i momenti in cui la partita ti è scivolata via. Riconosce le aperture e i finali che hanno un nome, e quando ci arrivi ti dice dove studiarli.',
+  aboutNotTime:
+    'NON HA L’OROLOGIO, ed è la rinuncia più grossa. Qui puoi pensare quanto vuoi, e questo cambia tutto: l’Elo di un giocatore misura la sua forza a tempi confrontabili, quindi il livello che batti qui non è il livello che batteresti in torneo. Pensare in fretta è un’abilità a sé, e questo programma non te la insegna.',
+  aboutNotElse:
+    'Non ti fa giocare contro altre persone, non ti dà un tuo punteggio, non ti allena la tattica con migliaia di esercizi e non ti costruisce un repertorio di aperture. Per diventare un giocatore vero ti serviranno un orologio, avversari in carne e ossa e un circolo: questo programma è il posto dove capire i tuoi errori, non dove finire.',
+  aboutPrivacy:
+    'Non ha bisogno di rete, non chiede un account e non manda niente a nessuno: il motore scacchistico gira dentro il tuo browser e la partita resta lì.',
   creditsAuthorLabel: 'Concept e progetto software',
   creditsAuthorName: 'Riccardo Paulin',
   creditsCodeLabel: 'Scrittura del codice',
@@ -49,6 +58,8 @@ export const it = {
   whyUnits:
     'I punti sono di aspettativa di vittoria: su cento partite giocate da quella posizione, quante ne porteresti a casa. Perderne dieci in una mossa sola è tanto.',
   whyBetter: 'meglio {san}',
+  whyGoodTitle: 'E qualcosa di buono',
+  whyGoodLine: '{number}. {san} — qui le altre mosse non tenevano, e tu l’hai trovata.',
   whyNothing: 'Non trovo momenti che valga la pena rivedere: hai giocato niente male.',
   levelName: 'Livello {n}',
   levelElo: 'Forza stimata: {elo} Elo',

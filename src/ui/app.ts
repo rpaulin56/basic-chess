@@ -69,6 +69,16 @@ const ANALYSIS_MULTIPV = 3;
 const MISTAKE_DROP = 18;
 
 /**
+ * Quanto la mossa migliore deve battere la seconda perche' trovarla sia un merito.
+ *
+ * Quindici punti di aspettativa: sotto, le alternative erano abbastanza buone da
+ * rendere la scelta ovvia o indifferente, e chiamarla bravura sarebbe un complimento
+ * regalato. I complimenti regalati non si distinguono da quelli veri, e allora non
+ * valgono piu' niente nemmeno quelli veri.
+ */
+const GOOD_MOVE_GAP = 15;
+
+/**
  * Profondita' del GIUDIZIO, piu' alta di quella della valutazione mostrata.
  *
  * Misurato su una partita reale: la stessa posizione valutata a profondita' 14 dava
@@ -198,6 +208,19 @@ interface MoveLoss {
   before: number;
   /** La mossa che teneva, in SAN. Vuota se non e' stato possibile ricavarla. */
   best: string;
+  /**
+   * Quanto la mossa migliore era meglio della SECONDA migliore, in punti di
+   * aspettativa.
+   *
+   * E' una misura di DIFFICOLTA', non di qualita': dice quanto era stretta la strada.
+   * Con uno scarto grande c'era una mossa sola che teneva, e trovarla e' un merito;
+   * con uno scarto nullo andavano bene in tante, e giocare la migliore non dice niente
+   * di chi l'ha giocata.
+   *
+   * Zero quando non si sa (analisi a una linea sola): in quel caso non si dichiara
+   * nessun merito, che e' meglio che dichiararne uno falso.
+   */
+  gap: number;
 }
 
 /**
@@ -674,11 +697,13 @@ export function mountApp(root: HTMLElement): void {
     }
     // postMortem === 'shown'
     const worst = worstMoves();
+    const good = goodMoves();
     const box = document.createElement('div');
     box.className = 'why';
     box.append(text(t('whyTitle'), 'why-title'));
     if (worst.length === 0) {
       box.append(text(t('whyNothing'), 'why-note'));
+      appendGood(box, good);
       whyEl.append(box);
       return;
     }
@@ -719,16 +744,74 @@ export function mountApp(root: HTMLElement): void {
     //
     // Sotto e non sopra: chi ha gia' capito legge le mosse e salta la nota; chi non
     // ha capito la trova dove ha finito di leggere e si e' fatto la domanda.
+    appendGood(box, good);
     box.append(text(t('whyUnits'), 'why-units'));
     whyEl.append(box);
   }
 
+  /**
+   * Le mosse che contano: giocate da chi legge, e in una posizione ANCORA APERTA.
+   *
+   * Il filtro sulla posizione e' arrivato tardi e per un motivo istruttivo. Su una
+   * partita vinta in cinquantacinque mosse contro il livello 1, la post-analisi
+   * segnalava tre imprecisioni — tutte avvenute quando la partita era gia' vinta da
+   * venti mosse, cioe' dove i punti di aspettativa si avevano in abbondanza.
+   * Tecnicamente vero e didatticamente vuoto; e soprattutto fuori personaggio, perche'
+   * una nonna non attacca con tre pignolerie una partita che il nipote ha vinto pulita.
+   *
+   * Le soglie sono le stesse con cui il tutor decide se valga la pena parlare: sopra
+   * l'88% si vince comunque, sotto il 12% e' gia' persa. In mezzo c'e' la partita.
+   */
+  /**
+   * Le mosse buone, in fondo: si finisce con quello che si e' fatto bene.
+   *
+   * Non e' cortesia. Chi ha appena letto tre suoi errori chiude il pannello con quelli
+   * in testa, e il merito riconosciuto per ultimo e' l'unico che resta. Ma solo se c'e'
+   * davvero — vedi goodMoves, che e' avaro apposta.
+   */
+  function appendGood(box: HTMLElement, good: readonly MoveLoss[]): void {
+    if (good.length === 0) return;
+    box.append(text(t('whyGoodTitle'), 'why-good-title'));
+    const list = document.createElement('ul');
+    for (const move of good) {
+      const item = document.createElement('li');
+      item.textContent = t('whyGoodLine', { number: move.number, san: toFigurine(move.san) });
+      list.append(item);
+    }
+    box.append(list);
+  }
+
+  function inPlay(loss: MoveLoss): boolean {
+    return turnAfter(loss.ply) === humanColor && loss.before <= 88 && loss.before >= 12;
+  }
+
   /** Le tre mosse piu' costose, in ordine di partita e non di gravita'. */
   function worstMoves(): MoveLoss[] {
-    const mine = losses.filter((loss) => turnAfter(loss.ply) === humanColor && loss.drop >= 4);
+    const mine = losses.filter((loss) => inPlay(loss) && loss.drop >= 4);
     return [...mine]
       .sort((a, b) => b.drop - a.drop)
       .slice(0, 3)
+      .sort((a, b) => a.ply - b.ply);
+  }
+
+  /**
+   * Le mosse buone: al massimo due, e solo se sono state DIFFICILI.
+   *
+   * "Hai giocato la mossa migliore" da solo non e' un merito — spessissimo la mossa
+   * migliore e' l'unica sensata, tipo riprendere un pezzo. Il merito c'e' quando la
+   * strada era stretta: la migliore valeva molto piu' della seconda, e tu hai preso
+   * quella. E' il motivo per cui serviva registrare lo scarto fra le prime due linee.
+   *
+   * Due al massimo, e non tre come per gli errori: un elenco di complimenti lungo
+   * quanto quello dei rimproveri suona come una consolazione, e si smette di credergli.
+   */
+  function goodMoves(): MoveLoss[] {
+    const mine = losses.filter(
+      (loss) => inPlay(loss) && loss.drop <= 2 && loss.gap >= GOOD_MOVE_GAP,
+    );
+    return [...mine]
+      .sort((a, b) => b.gap - a.gap)
+      .slice(0, 2)
       .sort((a, b) => a.ply - b.ply);
   }
 
@@ -790,7 +873,7 @@ export function mountApp(root: HTMLElement): void {
         terminalAnalysis(fen) ??
         (await engine.analyse(fen, {
           depth: POSTMORTEM_DEPTH,
-          multiPV: 1,
+          multiPV: 2,
         }));
       // La partita e' cambiata sotto (nuova partita, importazione): l'analisi in corso
       // parla di una partita che non c'e' piu'.
@@ -822,7 +905,15 @@ export function mountApp(root: HTMLElement): void {
     for (let ply = 0; ply < state.plies.length; ply++) {
       if (turnAfter(ply) !== humanColor) continue;
       const verdict = detectMistake(analyses[ply]!, analyses[ply + 1]!);
-      recordLoss(ply, verdict.drop, verdict.bestMove, verdict.winPercentBefore);
+      const first = analyses[ply]!.lines[0];
+      const second = analyses[ply]!.lines[1];
+      recordLoss(
+        ply,
+        verdict.drop,
+        verdict.bestMove,
+        verdict.winPercentBefore,
+        first && second ? winPercentOf(first) - winPercentOf(second) : 0,
+      );
     }
     postMortem = 'shown';
     saveGame();
@@ -1376,7 +1467,17 @@ export function mountApp(root: HTMLElement): void {
     // Il costo si registra SEMPRE, anche quando la Nonna tace: e' il materiale della
     // post-analisi, e senza non si puo' dire niente a chi ha perso senza sbagliare
     // niente di segnalabile.
-    recordLoss(state.plies.length - 1, verdict.drop, verdict.bestMove, verdict.winPercentBefore);
+    // Lo scarto fra la prima e la seconda linea: quanto era stretta la strada.
+    const first = before.lines[0];
+    const second = before.lines[1];
+    const gap = first && second ? winPercentOf(first) - winPercentOf(second) : 0;
+    recordLoss(
+      state.plies.length - 1,
+      verdict.drop,
+      verdict.bestMove,
+      verdict.winPercentBefore,
+      gap,
+    );
     if (isImportant(verdict)) {
       // La confutazione e' il seguito previsto dopo la mossa giocata: e' la risposta
       // alla domanda "perche' e' un errore".
@@ -1555,7 +1656,13 @@ export function mountApp(root: HTMLElement): void {
    * indietro la mossa a quel ply e' un'altra, e due righe per lo stesso momento della
    * partita direbbero una cosa che non e' mai accaduta.
    */
-  function recordLoss(ply: number, drop: number, bestMove: string | null, before: number): void {
+  function recordLoss(
+    ply: number,
+    drop: number,
+    bestMove: string | null,
+    before: number,
+    gap: number,
+  ): void {
     const san = state.plies[ply]?.san;
     if (!san) return;
     const entry: MoveLoss = {
@@ -1564,6 +1671,7 @@ export function mountApp(root: HTMLElement): void {
       san,
       drop: Math.max(0, drop),
       before,
+      gap,
       best: (bestMove ? sanAt(ply, bestMove) : null) ?? '',
     };
     const existing = losses.findIndex((loss) => loss.ply === ply);

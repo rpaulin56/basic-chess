@@ -4,6 +4,15 @@ export const en: Record<keyof typeof it, string> = {
   appTitle: 'GrandmaChess',
   tagline: 'Learn from your mistakes',
   credits: 'Credits and licences',
+  aboutTitle: 'What it is, and what it is not',
+  aboutDoes:
+    'GrandmaChess lets you play an opponent at your own strength who stops you when you go wrong, tells you what the mistake cost and lets you play the move again. At the end it shows you where the game slipped away. It knows the openings and the endgames that have a name, and tells you where to study them when you reach one.',
+  aboutNotTime:
+    'IT HAS NO CLOCK, and that is the biggest thing it gives up. Here you can think as long as you like, and that changes everything: a player’s Elo measures strength at comparable thinking times, so the level you beat here is not the level you would beat over the board. Thinking fast is a skill of its own, and this program does not teach it.',
+  aboutNotElse:
+    'It does not pair you with other people, it does not give you a rating of your own, it does not drill tactics with thousands of puzzles and it does not build you an opening repertoire. To become a real player you will need a clock, opponents made of flesh, and a club: this program is where you understand your mistakes, not where you finish.',
+  aboutPrivacy:
+    'It needs no network, asks for no account and sends nothing anywhere: the chess engine runs inside your browser and the game stays there.',
   creditsAuthorLabel: 'Concept and software design',
   creditsAuthorName: 'Riccardo Paulin',
   creditsCodeLabel: 'Code written by',
@@ -51,6 +60,8 @@ export const en: Record<keyof typeof it, string> = {
   whyUnits:
     'The points are win expectancy: out of a hundred games from that position, how many you would come away with. Losing ten in a single move is a lot.',
   whyBetter: 'better {san}',
+  whyGoodTitle: 'And something good',
+  whyGoodLine: '{number}. {san} — the other moves did not hold here, and you found it.',
   whyNothing: 'I find no moments worth going over: you played rather well.',
   levelName: 'Level {n}',
   levelElo: 'Estimated strength: {elo} Elo',

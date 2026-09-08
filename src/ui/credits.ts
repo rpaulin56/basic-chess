@@ -82,6 +82,32 @@ export function createCredits(): HTMLElement {
   summary.textContent = t('credits');
   details.append(summary);
 
+  /*
+   * La dichiarazione d'intenti, PRIMA di tutto il resto.
+   *
+   * Chiesta dal committente dopo essersi accorto, giocando, che se la cavava contro un
+   * livello molto piu' forte di lui: qui non c'e' orologio, e l'Elo misura la forza a
+   * tempi confrontabili. E' un limite che abbiamo scelto — si impara guardando la
+   * posizione, non correndo — ma non dichiararlo lascia credere una cosa falsa su di
+   * se', ed e' l'opposto di quello che questo programma dovrebbe fare.
+   *
+   * Sta nei crediti perche' e' il pannello che risponde a "cos'e' questa cosa", e in
+   * cima perche' le licenze le legge chi le cerca mentre questo lo deve leggere chi
+   * capita qui per caso.
+   */
+  const about = document.createElement('div');
+  about.className = 'credits-about';
+  const aboutTitle = document.createElement('p');
+  aboutTitle.className = 'credits-about-title';
+  aboutTitle.textContent = t('aboutTitle');
+  about.append(aboutTitle);
+  for (const key of ['aboutDoes', 'aboutNotTime', 'aboutNotElse', 'aboutPrivacy']) {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = t(key);
+    about.append(paragraph);
+  }
+  details.append(about);
+
   const authors = document.createElement('dl');
   authors.className = 'credits-authors';
   for (const [label, name] of [
