@@ -671,6 +671,7 @@ select {
   margin-bottom: 6px;
 }
 .why-note { font-size: 13px; margin-bottom: 8px; }
+.why-units { font-size: 12px; color: var(--ink-soft); margin-top: 8px; }
 .why ul { margin: 0; padding-left: 18px; font-size: 13px; }
 .why li { margin-bottom: 3px; }
 

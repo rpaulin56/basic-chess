@@ -709,6 +709,17 @@ export function mountApp(root: HTMLElement): void {
       list.append(item);
     }
     box.append(list);
+    // Che cosa sono quei punti, detto UNA VOLTA e sotto la lista.
+    //
+    // "Dieci punti persi" non dice niente da solo: chi legge puo' pensare a
+    // centesimi di pedone, che sono l'unita' con cui i motori parlano fra loro e
+    // l'unica che si trova in giro. Qui invece sono punti di aspettativa, cioe' la
+    // sola unita' in cui il tutor ragiona — e ha il pregio di essere spiegabile in
+    // una frase senza nominare la valutazione del motore.
+    //
+    // Sotto e non sopra: chi ha gia' capito legge le mosse e salta la nota; chi non
+    // ha capito la trova dove ha finito di leggere e si e' fatto la domanda.
+    box.append(text(t('whyUnits'), 'why-units'));
     whyEl.append(box);
   }
 

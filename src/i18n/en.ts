@@ -42,7 +42,9 @@ export const en: Record<keyof typeof it, string> = {
   whyTitle: 'Where the game slipped away',
   whyClean:
     'You held your ground and made no serious mistake. But a lot of small errors lose a game just as surely: let me show you a few, to give you the idea.',
-  whyLine: '{number}. {san} — {drop} points lost',
+  whyLine: '{number}. {san} — {drop} expectancy points',
+  whyUnits:
+    'The points are win expectancy: out of a hundred games from that position, how many you would come away with. Losing ten in a single move is a lot.',
   whyBetter: 'better {san}',
   whyNothing: 'I find no moments worth going over: you played rather well.',
   levelName: 'Level {n}',
