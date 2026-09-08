@@ -1962,10 +1962,11 @@ export function mountApp(root: HTMLElement): void {
           { label: t('exportFen'), run: () => void copy(currentFen(state)) },
         ]),
       ),
-      // Qui la barra va a capo, ma solo su schermo tattile: e' il confine fra la
-      // posizione e la partita, ed e' anche il punto che fa cinque pulsanti per riga.
-      // Su desktop l'elemento non esiste proprio e le dieci icone restano in fila.
+      // Qui la barra va a capo QUANDO deve andarci: e' il confine fra la posizione e
+      // la partita, ed e' anche il punto che fa cinque pulsanti per riga. Finche' le
+      // dieci icone ci stanno in fila, l'elemento non ha larghezza e non si vede.
       lineBreak(),
+      separator(),
       // La voce della Nonna: se parla, e cosa dice se le si chiede. Sono due facce
       // della stessa cosa, e stanno insieme per questo.
       group(
@@ -1994,7 +1995,6 @@ export function mountApp(root: HTMLElement): void {
           () => void askHint(),
         ),
       ),
-      separator(),
       separator(),
       group(
         // Ricominciare fa perdere la partita, quindi in teoria vorrebbe un'etichetta -
