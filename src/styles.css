@@ -94,6 +94,20 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 
 .board-column { display: flex; flex-direction: column; gap: 12px; }
 
+/*
+ * Le coordinate a bordo scacchiera: TUTTE scure.
+ *
+ * Chessground le alterna, chiaro sulle case scure e scuro su quelle chiare, per far
+ * contrastare ogni etichetta con la propria casella. L'idea e' ragionevole,
+ * l'esecuzione no: il bianco all'80% su una casella chiara (#f0d9b5) e' quasi
+ * invisibile, e il risultato che si vede e' meta' numeri leggibili e meta' no.
+ *
+ * Il nostro inchiostro scuro invece regge su ENTRAMBE: contrasto circa 11:1 sulle
+ * case chiare e circa 5:1 su quelle scure, cioe' sempre sopra la soglia di
+ * leggibilita'. Un colore solo, e si legge tutto.
+ */
+.cg-wrap coords coord { color: var(--ink) !important; opacity: 0.75; }
+
 /* chessground si dimensiona sul contenitore: deve essere quadrato. */
 .board-wrap {
   position: relative;
