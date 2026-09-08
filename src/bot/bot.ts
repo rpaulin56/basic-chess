@@ -67,75 +67,81 @@ export interface BotLevel {
 }
 
 /**
- * I livelli, con l'Elo MISURATO da `npm run calibrate`, 100 partite per combinazione
- * contro Stockfish limitato a un Elo noto.
+ * I CINQUE livelli, con l'Elo misurato contro Stockfish limitato a un Elo noto.
  *
- * QUANTO VALGONO QUESTI NUMERI. Cento partite, non trenta, e non e' pedanteria: con
- * trenta la stessa configurazione rimisurata dava scarti di 150-250 punti, e in una
- * sola giornata quel rumore ha prodotto tre conclusioni sbagliate — "discreto si e'
- * rafforzato a 1467" (era 1297), "la temperatura non regola piu' la forza" (regola,
- * ~150-270 punti), "principiante e facile sono lo stesso avversario" (non lo sono).
- * L'errore dichiarato dallo script (±64 su trenta partite) presuppone partite
- * indipendenti, e non lo sono: condividono seed e avversario. Anche a cento partite
- * due misure della stessa configurazione possono distare un centinaio di punti:
- * questi numeri sono un ORDINAMENTO affidabile e una misura approssimata.
+ * Erano sette, e i sette erano una bugia gentile: misurando i livelli UNO CONTRO
+ * L'ALTRO — cosa che per mesi non avevamo mai fatto — due "gradini" si sono rivelati
+ * inesistenti. Fra il vecchio 6 e il 7 c'erano 89 punti, cioe' il 7 vinceva il 62%
+ * delle partite contro il 6; fra il 4 e il 5 ce n'erano 154. In compenso fra il 3 e
+ * il 4 ce n'erano 458. Il gradino piu' largo valeva cinque volte il piu' stretto, e
+ * dalle etichette non si vedeva.
  *
- * I livelli agli ESTREMI sono i meno attendibili: contro l'ancoraggio raccolgono
- * l'8% (i due piu' bassi) o il 93% (il piu' alto), e da un punteggio cosi' schiacciato
- * l'Elo si ricava per estrapolazione. Stockfish non scende sotto 1320 con UCI_Elo,
- * quindi per collocare meglio i primi servirebbe un confronto interno (`--vs`).
+ * DUE MISURE DIVERSE PER DUE DOMANDE DIVERSE. E' la lezione di questa taratura, e
+ * vale oltre gli scacchi. L'ancoraggio a Stockfish dice "quanto vale questo livello
+ * nel mondo", ed e' il numero da stampare perche' e' l'unico confrontabile con
+ * qualcosa. Il confronto interno dice "quanto si sente il salto da qui al prossimo",
+ * ed e' quello che l'utente vive davvero. Le configurazioni si PROGETTANO col secondo
+ * e si ETICHETTANO col primo.
  *
- * MISURA DEL 2026-09-08, dopo l'introduzione del tetto al costo (100 partite per
- * combinazione; ancoraggio 1320 per i primi tre, 1800 per i tre successivi, 2200 per
- * l'ultimo):
+ * I gradini misurati fra livelli adiacenti, 60 partite ciascuno:
  *
- *   livello        attenta   distratta      (prima del tetto)
- *   1 principiante     907         842       871 / 808
- *   2 facile          1012        1045       982 / 871
- *   3 medio           1373        1242      1282 / 1185
- *   4 discreto        1681        1595      1530 / 1435
- *   5 club            1817        1681      1722 / 1555
- *   6 esperto         2069        1919      1892 / 1860
- *   7 forte           2663        2391      2352 / 2236
+ *   1 -> 2   382 punti (il piu' debole raccoglie il 10,0%)
+ *   2 -> 3   250 punti (19,2%)
+ *   3 -> 4   290 punti (15,8%)
+ *   4 -> 5   338 punti (12,5%)
  *
- * Il tetto ha spostato la scala verso l'alto in modo ORDINATO: quasi niente ai due
- * livelli piu' bassi, dove e' largo e non morde, e 150-300 punti dal quarto in su. E'
- * la misura di quanto valeva il materiale che il campionamento regalava gratis.
+ * Da 5,1 a 1,5 nel rapporto fra il gradino piu' largo e il piu' stretto. Non si e'
+ * andati oltre perche' l'incertezza su ognuna di queste misure e' +-55: inseguire una
+ * regolarita' migliore sarebbe inseguire rumore. E fra bot con profili cosi' diversi
+ * l'Elo non e' nemmeno transitivo — una scala perfettamente regolare non esiste.
  *
- * Un'inversione: al livello 2 la distratta (1045) misura piu' dell'attenta (1012).
- * Trentatre' punti su cento partite sono dentro il rumore, e nelle altre sei righe il
- * verso e' sempre quello giusto — ma va lasciata scritta invece che aggiustata a mano,
- * o la tabella smette di essere una misura e diventa un'opinione.
+ * L'Elo ancorato, 100 partite per combinazione:
+ *
+ *   livello   attenta   distratta   ancoraggio   punteggio (attenta)
+ *   1             857         808         1320    6,5%
+ *   2            1275        1189         1320   43,5%
+ *   3            1602        1511         1320   83,5%
+ *   4            1807        1636         1800   51,0%
+ *   5            2123        1915         1800   86,5%
+ *
+ * I due numeri piu' affidabili sono il 1275 e il 1807, che vengono da punteggi del
+ * 43,5% e del 51,0%: li' cento partite misurano davvero. L'857 viene da un 6,5% ed e'
+ * un'estrapolazione — Stockfish non scende sotto 1320 con UCI_Elo, quindi il fondo
+ * della scala non si puo' misurare meglio di cosi'.
  *
  * COSA REGOLA COSA, misurato:
- *  - PROFONDITA': il regolatore principale, ma quantizzato e a gradini grossi
- *    (d2 ~900, d3 ~1280, d4 ~1530, d5 ~1720, d6 ~1890, d8 ~2350).
- *  - TEMPERATURA: vale 100-270 punti a parita' di profondita' (d2: t45 = 871,
- *    t20 = 982 in una misura, 808 e 1074 in un'altra — il verso e' sempre lo stesso,
- *    la taglia e' incerta). Serve anche a dare varieta': senza, il bot ripete la
- *    stessa partita e lo si riconosce dopo tre.
- *  - DISTRAZIONE: ~100 punti in media (da 32 a 167), sempre nello stesso verso in
- *    tutte e sette le righe. La costanza del segno vale piu' della singola misura.
- *  - Controintuitivo e verificato: la profondita' 1 e' PIU' FORTE della 2 (1113
- *    contro 903). A profondita' 1 contano quasi solo le catture, le valutazioni delle
- *    linee si separano molto, i costi diventano grandi e il campionamento si
- *    concentra sulla prima linea. Meno profondita' produce piu' determinismo, e a
- *    questi livelli il determinismo vale piu' della vista.
- *  - La disciplina delle posizioni decise ALZA IL PAVIMENTO della scala, e colpisce
- *    soprattutto i livelli deboli, che erano quelli che buttavano via le partite gia'
- *    vinte. Ma un giocatore da 700 punti per definizione le butta via: non si possono
- *    avere insieme un avversario autenticamente da principianti e un bot che converte
- *    sempre. E' il motivo per cui `decidedPawns` e' per livello.
+ *  - PROFONDITA': il regolatore principale, ma quantizzato a gradini troppo larghi per
+ *    costruirci una scala da solo (una semi-mossa in piu' vale 250-450 punti).
+ *  - TEMPERATURA: il regolatore FINE, quello che interpola dentro una profondita'. E'
+ *    grazie a lei che i quattro gradini sono venuti quasi uguali al primo tentativo.
+ *  - TETTO al costo: quanto materiale la Nonna puo' regalare fra le mosse che VEDE.
+ *    Largo in basso e stretto in alto, perche' un giocatore da 800 punti regala
+ *    materiale — un avversario che non lo fa mai non e' un giocatore da 800 punti.
+ *  - DISTRAZIONE: 50-170 punti, sempre nello stesso verso in tutte e cinque le righe.
+ *  - Controintuitivo e verificato: meno scelte e tetto piu' stretto significano piu'
+ *    DETERMINISMO, e a questi livelli il determinismo vale piu' della vista. E' il
+ *    motivo per cui il vecchio livello 7 stava 320 punti sopra il 6 pur avendo la
+ *    stessa profondita' e la stessa temperatura.
  *
  * Ogni modifica al modo in cui il bot sceglie le mosse invalida la scala e va seguita
  * da una rimisurazione: questi numeri sono un risultato sperimentale, non una scelta.
  */
 export const BOT_LEVELS: readonly BotLevel[] = [
-  { id: 'l1', elo: { attento: 907, distratto: 842 }, depth: 2, multiPV: 8, temperature: 45, decidedPawns: 6, maxCost: 45 },
-  { id: 'l2', elo: { attento: 0, distratto: 0 }, depth: 3, multiPV: 6, temperature: 40, decidedPawns: 5, maxCost: 30 },
-  { id: 'l3', elo: { attento: 0, distratto: 0 }, depth: 4, multiPV: 5, temperature: 36, maxCost: 24 },
-  { id: 'l4', elo: { attento: 0, distratto: 0 }, depth: 5, multiPV: 5, temperature: 18, maxCost: 14 },
-  { id: 'l5', elo: { attento: 2069, distratto: 1919 }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
+  // I tre parametri si muovono INSIEME lungo la scala: ad ogni gradino la Nonna vede
+  // una semi-mossa piu' in la', considera meno alternative, ed e' meno disposta a
+  // sceglierne una peggiore. Nella vecchia scala non era vero — il livello 1 e il 2
+  // differivano solo per la temperatura, il 6 e il 7 solo per la profondita' — ed e'
+  // una delle ragioni per cui i gradini erano irregolari.
+  //
+  // I due piu' bassi hanno anche la soglia del "decisa" piu' alta: la disciplina
+  // scatta solo quando la posizione e' senza speranza, cosi' non fanno mosse assurde a
+  // meno sette ma restano liberi di essere approssimativi quando il vantaggio e'
+  // soltanto grosso. E' cio' che li rende avversari credibili per chi comincia.
+  { id: 'l1', elo: { attento: 857, distratto: 808 }, depth: 2, multiPV: 8, temperature: 45, decidedPawns: 6, maxCost: 45 },
+  { id: 'l2', elo: { attento: 1275, distratto: 1189 }, depth: 3, multiPV: 6, temperature: 40, decidedPawns: 5, maxCost: 30 },
+  { id: 'l3', elo: { attento: 1602, distratto: 1511 }, depth: 4, multiPV: 5, temperature: 36, maxCost: 24 },
+  { id: 'l4', elo: { attento: 1807, distratto: 1636 }, depth: 5, multiPV: 5, temperature: 18, maxCost: 14 },
+  { id: 'l5', elo: { attento: 2123, distratto: 1915 }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
 ];
 
 /**
@@ -144,7 +150,9 @@ export const BOT_LEVELS: readonly BotLevel[] = [
  * Senza questa tabella tutti si ritroverebbero al livello centrale, e chi giocava
  * contro il piu' debole si troverebbe davanti un'avversaria di quattrocento punti piu'
  * forte senza aver toccato niente. Ognuno viene portato al livello NUOVO piu' vicino
- * per forza a quello che aveva, misurato — non a quello con lo stesso numero.
+ * per forza MISURATA a quello che aveva, non a quello con lo stesso numero: e infatti
+ * non e' una corrispondenza uno a uno, perche' i vecchi 1 e 2 distavano meno di un
+ * gradino nuovo e finiscono insieme, come il 6 e il 7.
  */
 const RETIRED_LEVELS: Record<string, string> = {
   principiante: 'l1',
