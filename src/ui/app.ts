@@ -95,6 +95,37 @@ const HINT_DEPTH = 12;
 const HINT_MULTIPV = 20;
 
 /**
+ * Profondita' e larghezza della RIANALISI di fine partita.
+ *
+ * Piu' bassa e piu' stretta di tutto il resto, deliberatamente: questo non e' uno
+ * strumento di analisi seria — per quello si usa altro — e deve rispondere in dieci
+ * secondi invece che in tre minuti. Sulla partita di prova: 47 secondi a profondita'
+ * 14 con tre linee, 11 a profondita' 12 con una.
+ *
+ * QUANTO COSTA. Misurato sulla stessa partita, la terna delle mosse peggiori a
+ * profondita' 12 NON coincide con quella a profondita' 14. Non e' un difetto della
+ * ricerca: e' che in una partita persa per accumulo gli scarti stanno tutti fra i 7 e
+ * i 10 punti, e fra valori cosi' vicini l'ordine e' deciso da differenze piu' piccole
+ * dell'incertezza. Quando invece c'e' un errore vero — venti, quaranta punti — quello
+ * emerge a qualunque profondita', ed e' il caso in cui la terna conta davvero.
+ *
+ * Il giudizio IN PARTITA resta a REVIEW_DEPTH: li' la domanda e' "questa mossa merita
+ * di interrompere il gioco?", cioe' una soglia, e una soglia va decisa con la ricerca
+ * migliore che ci si puo' permettere.
+ *
+ * MultiPV 1 perche' qui non servono le alternative: lo scarto si calcola fra la
+ * migliore di prima e la migliore di dopo, e la mossa che teneva e' la prima linea.
+ * Il filtro della "mossa unica", che le alternative le userebbe, in post-analisi non
+ * si applica: li' non si deve decidere se rimproverare qualcuno.
+ *
+ * Ne segue che i punti mostrati a fine partita possono differire di poco da quelli
+ * detti in partita. E' un compromesso scelto: questo non e' uno strumento di analisi
+ * seria — per quello si usa altro — ed e' meglio che risponda in dieci secondi invece
+ * che in tre minuti.
+ */
+const POSTMORTEM_DEPTH = 12;
+
+/**
  * Sopra questa aspettativa la partita e' decisa e la Nonna puo' proporre l'esercizio.
  *
  * E' la stessa soglia con cui il tutor smette di segnalare gli errori perche' "si
@@ -658,8 +689,8 @@ export function mountApp(root: HTMLElement): void {
     for (let cursor = 0; cursor <= state.plies.length; cursor++) {
       const fen = currentFen(goTo(state, cursor));
       const analysis = await engine.analyse(fen, {
-        depth: ANALYSIS_DEPTH,
-        multiPV: ANALYSIS_MULTIPV,
+        depth: POSTMORTEM_DEPTH,
+        multiPV: 1,
       });
       // La partita e' cambiata sotto (nuova partita, importazione): l'analisi in corso
       // parla di una partita che non c'e' piu'.
