@@ -501,8 +501,10 @@ export function mountApp(root: HTMLElement): void {
       onTakeBack: () => {
         // Si toglie una sola semi-mossa: il bot non ha ancora risposto, perche' il
         // tutor lo tiene fermo finche' l'utente non decide.
-        const last = mistakeLog[mistakeLog.length - 1];
-        if (last) last.corrected = true;
+        //
+        // Non si marca niente: "corretto" si ricava dalla partita (vedi wasCorrected),
+        // perche' una bandiera alzata qui andrebbe abbassata in ogni punto in cui la
+        // mossa puo' tornare al suo posto — e uno di quei punti ce lo eravamo scordato.
         renderRecap();
         review = null;
         preview = null;
@@ -574,8 +576,8 @@ export function mountApp(root: HTMLElement): void {
     const list = document.createElement('ul');
     for (const entry of mistakeLog) {
       const item = document.createElement('li');
-      item.className = entry.corrected ? 'recap-corrected' : '';
-      item.textContent = recapLine(entry);
+      item.className = wasCorrected(entry) ? 'recap-corrected' : '';
+      item.textContent = recapLine(entry, wasCorrected(entry));
       list.append(item);
     }
     if (mistakeLog.length > 0) recapEl.append(list);
@@ -2322,8 +2324,8 @@ export function mountApp(root: HTMLElement): void {
       const machine = [
         CATEGORY_EN[entry.category ?? ''] ?? '',
         Math.round(entry.drop),
-        entry.corrected ? 'undone' : 'kept',
-        ...(entry.corrected ? [entry.san] : []),
+        wasCorrected(entry) ? 'undone' : 'kept',
+        ...(wasCorrected(entry) ? [entry.san] : []),
       ].join(',');
       // Il suffisso va sulla mossa solo se e' rimasta nella partita: quando l'errore
       // e' stato ritirato, la mossa che sta li' e' quella BUONA, e marcarla "??"
@@ -2331,10 +2333,28 @@ export function mountApp(root: HTMLElement): void {
       put(
         entry.ply,
         `[${ANNOTATION_TAG} ${machine}]`,
-        entry.corrected ? undefined : SEVERITY_SUFFIX[entry.severity],
+        wasCorrected(entry) ? undefined : SEVERITY_SUFFIX[entry.severity],
       );
     }
     return map;
+  }
+
+  /**
+   * Un errore e' stato CORRETTO se la mossa che sta oggi al suo posto non e' quella.
+   *
+   * Si ricava dalla partita e non si tiene per bandiera, ed e' il rimedio a un bug
+   * trovato su un PGN vero: la bandiera si alzava al momento del ritiro e non si
+   * abbassava piu'. Ritirando una mossa, ripensandoci e RIGIOCANDO LA STESSA, il PGN
+   * usciva dicendo due bugie insieme — dichiarava ritirata una mossa che era li' nella
+   * partita, e le toglieva il suffisso "??" che invece meritava.
+   *
+   * Lo stesso vale per la freccia "avanti", che rimette la mossa ritirata senza
+   * passare da nessun ritiro: una bandiera avrebbe dovuto essere abbassata in due
+   * posti diversi, e questo e' esattamente il genere di cosa che si dimentica.
+   * Ricavarlo dalla posizione toglie di mezzo la domanda.
+   */
+  function wasCorrected(entry: MistakeEntry): boolean {
+    return state.plies[entry.ply]?.san !== entry.san;
   }
 
   /** Rilegge le nostre annotazioni da un PGN importato, per ricostruire il riepilogo. */
@@ -3104,7 +3124,7 @@ const RECAP_CATEGORY: Record<string, string> = {
   strategico: 'headStrategico',
 };
 
-function recapLine(entry: MistakeEntry): string {
+function recapLine(entry: MistakeEntry, corrected: boolean): string {
   const number = `${entry.number}${entry.color === 'w' ? '.' : '...'}`;
   return t('recapLine', {
     number,
@@ -3112,7 +3132,7 @@ function recapLine(entry: MistakeEntry): string {
     kind: entry.category ? t(RECAP_CATEGORY[entry.category] ?? 'headStrategico') : '—',
     severity: t(RECAP_SEVERITY[entry.severity] ?? 'tutorMistake'),
     what: `-${Math.round(entry.drop)}`,
-    state: t(entry.corrected ? 'recapCorrected' : 'recapKept'),
+    state: t(corrected ? 'recapCorrected' : 'recapKept'),
   });
 }
 

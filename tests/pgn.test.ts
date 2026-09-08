@@ -115,3 +115,28 @@ describe('toPgn', () => {
     expect(parsed.state.plies[0]?.san).toBe('Rxh1');
   });
 });
+
+/**
+ * Una mossa ritirata e poi RIGIOCATA IDENTICA non e' stata corretta.
+ *
+ * Il caso viene da un PGN vero: `28. h6 {[%bc tactical,22,undone,h6]}` — il marcatore
+ * dichiarava ritirata una mossa che stava li' nella partita, e le toglieva il suffisso
+ * "??" che invece meritava. La bandiera si alzava al ritiro e non si abbassava piu'.
+ */
+describe('errore ritirato e rigiocato uguale', () => {
+  /** La stessa regola dell'applicazione: conta cosa c'e' oggi al suo posto. */
+  const wasCorrected = (mosse: string[], ply: number, san: string): boolean =>
+    mosse[ply] !== san;
+
+  it('la mossa rigiocata identica NON risulta corretta', () => {
+    expect(wasCorrected(['e4', 'e5', 'h6'], 2, 'h6')).toBe(false);
+  });
+
+  it('la mossa sostituita risulta corretta', () => {
+    expect(wasCorrected(['e4', 'e5', 'Nf3'], 2, 'h6')).toBe(true);
+  });
+
+  it('e se la partita e stata troncata prima, pure', () => {
+    expect(wasCorrected(['e4', 'e5'], 2, 'h6')).toBe(true);
+  });
+});
