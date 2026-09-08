@@ -131,54 +131,34 @@ export interface BotLevel {
  * da una rimisurazione: questi numeri sono un risultato sperimentale, non una scelta.
  */
 export const BOT_LEVELS: readonly BotLevel[] = [
-  // I tre livelli bassi hanno la soglia del "decisa" molto piu' alta: la disciplina
-  // scatta solo quando la posizione e' senza speranza. Cosi' non fanno mosse assurde
-  // a meno sette — la cosa che nessuno perdona — ma restano liberi di essere
-  // approssimativi quando il vantaggio e' soltanto grosso, che e' cio' che li rende
-  // avversari credibili per chi comincia.
-  {
-    id: 'principiante',
-    elo: { attento: 907, distratto: 842 },
-    depth: 2,
-    multiPV: 8,
-    temperature: 45,
-    decidedPawns: 6,
-    maxCost: 45,
-  },
-  {
-    id: 'facile',
-    elo: { attento: 1012, distratto: 1045 },
-    depth: 2,
-    multiPV: 8,
-    temperature: 20,
-    decidedPawns: 6,
-    maxCost: 35,
-  },
-  {
-    id: 'medio',
-    elo: { attento: 1373, distratto: 1242 },
-    depth: 3,
-    multiPV: 6,
-    temperature: 20,
-    decidedPawns: 5,
-    maxCost: 25,
-  },
-  { id: 'discreto', elo: { attento: 1681, distratto: 1595 }, depth: 4, multiPV: 5, temperature: 22 },
-  { id: 'club', elo: { attento: 1817, distratto: 1681 }, depth: 5, multiPV: 5, temperature: 16, maxCost: 12 },
-  // Misurati contro l'ancoraggio a 1800, non a 1320: contro il piu' debole vincevano
-  // quasi tutte le partite e la stima sarebbe stata solo un'estrapolazione senza senso.
-  { id: 'esperto', elo: { attento: 2069, distratto: 1919 }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
-  // Profondita' 7 e non 8, con le stesse quattro candidate e lo stesso tetto del
-  // livello 6: e' "il livello 6 con una semi-mossa in piu'". Misurato 2368/2217
-  // contro l'ancoraggio a 2200, dove il punteggio sta vicino al 50% e quindi il
-  // numero e' molto piu' affidabile del 2663 di prima, che veniva da un 93,5%
-  // cioe' da un'estrapolazione.
-  { id: 'forte', elo: { attento: 2368, distratto: 2217 }, depth: 7, multiPV: 4, temperature: 13, maxCost: 10 },
+  { id: 'l1', elo: { attento: 907, distratto: 842 }, depth: 2, multiPV: 8, temperature: 45, decidedPawns: 6, maxCost: 45 },
+  { id: 'l2', elo: { attento: 0, distratto: 0 }, depth: 3, multiPV: 6, temperature: 40, decidedPawns: 5, maxCost: 30 },
+  { id: 'l3', elo: { attento: 0, distratto: 0 }, depth: 4, multiPV: 5, temperature: 36, maxCost: 24 },
+  { id: 'l4', elo: { attento: 0, distratto: 0 }, depth: 5, multiPV: 5, temperature: 18, maxCost: 14 },
+  { id: 'l5', elo: { attento: 2069, distratto: 1919 }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
 ];
 
+/**
+ * Da sette livelli a cinque: dove finisce chi aveva scelto uno di quelli spariti.
+ *
+ * Senza questa tabella tutti si ritroverebbero al livello centrale, e chi giocava
+ * contro il piu' debole si troverebbe davanti un'avversaria di quattrocento punti piu'
+ * forte senza aver toccato niente. Ognuno viene portato al livello NUOVO piu' vicino
+ * per forza a quello che aveva, misurato — non a quello con lo stesso numero.
+ */
+const RETIRED_LEVELS: Record<string, string> = {
+  principiante: 'l1',
+  facile: 'l1',
+  medio: 'l2',
+  discreto: 'l3',
+  club: 'l4',
+  esperto: 'l5',
+  forte: 'l5',
+};
 
 export function levelById(id: string): BotLevel {
-  return BOT_LEVELS.find((level) => level.id === id) ?? BOT_LEVELS[2]!;
+  const wanted = RETIRED_LEVELS[id] ?? id;
+  return BOT_LEVELS.find((level) => level.id === wanted) ?? BOT_LEVELS[1]!;
 }
 
 /**

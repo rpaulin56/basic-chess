@@ -112,11 +112,22 @@ const PATHS: Record<IconName, string> = {
   // bianco e non solo contornato, perche' una bandiera bianca si riconosce se e'
   // bianca — era l'unico modo di dirlo, e per questo il colore qui ci sta.
   resign: '<path d="M6 3v18" /><path class="drape" d="M6 4.2h11l-2.4 3.6L17 11.4H6z" />',
-  // Il punto che si divide in due: mezzo a te, mezzo a me. Prima c'era un ½ con
-  // accanto un segno e un cerchio — tre elementi in ventidue pixel, cioe' una
-  // macchia. Qui gli elementi sono due, il cerchio e la sua meta' piena, ed e' la
-  // stessa immagine della barra di valutazione a fine partita.
-  draw: '<circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" />',
+  // Il mezzo punto, scritto. E' il modo in cui la patta si segna sul tabellone da
+  // sempre: chi gioca a scacchi lo riconosce senza pensarci, e chi non lo riconosce
+  // lo impara una volta sola (l'etichetta lo dice, al tocco e col puntatore).
+  //
+  // Unica icona con del TESTO dentro, ed e' una deroga consapevole al principio del
+  // modulo — "il disegno e' identico ovunque" — perche' il glifo lo sceglie il font
+  // di sistema e c'e' chi lo disegna con la barra obliqua e chi orizzontale. La
+  // deroga vale la pena: qualunque disegno inventato da noi direbbe meno di questo
+  // simbolo, che e' gia' la notazione ufficiale del risultato.
+  //
+  // "1/2-1/2" non entra: a ventidue pixel sarebbero sette caratteri, cioe' tre pixel
+  // l'uno.
+  draw:
+    '<text x="12" y="17.5" text-anchor="middle" font-size="17" font-weight="600" ' +
+    'font-family="system-ui, -apple-system, Segoe UI, sans-serif" ' +
+    'fill="currentColor" stroke="none">½</text>',
   // Cursori: e' l'icona che ovunque significa "impostazioni". Un ingranaggio, a 20
   // pixel e a filo, diventa una rotella dentata illeggibile.
   settings:

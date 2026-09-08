@@ -2552,7 +2552,13 @@ function buildLayout(root: HTMLElement) {
   creditsEl.append(createCredits());
   const corner = document.createElement('div');
   corner.className = 'corner';
-  corner.append(langEl, creditsEl);
+  // Il mappamondo per ULTIMO, cioe' attaccato al bordo destro.
+  //
+  // La barra e' allineata a destra, quindi l'elemento piu' a destra e' l'unico che sta
+  // fermo. Con i crediti in quella posizione era il mappamondo a spostarsi ad ogni
+  // cambio di lingua, perche' "Crediti e licenze" e "Credits and licences" non sono
+  // larghi uguale — e si spostava proprio il pulsante che si sta premendo.
+  corner.append(creditsEl, langEl);
   header.append(brand, corner);
 
   const layout = document.createElement('div');
