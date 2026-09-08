@@ -1743,6 +1743,12 @@ export function mountApp(root: HTMLElement): void {
           orientation = orientation === 'white' ? 'black' : 'white';
           refresh();
         }),
+        iconButton('settings', t('settings'), false, openSettings),
+      ),
+      separator(),
+      // La voce della Nonna: se parla, e cosa dice se le si chiede. Sono due facce
+      // della stessa cosa, e stanno insieme per questo.
+      group(
         iconButton(
           tutorEnabled ? 'tutor' : 'tutorOff',
           tutorEnabled ? t('tutorOn') : t('tutorOff'),
@@ -1817,21 +1823,19 @@ export function mountApp(root: HTMLElement): void {
           clearTutor();
           refresh();
         }),
-        iconButton('settings', t('settings'), false, openSettings),
-      ),
-      // Il ritiro sta in fondo, staccato dal resto dalla spinta a destra: e' l'unico
-      // comando che cambia la partita invece di guardarla, e la distanza lo dice
-      // meglio di un separatore. Era un pulsante con l'etichetta perche' sembrava
-      // Le due cose che chiudono la partita, insieme e staccate dal resto.
-      //
-      // Qui c'era anche "Ritira la mossa", e non c'e' piu' perche' non e' piu' un
-      // comando: tornare indietro con la freccia e rigiocare FA la stessa cosa. Erano
-      // due modi di tornare indietro con un confine arbitrario fra loro — uno in sola
-      // lettura, l'altro giocabile — e il confine era proprio cio' che confondeva.
-      group(
+        // Le tre cose che chiudono o aprono una partita, tutte insieme: e' anche il
+        // modo di concentrare in un punto solo i comandi che hanno conseguenze,
+        // invece di spargerli fra gli innocui.
+        //
+        // "Nuova partita" per PRIMA, e non e' un dettaglio: la tiene confinante con
+        // "Posizione", e le due scacchiere — quella schierata e quella sparsa — si
+        // leggono come coppia solo se stanno vicine. Da sole nessuna delle due dice
+        // cosa fa.
+        //
+        // Qui c'era anche "Ritira la mossa", e non c'e' piu': tornare indietro con la
+        // freccia e rigiocare fa la stessa cosa.
         iconButton('draw', t('drawOffer'), !canOffer(), () => void makeOffer('draw')),
         iconButton('resign', t('resign'), !canOffer(), () => void makeOffer('resign')),
-        'push',
       ),
     );
 

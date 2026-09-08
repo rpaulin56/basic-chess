@@ -92,9 +92,16 @@ function dot(x: number, y: number, shade: 'light' | 'dark', r = 1.15): string {
 const PATHS: Record<IconName, string> = {
   previous: '<path d="M15.5 5.5v13L7 12z" fill="currentColor"/>',
   next: '<path d="M8.5 5.5v13L17 12z" fill="currentColor"/>',
-  // Due frecce che si scambiano: dice "gira" meglio di una freccia circolare, che in
-  // 24 pixel si confonde con "ricarica".
-  flip: '<path d="M8 20V4m0 0L5 7m3-3 3 3M16 4v16m0 0 3-3m-3 3-3-3" />',
+  // Due archi che si rincorrono: e' il simbolo della ROTAZIONE, ed e' quello giusto
+  // perche' la scacchiera gira, non si scambia.
+  //
+  // Prima c'erano due frecce dritte su e giu'. Le avevo scelte temendo che un simbolo
+  // circolare si confondesse con "ricarica la pagina" — timore ragionevole allora,
+  // infondato adesso: in tutta la barra non c'e' nessun comando di ricarica con cui
+  // confondersi, e "su e giu'" dice "scambia due cose", che non e' quello che succede.
+  flip:
+    '<path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3" /><path d="M17.5 3.4v3.8h-3.8" />' +
+    '<path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3" /><path d="M6.5 20.6V16.8h3.8" />',
   // Quando la Nonna tace il fumetto e' sbarrato: lo stato si legge dal DISEGNO e non
   // solo dal colore di sfondo, che chi guarda per la prima volta non sa interpretare
   // (e che a un daltonico non dice niente).
