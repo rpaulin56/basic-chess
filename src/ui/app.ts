@@ -231,11 +231,6 @@ export function mountApp(root: HTMLElement): void {
    * una scommessa. E' la condizione che rende non distruttivo il pulsante.
    */
   let replaying = false;
-  /**
-   * Il cursore a cui e' avvenuto l'ultimo ritiro. Serve a non chiedere conferma per
-   * cancellare un seguito che l'utente ha appena messo da parte apposta.
-   */
-  let takenBackAt: number | null = null;
   /** Apertura riconosciuta per la posizione mostrata (null = nessuna, o non ancora). */
   let opening: Opening | null = null;
   /**
@@ -341,7 +336,7 @@ export function mountApp(root: HTMLElement): void {
     // L'ultimo argomento: dopo un ritiro si puo' muovere anche se il seguito e'
     // ancora li'. Senza, la scacchiera restava bloccata proprio dopo il comando che
     // serve a riprovare.
-    else board.render(state, orientation, humanColor, takenBackAt === state.cursor, tutorMark());
+    else board.render(state, orientation, humanColor, true, tutorMark());
     // Il numero di mosse nel riepilogo: chiusa, la lista deve dire almeno QUANTO
     // contiene, o sembra vuota.
     movesTitle.textContent =
@@ -378,7 +373,6 @@ export function mountApp(root: HTMLElement): void {
         forcedLine = null;
         // Come il ritiro dalla barra: la mossa si mette indietro, non si cancella.
         state = goTo(state, Math.max(0, state.cursor - 1));
-        takenBackAt = state.cursor;
         replaying = false;
         evaluation = null;
         refresh();
@@ -1215,9 +1209,18 @@ export function mountApp(root: HTMLElement): void {
     // Non si chiede pero' per il seguito appena messo da parte da un ritiro: e' roba
     // che l'utente ha tolto lui un secondo fa, e chiedergli se e' sicuro di volerla
     // buttare sarebbe una domanda a cui ha gia' risposto.
-    if (hasFuture(state) && takenBackAt !== state.cursor) {
-      const discarded = state.plies.length - state.cursor;
-      if (!confirm(t('overwriteFuture', { count: discarded }))) {
+    // La conferma scatta solo se si butta via PIU' DELL'ULTIMA MOSSA.
+    //
+    // Tornare indietro di una mossa e rigiocare e' il vecchio "Ritira la mossa", che
+    // non chiedeva niente a nessuno: chiedere adesso sarebbe una domanda nuova per un
+    // gesto vecchio, e la piu' frequente di tutte. Tornare indietro di cinque e
+    // rigiocare invece cancella mezza partita, e li' la domanda ci vuole.
+    const discarded = state.plies.length - state.cursor;
+    if (discarded > 2) {
+      // In MOSSE e non in semi-mosse: adesso si naviga a mosse intere, e chiedere
+      // "cancelli sei semi-mosse" a chi ha premuto tre volte indietro fa fare un
+      // conto a mente per capire di cosa si sta parlando.
+      if (!confirm(t('overwriteFuture', { count: Math.ceil(discarded / 2) }))) {
         refresh(); // rimette il pezzo dove stava
         return;
       }
@@ -1239,7 +1242,6 @@ export function mountApp(root: HTMLElement): void {
     offer = null;
     hint = null;
     replaying = false;
-    takenBackAt = null;
     const fenBefore = currentFen(state);
     const mover = positionAt(state).turn();
     const next = playMove(state, from, to, promotion);
@@ -1395,13 +1397,9 @@ export function mountApp(root: HTMLElement): void {
     // dividerebbe proprio la coppia che si e' costruita per stare insieme.
     toolbar.append(
       group(
-        iconButton('first', t('first'), state.cursor === 0, () => seek(0)),
-        iconButton('previous', t('previous'), state.cursor === 0, () => seek(state.cursor - 1)),
+        iconButton('previous', t('previous'), state.cursor === 0, () => seek(stepMove(-1))),
         iconButton('next', t('next'), state.cursor >= state.plies.length, () =>
-          seek(state.cursor + 1),
-        ),
-        iconButton('last', t('last'), state.cursor >= state.plies.length, () =>
-          seek(state.plies.length),
+          seek(stepMove(1)),
         ),
       ),
       separator(),
@@ -1489,13 +1487,15 @@ export function mountApp(root: HTMLElement): void {
       // Il ritiro sta in fondo, staccato dal resto dalla spinta a destra: e' l'unico
       // comando che cambia la partita invece di guardarla, e la distanza lo dice
       // meglio di un separatore. Era un pulsante con l'etichetta perche' sembrava
-      // distruttivo; da quando la mossa ritirata si puo' rimettere identica, non lo e'
-      // piu', e si e' preso la sua icona come tutti gli altri.
-      // Le tre cose che chiudono o riaprono la partita, insieme e staccate dal resto.
+      // Le due cose che chiudono la partita, insieme e staccate dal resto.
+      //
+      // Qui c'era anche "Ritira la mossa", e non c'e' piu' perche' non e' piu' un
+      // comando: tornare indietro con la freccia e rigiocare FA la stessa cosa. Erano
+      // due modi di tornare indietro con un confine arbitrario fra loro — uno in sola
+      // lettura, l'altro giocabile — e il confine era proprio cio' che confondeva.
       group(
         iconButton('draw', t('drawOffer'), !canOffer(), () => void makeOffer('draw')),
         iconButton('resign', t('resign'), !canOffer(), () => void makeOffer('resign')),
-        iconButton('undo', t('takeBack'), state.cursor === 0, takeBack),
         'push',
       ),
     );
@@ -1612,28 +1612,6 @@ export function mountApp(root: HTMLElement): void {
     const element = document.createElement('span');
     element.className = 'sep';
     return element;
-  }
-
-  /**
-   * Ritira la mossa. Se il bot ha gia' risposto ne toglie DUE: ritirarne una sola
-   * lascerebbe il turno all'avversario, che rigiocherebbe subito — l'utente si
-   * ritroverebbe al punto di prima senza capire perche'.
-   *
-   * Le mosse ritirate NON vengono cancellate, solo messe indietro: la freccia
-   * "avanti" le rimette dov'erano, e rigiocando a mano la stessa mossa il bot ripete
-   * la sua risposta di allora. Cosi' ritirare non e' un atto distruttivo ma una prova
-   * reversibile — che e' esattamente quello che deve essere in un programma dove si
-   * impara sbagliando.
-   */
-  function takeBack(): void {
-    const chess = positionAt(state);
-    const back = chess.turn() === humanColor ? 2 : 1;
-    state = goTo(state, Math.max(0, state.cursor - back));
-    takenBackAt = state.cursor;
-    replaying = false;
-    evaluation = null;
-    clearTutor();
-    refresh();
   }
 
   /**
@@ -2077,6 +2055,34 @@ export function mountApp(root: HTMLElement): void {
     // gli errori di una partita comparivano nel riepilogo di quella successiva.
     mistakeLog.length = 0;
     hintsUsed = 0;
+  }
+
+  /**
+   * Di quanto si sposta una freccia di navigazione: fino alla prima posizione, in
+   * quella direzione, in cui tocca a chi gioca.
+   *
+   * Cioe' una MOSSA INTERA e non una semi-mossa. Indietro di una semi-mossa si finisce
+   * sulla mossa della Nonna, dove non si puo' giocare: bisogna premere due volte per
+   * ottenere l'unica cosa che si voleva, tornare al proprio turno. E dato che tornare
+   * indietro adesso serve soprattutto a rigiocare, il passo giusto e' quello.
+   *
+   * Non si conta a due a due ma si cerca il turno: se la partita comincia dal Nero
+   * (posizione importata da PGN) la parita' delle semi-mosse e' rovesciata, e contare
+   * a due a due porterebbe sistematicamente sul turno sbagliato.
+   */
+  function stepMove(direction: -1 | 1): number {
+    let cursor = state.cursor + direction;
+    while (cursor > 0 && cursor < state.plies.length && turnAfter(cursor) !== humanColor) {
+      cursor += direction;
+    }
+    return Math.max(0, Math.min(state.plies.length, cursor));
+  }
+
+  /** Chi muove dopo `cursor` semi-mosse, senza ricostruire la posizione. */
+  function turnAfter(cursor: number): Color {
+    const start: Color = state.startFen.split(' ')[1] === 'b' ? 'b' : 'w';
+    const other: Color = start === 'w' ? 'b' : 'w';
+    return cursor % 2 === 0 ? start : other;
   }
 
   function seek(cursor: number): void {

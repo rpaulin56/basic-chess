@@ -42,7 +42,7 @@ export const en: Record<keyof typeof it, string> = {
   importedFen: 'Position loaded.',
   importedPgn: 'Game loaded: {count} half-moves.',
   overwriteFuture:
-    'You are viewing an earlier position. Playing here discards the following {count} half-moves. Continue?',
+    'You are viewing an earlier position. Playing here discards the following {count} moves. Continue?',
   turnWhite: 'White to move',
   turnBlack: 'Black to move',
   checkmate: 'Checkmate: {winner} wins.',

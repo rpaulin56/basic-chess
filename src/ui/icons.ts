@@ -8,21 +8,22 @@
  *
  * Il criterio per cui un comando merita un'icona invece di una parola: se cliccarlo
  * per sbaglio non rompe niente, o se una conferma esplicita lo rende innocuo.
- * "Nuova partita" fa perdere la partita, ma chiede conferma, e allora l'icona basta:
- * a restare un pulsante con l'etichetta e' solo "Ritira mossa", che agisce subito.
+ *
+ * Le frecce sono due e non quattro. "Vai all'inizio" e "vai alla fine" non li usava
+ * nessuno, e in una barra che su telefono va a capo ogni icona inutile si paga due
+ * volte: occupa spazio e allunga la fila da percorrere per trovare quella che serve.
+ * Ed e' sparita anche "Ritira la mossa", che non e' piu' un comando a se': si torna
+ * indietro con la freccia e si rigioca.
  */
 
 export type IconName =
-  | 'first'
   | 'previous'
   | 'next'
-  | 'last'
   | 'flip'
   | 'tutor'
   | 'tutorOff'
   | 'hint'
   | 'help'
-  | 'undo'
   | 'resign'
   | 'draw'
   | 'settings'
@@ -88,17 +89,14 @@ function dot(x: number, y: number, shade: 'light' | 'dark', r = 1.15): string {
 }
 
 const PATHS: Record<IconName, string> = {
-  first: '<path d="M17 5.5v13L9 12z" fill="currentColor"/><path d="M6.5 5.5v13" />',
   previous: '<path d="M15.5 5.5v13L7 12z" fill="currentColor"/>',
   next: '<path d="M8.5 5.5v13L17 12z" fill="currentColor"/>',
-  last: '<path d="M7 5.5v13L15 12z" fill="currentColor"/><path d="M17.5 5.5v13" />',
   // Due frecce che si scambiano: dice "gira" meglio di una freccia circolare, che in
   // 24 pixel si confonde con "ricarica".
   flip: '<path d="M8 20V4m0 0L5 7m3-3 3 3M16 4v16m0 0 3-3m-3 3-3-3" />',
-  // Lampadina: il tutor e' un suggerimento, non un giudice. Quando e' spento e'
-  // sbarrata: lo stato si legge dal DISEGNO e non solo dal colore di sfondo, che chi
-  // guarda per la prima volta non sa interpretare (e che a un daltonico non dice
-  // niente).
+  // Quando la Nonna tace il fumetto e' sbarrato: lo stato si legge dal DISEGNO e non
+  // solo dal colore di sfondo, che chi guarda per la prima volta non sa interpretare
+  // (e che a un daltonico non dice niente).
   tutor: BUBBLE,
   tutorOff: BUBBLE + '<path d="M4 20 20 4" />',
   // "Dammi un'idea": la lampadina.
@@ -109,9 +107,6 @@ const PATHS: Record<IconName, string> = {
   help:
     '<path d="M8.6 8.6a3.5 3.5 0 1 1 4.6 3.3c-1 .35-1.5 1.15-1.5 2.2v.5" />' +
     '<circle cx="11.7" cy="18.3" r="1.15" fill="currentColor" stroke="none" />',
-  // Freccia che torna indietro: e' il gesto "annulla" ovunque. Non e' una freccia di
-  // navigazione (quelle sono piene e triangolari): questa cambia la partita.
-  undo: '<path d="M4.5 9.5h9a5.5 5.5 0 0 1 0 11H8" /><path d="M8.5 5 4 9.5 8.5 14" />',
   // Bandiera bianca: il gesto dell'abbandono in ogni sport. Il drappo e' pieno di
   // bianco e non solo contornato, perche' una bandiera bianca si riconosce se e'
   // bianca — era l'unico modo di dirlo, e per questo il colore qui ci sta.

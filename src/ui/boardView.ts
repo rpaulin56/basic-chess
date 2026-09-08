@@ -20,10 +20,15 @@ export interface BoardView {
     orientation: 'white' | 'black',
     humanColor: 'w' | 'b',
     /**
-     * Vero quando il seguito che si ha davanti e' quello appena messo da parte da un
-     * ritiro: allora si puo' muovere anche se la partita continua piu' avanti, perche'
-     * e' proprio quello che l'utente ha chiesto facendo il ritiro. Navigando invece
-     * dentro una partita la scacchiera resta in sola lettura.
+     * Vero se dalla posizione mostrata si puo' RIPARTIRE, anche quando la partita
+     * continua piu' avanti.
+     *
+     * Oggi e' sempre vero, ed e' il senso della semplificazione: prima esistevano due
+     * modi di tornare indietro — navigare (in sola lettura) e ritirare (giocabile) —
+     * con un confine arbitrario fra loro. Ora la regola e' una sola: se nella
+     * posizione che hai davanti tocca a te, puoi giocare. Il parametro resta perche'
+     * il diagramma delle conseguenze passa comunque da `renderPosition`, e un domani
+     * potrebbe servire una scacchiera davvero in sola lettura.
      */
     resumable?: boolean,
     /**
@@ -65,9 +70,10 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
       const chess = positionAt(state);
       const turn: 'white' | 'black' = chess.turn() === 'w' ? 'white' : 'black';
       const lastPly = state.cursor > 0 ? state.plies[state.cursor - 1] : undefined;
-      // Muove solo l'umano, solo quando e' il suo turno, e solo se stiamo guardando la
-      // posizione finale: durante un rewind la scacchiera e' in sola lettura, altrimenti
-      // un click distratto cancellerebbe il seguito della partita.
+      // Muove solo l'umano e solo quando e' il suo turno — ma in QUALUNQUE posizione,
+      // non solo nell'ultima: tornare indietro e giocare e' il modo con cui si ritira
+      // una mossa, e vietarlo significherebbe rimettere in piedi la distinzione fra
+      // navigare e ritirare che abbiamo appena tolto.
       // A partita finita nessuno muove: con exactOptionalPropertyTypes la chiave
       // `color` va OMESSA, non messa a undefined.
       const atEnd = state.cursor === state.plies.length || resumable;

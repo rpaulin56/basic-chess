@@ -40,7 +40,7 @@ export const it = {
   importedFen: 'Posizione caricata.',
   importedPgn: 'Partita caricata: {count} semi-mosse.',
   overwriteFuture:
-    'Stai guardando una posizione precedente. Giocando qui cancelli le {count} semi-mosse successive. Procedere?',
+    'Stai guardando una posizione precedente. Giocando qui cancelli le {count} mosse successive. Procedere?',
   turnWhite: 'Tocca al Bianco',
   turnBlack: 'Tocca al Nero',
   checkmate: 'Scacco matto: vince {winner}.',
