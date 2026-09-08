@@ -24,6 +24,17 @@ export const SOURCE_URL = 'https://github.com/rpaulin56/basic-chess';
 
 interface Credit {
   readonly name: string;
+  /**
+   * CHIAVE i18n di cosa fa questa libreria, non la frase gia' scritta.
+   *
+   * Erano frasi in italiano dentro il codice, e nel pannello inglese si leggeva
+   * "Stockfish — motore di analisi" sotto un titolo che diceva "Credits and licences".
+   * Un buco che c'era da sempre e che si notava solo aprendo i crediti nell'altra
+   * lingua, cioe' quasi mai — e da ieri l'inglese e' la lingua di partenza.
+   *
+   * Il NOME della libreria e la LICENZA restano invece stringhe letterali: sono nomi
+   * propri e identificatori di licenza, e tradurli sarebbe sbagliato.
+   */
   readonly what: string;
   readonly licence: string;
   readonly url: string;
@@ -32,31 +43,31 @@ interface Credit {
 const CREDITS: readonly Credit[] = [
   {
     name: 'Stockfish',
-    what: 'motore di analisi',
+    what: 'creditWhatEngine',
     licence: 'GPL-3.0',
     url: 'https://stockfishchess.org',
   },
   {
     name: 'chessground',
-    what: 'scacchiera',
+    what: 'creditWhatBoard',
     licence: 'GPL-3.0-or-later',
     url: 'https://github.com/lichess-org/chessground',
   },
   {
     name: 'chess.js',
-    what: 'regole e notazione',
+    what: 'creditWhatRules',
     licence: 'BSD-2-Clause',
     url: 'https://github.com/jhlywa/chess.js',
   },
   {
     name: 'cburnett',
-    what: 'disegno dei pezzi',
+    what: 'creditWhatPieces',
     licence: 'CC BY-SA 3.0',
     url: 'https://en.wikipedia.org/wiki/User:Cburnett',
   },
   {
     name: 'lichess-org/chess-openings',
-    what: 'nomi delle aperture',
+    what: 'creditWhatOpenings',
     licence: 'CC0',
     url: 'https://github.com/lichess-org/chess-openings',
   },
@@ -88,8 +99,13 @@ export function createCredits(): HTMLElement {
   copyright.textContent = t('creditsCopyright');
 
   // La dedica sta con gli autori e non in fondo alle licenze: non e' una nota legale,
-  // e da' il nome alla persona da cui viene tutto il resto. Resta in italiano in ogni
-  // lingua — e' dedicata a una persona, e tradurla sarebbe come tradurre un nome.
+  // e da' il nome alla persona da cui viene tutto il resto.
+  //
+  // E' TRADOTTA, contrariamente a quanto avevo deciso all'inizio. La motivazione di
+  // allora — "e' dedicata a una persona, tradurla sarebbe come tradurre un nome" —
+  // non regge: il nome e' "Luisa Dordi" e quello resta uguale in ogni lingua, mentre
+  // il resto e' una frase, e lasciata in italiano resta muta proprio nella lingua di
+  // partenza del programma.
   const dedication = document.createElement('figure');
   dedication.className = 'credits-dedication';
 
@@ -137,7 +153,7 @@ export function createCredits(): HTMLElement {
     link.target = '_blank';
     link.rel = 'noopener';
     link.textContent = credit.name;
-    item.append(link, document.createTextNode(` — ${credit.what} · ${credit.licence}`));
+    item.append(link, document.createTextNode(` — ${t(credit.what)} · ${credit.licence}`));
     list.append(item);
   }
   details.append(list);
