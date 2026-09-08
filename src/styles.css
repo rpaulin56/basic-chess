@@ -492,6 +492,11 @@ select {
 @media (pointer: coarse) {
   .icon-btn { width: 46px; height: 46px; }
   .toolbar .sep { margin: 0 4px; }
+  /* Il salto a capo deciso da noi: cinque icone sopra, cinque sotto. Misurato, le
+     dieci icone a 46 pixel vogliono 518 pixel e ne hanno 343 — l'unico modo di
+     tenerle in una riga sola sarebbe scendere a 33 pixel, cioe' bersagli piu' piccoli
+     di quelli del desktop e sotto la soglia raccomandata per il dito. */
+  .toolbar-break { flex-basis: 100%; height: 0; }
 }
 
 

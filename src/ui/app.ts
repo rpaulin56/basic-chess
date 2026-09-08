@@ -1847,11 +1847,25 @@ export function mountApp(root: HTMLElement): void {
 
     const toolbar = document.createElement('div');
     toolbar.className = 'toolbar';
-    // Quattro gruppi: navigare, guardare, scambiare posizioni con l'esterno, gestire
-    // la sessione. Sono gruppi VERI e non solo separatori disegnati, perche' quando la
-    // barra va a capo (su telefono ci sta in due righe) deve spezzarsi fra un gruppo e
-    // l'altro: "esporta" in fondo a una riga e "importa" in cima a quella dopo
-    // dividerebbe proprio la coppia che si e' costruita per stare insieme.
+    // Cinque gruppi, ognuno risponde a una domanda diversa: dove sono nella partita,
+    // come guardo la scacchiera, come faccio entrare e uscire una posizione, cosa dice
+    // la Nonna, come chiudo o apro una partita.
+    //
+    // Sono gruppi VERI e non solo separatori disegnati, perche' su telefono la barra
+    // sta in due righe e deve spezzarsi FRA un gruppo e l'altro.
+    //
+    // L'ordine non e' solo semantico, e' anche aritmetico. I gruppi hanno 2, 2, 1, 2 e
+    // 3 pulsanti: l'unica partizione che dia cinque e cinque senza spezzarne uno e'
+    // 2+2+1 sopra e 2+3 sotto, e questo OBBLIGA "posizione" a stare al terzo posto.
+    // Fortuna vuole che la divisione che ne esce si legga bene: sopra tutto cio' che
+    // riguarda LA POSIZIONE che si ha davanti — scorrerla, girarla, farla entrare e
+    // uscire come testo — e sotto tutto cio' che riguarda LA PARTITA come vicenda, la
+    // Nonna che la commenta e i comandi che la chiudono o ne aprono un'altra.
+    //
+    // L'anello debole e' "impostazioni" in prima riga: sta li' perche' i conti
+    // tornino, non perche' appartenga alla posizione. Spostarlo darebbe righe da
+    // quattro e sei, e si perderebbe la simmetria che fa sembrare la spezzatura una
+    // scelta invece che un incidente.
     toolbar.append(
       group(
         iconButton('previous', t('previous'), state.cursor === 0, () => seek(stepMove(-1))),
@@ -1868,6 +1882,30 @@ export function mountApp(root: HTMLElement): void {
         iconButton('settings', t('settings'), false, openSettings),
       ),
       separator(),
+      // Un'icona sola per tutto cio' che riguarda far entrare e uscire posizioni.
+      // Sono tre comandi d'uso raro: mettere tre pulsanti permanenti nella barra per
+      // qualcosa che si fa una volta a partita e' spazio speso male, e un menu e' il
+      // posto giusto per una scelta rara.
+      //
+      // Il menu resta aperto anche a partita vuota: la POSIZIONE si esporta sempre
+      // (dopo aver importato un finale di mosse non ce n'e' nessuna, ed e' proprio il
+      // FEN che si vuole rimandare indietro). A spegnersi e' solo la voce della
+      // partita, quando di partita non ce n'e'.
+      group(
+        menuButton('position', t('positionTitle'), false, [
+          { label: t('importPosition'), run: importPosition },
+          {
+            label: t('exportPgn'),
+            run: () => void copy(toPgn(state, pgnTags(), annotations())),
+            disabled: state.plies.length === 0,
+          },
+          { label: t('exportFen'), run: () => void copy(currentFen(state)) },
+        ]),
+      ),
+      // Qui la barra va a capo, ma solo su schermo tattile: e' il confine fra la
+      // posizione e la partita, ed e' anche il punto che fa cinque pulsanti per riga.
+      // Su desktop l'elemento non esiste proprio e le dieci icone restano in fila.
+      lineBreak(),
       // La voce della Nonna: se parla, e cosa dice se le si chiede. Sono due facce
       // della stessa cosa, e stanno insieme per questo.
       group(
@@ -1897,26 +1935,6 @@ export function mountApp(root: HTMLElement): void {
         ),
       ),
       separator(),
-      // Un'icona sola per tutto cio' che riguarda far entrare e uscire posizioni.
-      // Sono tre comandi d'uso raro: mettere tre pulsanti permanenti nella barra per
-      // qualcosa che si fa una volta a partita e' spazio speso male, e un menu e' il
-      // posto giusto per una scelta rara.
-      //
-      // Il menu resta aperto anche a partita vuota: la POSIZIONE si esporta sempre
-      // (dopo aver importato un finale di mosse non ce n'e' nessuna, ed e' proprio il
-      // FEN che si vuole rimandare indietro). A spegnersi e' solo la voce della
-      // partita, quando di partita non ce n'e'.
-      group(
-        menuButton('position', t('positionTitle'), false, [
-          { label: t('importPosition'), run: importPosition },
-          {
-            label: t('exportPgn'),
-            run: () => void copy(toPgn(state, pgnTags(), annotations())),
-            disabled: state.plies.length === 0,
-          },
-          { label: t('exportFen'), run: () => void copy(currentFen(state)) },
-        ]),
-      ),
       separator(),
       group(
         // Ricominciare fa perdere la partita, quindi in teoria vorrebbe un'etichetta -
@@ -2100,6 +2118,17 @@ export function mountApp(root: HTMLElement): void {
       gameOver(state) === null &&
       positionAt(state).turn() === humanColor
     );
+  }
+
+  /**
+   * Un elemento invisibile largo quanto tutta la barra: costringe il flex ad andare a
+   * capo esattamente qui. E' il modo standard di decidere DOVE si spezza una riga,
+   * invece di lasciarlo decidere alla larghezza dello schermo.
+   */
+  function lineBreak(): HTMLElement {
+    const element = document.createElement('div');
+    element.className = 'toolbar-break';
+    return element;
   }
 
   function separator(): HTMLElement {
