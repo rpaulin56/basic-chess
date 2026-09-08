@@ -80,10 +80,32 @@ export interface BotLevel {
  * due misure della stessa configurazione possono distare un centinaio di punti:
  * questi numeri sono un ORDINAMENTO affidabile e una misura approssimata.
  *
- * I due livelli piu' bassi sono i meno attendibili di tutti: contro l'ancoraggio a
- * 1320 raccolgono il 5-7%, e da un punteggio cosi' schiacciato l'Elo si ricava per
- * estrapolazione. Stockfish non scende sotto 1320 con UCI_Elo, quindi per collocarli
- * meglio servirebbe un confronto interno (`--vs`) invece che contro l'ancoraggio.
+ * I livelli agli ESTREMI sono i meno attendibili: contro l'ancoraggio raccolgono
+ * l'8% (i due piu' bassi) o il 93% (il piu' alto), e da un punteggio cosi' schiacciato
+ * l'Elo si ricava per estrapolazione. Stockfish non scende sotto 1320 con UCI_Elo,
+ * quindi per collocare meglio i primi servirebbe un confronto interno (`--vs`).
+ *
+ * MISURA DEL 2026-09-08, dopo l'introduzione del tetto al costo (100 partite per
+ * combinazione; ancoraggio 1320 per i primi tre, 1800 per i tre successivi, 2200 per
+ * l'ultimo):
+ *
+ *   livello        attenta   distratta      (prima del tetto)
+ *   1 principiante     907         842       871 / 808
+ *   2 facile          1012        1045       982 / 871
+ *   3 medio           1373        1242      1282 / 1185
+ *   4 discreto        1681        1595      1530 / 1435
+ *   5 club            1817        1681      1722 / 1555
+ *   6 esperto         2069        1919      1892 / 1860
+ *   7 forte           2663        2391      2352 / 2236
+ *
+ * Il tetto ha spostato la scala verso l'alto in modo ORDINATO: quasi niente ai due
+ * livelli piu' bassi, dove e' largo e non morde, e 150-300 punti dal quarto in su. E'
+ * la misura di quanto valeva il materiale che il campionamento regalava gratis.
+ *
+ * Un'inversione: al livello 2 la distratta (1045) misura piu' dell'attenta (1012).
+ * Trentatre' punti su cento partite sono dentro il rumore, e nelle altre sei righe il
+ * verso e' sempre quello giusto — ma va lasciata scritta invece che aggiustata a mano,
+ * o la tabella smette di essere una misura e diventa un'opinione.
  *
  * COSA REGOLA COSA, misurato:
  *  - PROFONDITA': il regolatore principale, ma quantizzato e a gradini grossi
@@ -116,7 +138,7 @@ export const BOT_LEVELS: readonly BotLevel[] = [
   // avversari credibili per chi comincia.
   {
     id: 'principiante',
-    elo: { attento: 871, distratto: 808 },
+    elo: { attento: 907, distratto: 842 },
     depth: 2,
     multiPV: 8,
     temperature: 45,
@@ -125,7 +147,7 @@ export const BOT_LEVELS: readonly BotLevel[] = [
   },
   {
     id: 'facile',
-    elo: { attento: 982, distratto: 871 },
+    elo: { attento: 1012, distratto: 1045 },
     depth: 2,
     multiPV: 8,
     temperature: 20,
@@ -134,19 +156,19 @@ export const BOT_LEVELS: readonly BotLevel[] = [
   },
   {
     id: 'medio',
-    elo: { attento: 1282, distratto: 1185 },
+    elo: { attento: 1373, distratto: 1242 },
     depth: 3,
     multiPV: 6,
     temperature: 20,
     decidedPawns: 5,
     maxCost: 25,
   },
-  { id: 'discreto', elo: { attento: 1530, distratto: 1435 }, depth: 4, multiPV: 5, temperature: 22 },
-  { id: 'club', elo: { attento: 1722, distratto: 1555 }, depth: 5, multiPV: 5, temperature: 16, maxCost: 12 },
+  { id: 'discreto', elo: { attento: 1681, distratto: 1595 }, depth: 4, multiPV: 5, temperature: 22 },
+  { id: 'club', elo: { attento: 1817, distratto: 1681 }, depth: 5, multiPV: 5, temperature: 16, maxCost: 12 },
   // Misurati contro l'ancoraggio a 1800, non a 1320: contro il piu' debole vincevano
   // quasi tutte le partite e la stima sarebbe stata solo un'estrapolazione senza senso.
-  { id: 'esperto', elo: { attento: 1892, distratto: 1860 }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
-  { id: 'forte', elo: { attento: 2352, distratto: 2236 }, depth: 8, multiPV: 3, temperature: 8, maxCost: 8 },
+  { id: 'esperto', elo: { attento: 2069, distratto: 1919 }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
+  { id: 'forte', elo: { attento: 2663, distratto: 2391 }, depth: 8, multiPV: 3, temperature: 8, maxCost: 8 },
 ];
 
 
