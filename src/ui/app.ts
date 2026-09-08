@@ -45,7 +45,7 @@ import { renderEndgamePanel, type EndgameView } from './endgamePanel.js';
 import { renderOfferPanel, type OfferView } from './offerPanel.js';
 import { acceptsDraw, judgeDraw, judgeResign } from '../tutor/adjudicate.js';
 import { classifyEndgame, type Endgame } from '../endgame/endgame.js';
-import { locale, setLocale, t, type LocaleCode } from '../i18n/index.js';
+import { LOCALES, LOCALE_NAMES, locale, setLocale, t } from '../i18n/index.js';
 
 type Promotion = 'q' | 'r' | 'b' | 'n';
 
@@ -2593,29 +2593,45 @@ export function mountApp(root: HTMLElement): void {
    * La lingua: un mappamondo nell'intestazione, non una voce nelle impostazioni.
    *
    * Sepolta li' dentro era irraggiungibile per chi apre il programma e non capisce
-   * cosa c'e' scritto — che e' esattamente la persona a cui serve. Ed e' un
-   * INTERRUTTORE e non un menu, perche' le lingue sono due: un menu a tendina per una
-   * scelta fra due e' un clic in piu' per niente.
+   * cosa c'e' scritto — che e' esattamente la persona a cui serve.
    *
-   * L'etichetta nomina la lingua in cui si ANDREBBE, non quella corrente: un pulsante
-   * dice cosa fa, non dove sei.
+   * E' un SELETTORE e non un interruttore, e la differenza non e' accademica. Era un
+   * interruttore che mostrava la lingua di DESTINAZIONE ("EN" mentre parlava
+   * italiano), sul principio che un pulsante dice cosa fa. Vale per due lingue e
+   * crolla alla terza, dove "cosa fa" non e' piu' definibile — e il committente lo ha
+   * notato prima che succedesse. Adesso segue la pratica consolidata: la sigla dice
+   * DOVE SEI, e il menu dice dove puoi andare.
+   *
+   * Le lingue si nominano nella PROPRIA lingua — "Italiano", "English" — mai tradotte.
+   * E' la regola piu' importante di tutte: chi arriva su una lingua che non legge deve
+   * riconoscere la propria. "Italiano" lo riconosce un italiano dentro un'interfaccia
+   * in giapponese; "Italian" scritto in giapponese no.
+   *
+   * E niente bandiere, mai: una bandiera e' un paese, non una lingua.
    */
   function languageButton(): HTMLElement {
-    const other: LocaleCode = locale() === 'it' ? 'en' : 'it';
-    const element = document.createElement('button');
-    element.type = 'button';
-    element.className = 'icon-btn lang';
-    element.title = t('switchTo', { lang: t(other === 'it' ? 'italian' : 'english') });
-    element.setAttribute('aria-label', element.title);
-    element.append(createIcon('world'));
+    const wrap = menuButton(
+      'world',
+      t('language'),
+      false,
+      LOCALES.map((code) => ({
+        label: LOCALE_NAMES[code],
+        // Quella corrente resta nell'elenco ma spenta: toglierla farebbe ballare le
+        // voci ad ogni cambio, e vederla segnata dice dove sei una seconda volta.
+        disabled: code === locale(),
+        run: () => {
+          setLocale(code);
+          refresh();
+        },
+      })),
+    );
+    // La sigla della lingua CORRENTE accanto al mappamondo: da solo il mappamondo
+    // direbbe "lingua" e non QUALE lingua.
     const code = document.createElement('span');
-    code.textContent = other.toUpperCase();
-    element.append(code);
-    element.addEventListener('click', () => {
-      setLocale(other);
-      refresh();
-    });
-    return element;
+    code.textContent = locale().toUpperCase();
+    wrap.querySelector('button')?.append(code);
+    wrap.querySelector('button')?.classList.add('lang');
+    return wrap;
   }
 
   /**

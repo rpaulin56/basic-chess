@@ -13,6 +13,24 @@ export type LocaleCode = 'it' | 'en';
 
 const DICTS: Record<LocaleCode, Dict> = { it, en };
 
+/** Le lingue disponibili, nell'ordine in cui compaiono nel menu. */
+export const LOCALES: readonly LocaleCode[] = ['it', 'en'];
+
+/**
+ * Il nome di ogni lingua NELLA PROPRIA lingua, e mai tradotto.
+ *
+ * E' la regola piu' importante di un selettore di lingua: chi arriva su una lingua
+ * che non legge deve poter riconoscere la propria. "Italiano" lo riconosce un
+ * italiano dentro un'interfaccia in giapponese; "Italian" scritto in giapponese no.
+ *
+ * Per questo NON stanno nei dizionari: li' sarebbero tradotte, che e' esattamente
+ * cio' che non deve succedere. Un nome di lingua e' un nome proprio.
+ */
+export const LOCALE_NAMES: Record<LocaleCode, string> = {
+  it: 'Italiano',
+  en: 'English',
+};
+
 let current: LocaleCode = detectLocale();
 
 /**
