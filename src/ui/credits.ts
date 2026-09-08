@@ -90,11 +90,40 @@ export function createCredits(): HTMLElement {
   // La dedica sta con gli autori e non in fondo alle licenze: non e' una nota legale,
   // e da' il nome alla persona da cui viene tutto il resto. Resta in italiano in ogni
   // lingua — e' dedicata a una persona, e tradurla sarebbe come tradurre un nome.
-  const dedication = document.createElement('p');
+  const dedication = document.createElement('figure');
   dedication.className = 'credits-dedication';
-  dedication.textContent = t('creditsDedication');
 
-  details.append(authors, dedication, copyright);
+  /*
+   * La foto NON sta nel repository, e non e' una dimenticanza.
+   *
+   * Il repository e' pubblico e sotto GPL: una fotografia di famiglia non deve finire
+   * nei cloni ne' sotto quella licenza. Vive sul server, fuori dalla cartella che ogni
+   * pubblicazione cancella, e viene servita dallo stesso dominio — quindi nessuna
+   * richiesta a terzi, come per tutto il resto del programma.
+   *
+   * `loading="lazy"`: i crediti nascono chiusi, e chi non li apre non ha motivo di
+   * scaricare centotrenta kilobyte.
+   */
+  const portrait = document.createElement('img');
+  portrait.className = 'credits-photo';
+  portrait.src = '/static/nonna-luisa.jpg';
+  portrait.alt = t('creditsPhotoAlt');
+  portrait.loading = 'lazy';
+  // Le misure sono dichiarate perche' il testo sotto non salti quando la foto arriva.
+  portrait.width = 630;
+  portrait.height = 800;
+
+  const caption = document.createElement('figcaption');
+  caption.textContent = t('creditsDedication');
+  dedication.append(portrait, caption);
+
+  // La fotografia non e' coperta dalla licenza del programma, e va detto: chi legge
+  // "GPL" due righe sotto puo' ragionevolmente pensare che valga anche per lei.
+  const photoRights = document.createElement('p');
+  photoRights.className = 'credits-copyright';
+  photoRights.textContent = t('creditsPhotoRights');
+
+  details.append(authors, dedication, photoRights, copyright);
 
   const intro = document.createElement('p');
   intro.textContent = t('creditsIntro');

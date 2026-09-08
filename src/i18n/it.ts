@@ -221,6 +221,8 @@ export const it = {
   outcomeResign: 'Hai abbandonato.',
   outcomeDraw: 'Patta concordata.',
   creditsDedication: 'Per mia nonna Luisa Dordi, che mi ha insegnato a giocare.',
+  creditsPhotoAlt: 'Ritratto di Luisa Dordi',
+  creditsPhotoRights: 'La fotografia di Luisa Dordi non è coperta dalla licenza del programma: tutti i diritti riservati.',
   endgameSwapIntro: 'Da qui la partita per te è persa: io la vincerei. Ma tu sapresti vincerla? Studia questo finale, poi giriamo la scacchiera e ci provi tu.',
   endgameSwapAction: 'Giriamo la scacchiera',
   endgameSwapDecline: 'No, finiamo questa',

@@ -704,4 +704,27 @@ select {
 }
 
 /* La dedica: piu' piccola dei crediti e in corsivo, come si scrive una dedica. */
-.credits-dedication { font-style: italic; margin: 0 0 6px; color: var(--ink); }
+/*
+ * La dedica, adesso con il ritratto.
+ *
+ * La foto e' piccola e a sinistra del testo, non un blocco a tutta larghezza: i
+ * crediti sono un pannello di servizio e una fotografia grande li trasformerebbe in
+ * un memoriale. Piccola e accanto alla frase, invece, e' esattamente quello che e' —
+ * la persona di cui si sta parlando.
+ */
+.credits-dedication {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+.credits-dedication figcaption { font-style: italic; color: var(--ink); line-height: 1.45; }
+.credits-photo {
+  width: 64px;
+  height: auto;
+  border-radius: 4px;
+  flex: none;
+  /* Il bordo la stacca dal fondo chiaro del pannello: senza, una foto in bianco e
+     nero con lo sfondo chiaro sembra ritagliata male. */
+  border: 1px solid var(--line);
+}

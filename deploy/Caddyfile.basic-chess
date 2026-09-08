@@ -47,6 +47,20 @@ grandmachess.com {
 	# mesi, non in un giorno.
 	header Strict-Transport-Security "max-age=86400"
 
+	# La foto della nonna, e in generale i file che NON stanno nel repository.
+	#
+	# Sono fuori da dist/ apposta, per tre ragioni che si sommano: dist/ viene
+	# cancellata e ricreata ad ogni pubblicazione, quindi qualunque cosa ci si metta
+	# a mano sparisce; il repository e' pubblico e sotto GPL, e una fotografia di
+	# famiglia non deve finire nei cloni ne' sotto quella licenza; e servendola dallo
+	# STESSO dominio non ci sono contenuti misti ne' richieste a terzi, che e' la
+	# stessa regola che ci siamo dati per tutto il resto.
+	handle_path /static/* {
+		root * /srv/basic-chess/static
+		header Cache-Control "public, max-age=604800"
+		file_server
+	}
+
 	file_server
 }
 

@@ -223,6 +223,8 @@ export const en: Record<keyof typeof it, string> = {
   outcomeResign: 'You resigned.',
   outcomeDraw: 'Draw agreed.',
   creditsDedication: 'Per mia nonna Luisa Dordi, che mi ha insegnato a giocare.',
+  creditsPhotoAlt: 'Portrait of Luisa Dordi',
+  creditsPhotoRights: 'The photograph of Luisa Dordi is not covered by the program licence: all rights reserved.',
   endgameSwapIntro: 'This game is lost for you: I would win it. But would you know how to win it? Study this endgame, then we swap sides and you try.',
   endgameSwapAction: 'Let us swap sides',
   endgameSwapDecline: 'No, let us finish this one',
