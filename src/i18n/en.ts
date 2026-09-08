@@ -40,7 +40,7 @@ export const en: Record<keyof typeof it, string> = {
   whyStop: 'Never mind',
   whyTitle: 'Where the game slipped away',
   whyClean:
-    'You made no serious mistake, and you lost all the same. That happens when a game goes little by little instead of in a single move: it is how almost everyone loses to a stronger player. These are the moves that cost the most, even though none of them was a mistake on its own.',
+    'You held your ground and made no serious mistake. But a lot of small errors lose a game just as surely: let me show you a few, to give you the idea.',
   whyLine: '{number}. {san} — {drop} points lost',
   whyBetter: 'better {san}',
   whyNothing: 'I find no moments worth going over: you played steadily.',

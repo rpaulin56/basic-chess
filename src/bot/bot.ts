@@ -168,7 +168,7 @@ export const BOT_LEVELS: readonly BotLevel[] = [
   // Misurati contro l'ancoraggio a 1800, non a 1320: contro il piu' debole vincevano
   // quasi tutte le partite e la stima sarebbe stata solo un'estrapolazione senza senso.
   { id: 'esperto', elo: { attento: 2069, distratto: 1919 }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
-  { id: 'forte', elo: { attento: 2663, distratto: 2391 }, depth: 8, multiPV: 3, temperature: 8, maxCost: 8 },
+  { id: 'forte', elo: { attento: 2663, distratto: 2391 }, depth: 7, multiPV: 4, temperature: 13, maxCost: 10 },
 ];
 
 

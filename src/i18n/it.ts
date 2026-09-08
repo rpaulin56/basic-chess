@@ -38,7 +38,7 @@ export const it = {
   whyStop: 'Lascia perdere',
   whyTitle: 'Dove la partita è scivolata via',
   whyClean:
-    'Non hai commesso nessun errore grave, e hai perso lo stesso. Succede quando la partita se ne va poco per volta invece che in una mossa sola: è così che perde quasi chiunque contro un avversario più forte. Queste sono le mosse che sono costate di più, anche se nessuna da sola era un errore.',
+    "Ti sei difeso bene e non hai fatto grandi errori. Ma alla lunga tanti piccoli errori fanno perdere lo stesso: te ne mostro qualcuno, per darti un'idea.",
   whyLine: '{number}. {san} — {drop} punti persi',
   whyBetter: 'meglio {san}',
   whyNothing: 'Non trovo momenti che valga la pena rivedere: hai giocato regolare.',

@@ -626,6 +626,10 @@ export function mountApp(root: HTMLElement): void {
     // partita, quindi worst[0] e' la piu' antica e non la piu' costosa.
     const heaviest = Math.max(...worst.map((loss) => loss.drop));
     if (humanLost() && heaviest < MISTAKE_DROP) {
+      // La frase dice "te ne mostro qualcuno" e non "ecco le tre peggiori", ed e'
+      // deliberato: misurato, quando gli scarti stanno tutti fra i sette e i dieci
+      // punti la terna cambia al cambiare della profondita' di ricerca. Presentarli
+      // come ESEMPI e' l'unica forma che regge quello che sappiamo davvero.
       box.append(text(t('whyClean'), 'why-note'));
     }
     const list = document.createElement('ul');
