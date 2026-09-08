@@ -42,7 +42,7 @@ export const it = {
   whyLine: '{number}. {san} — {drop} punti persi',
   whyBetter: 'meglio {san}',
   whyNothing: 'Non trovo momenti che valga la pena rivedere: hai giocato regolare.',
-  levelName: 'Livello {n}',
+  levelName: 'Livello {n} (Elo ~{elo})',
   levelElo: 'Forza stimata: {elo} Elo',
   playAsWhite: 'Hai il Bianco',
   playAsBlack: 'Hai il Nero',
@@ -184,7 +184,8 @@ export const it = {
   opponentHelp: 'Contro che Nonna vuoi giocare',
   opponentHelpTitle: 'Come scegliere',
   opponentHelpLevel: 'Il LIVELLO è quanto lontano vede la Nonna. Gli errori che fa a un livello basso vengono da lì: non ha calcolato abbastanza avanti. Per batterla devi calcolare meglio di lei.',
-  opponentHelpCareful: 'ATTENTA non regala niente: sbaglia solo per non aver visto abbastanza lontano.',
+  opponentHelpCareful:
+    'ATTENTA non regala niente APPOSTA: i suoi errori vengono tutti da quanto lontano riesce a vedere. Ai livelli bassi vede poco, quindi sbaglia parecchio e perde anche dei pezzi — ma non per svista, e mai un pezzo che aveva visto.',
   opponentHelpSloppy: 'DISTRATTA ogni tanto lascia un pezzo in presa. Ti allena a cogliere l’errore dell’altro, ma non è così che puoi pensare di vincere.',
   opponentHelpElo: 'L’Elo accanto al livello è stimato, non esatto: ti dà solo un’idea.',
   resign: 'Abbandona',

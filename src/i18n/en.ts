@@ -44,7 +44,7 @@ export const en: Record<keyof typeof it, string> = {
   whyLine: '{number}. {san} — {drop} points lost',
   whyBetter: 'better {san}',
   whyNothing: 'I find no moments worth going over: you played steadily.',
-  levelName: 'Level {n}',
+  levelName: 'Level {n} (Elo ~{elo})',
   levelElo: 'Estimated strength: {elo} Elo',
   playAsWhite: 'You have White',
   playAsBlack: 'You have Black',
@@ -186,7 +186,8 @@ export const en: Record<keyof typeof it, string> = {
   opponentHelp: 'Which Grandma you want to play',
   opponentHelpTitle: 'How to choose',
   opponentHelpLevel: 'The LEVEL is how far ahead Grandma sees. The mistakes she makes at a low level come from there: she did not calculate far enough. To beat her you have to calculate better than she does.',
-  opponentHelpCareful: 'FOCUSED gives nothing away: she only errs by not seeing far enough.',
+  opponentHelpCareful:
+    'FOCUSED gives nothing away ON PURPOSE: every mistake she makes comes from how far ahead she can see. At the low levels she sees little, so she errs plenty and loses pieces too — but never out of carelessness, and never a piece she had seen.',
   opponentHelpSloppy: 'DISTRACTED leaves a piece hanging now and then. It trains you to spot the other player’s mistake, but that is not how you can expect to win.',
   opponentHelpElo: 'The Elo next to the level is an estimate, not an exact figure: it only gives you an idea.',
   resign: 'Resign',

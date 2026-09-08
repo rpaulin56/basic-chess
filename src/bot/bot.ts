@@ -50,6 +50,20 @@ export interface BotLevel {
    * diritto di essere approssimativi quando il vantaggio e' solo grosso.
    */
   readonly decidedPawns?: number;
+  /**
+   * Quanto puo' costare al massimo una mossa campionata. Assente = la soglia normale.
+   *
+   * E' PER LIVELLO, e non poteva essere altrimenti. Un tetto unico e stretto rende
+   * impossibile il fondo della scala: misurato, con quindici punti per tutti il
+   * "principiante" passava dal 5% al 25% contro l'ancoraggio a 1320, cioe' da ~870 a
+   * ~1130 Elo, e un avversario da mille e cento non e' un avversario per chi comincia.
+   *
+   * Il motivo e' che le due cose sono in conflitto per davvero: un giocatore da 800
+   * punti REGALA materiale, e un avversario che non lo fa mai non e' un giocatore da
+   * 800 punti. Quindi il tetto non e' una promessa di correttezza uguale per tutti —
+   * e' un parametro di forza, e sta qui insieme agli altri.
+   */
+  readonly maxCost?: number;
 }
 
 /**
@@ -107,6 +121,7 @@ export const BOT_LEVELS: readonly BotLevel[] = [
     multiPV: 8,
     temperature: 45,
     decidedPawns: 6,
+    maxCost: 45,
   },
   {
     id: 'facile',
@@ -115,6 +130,7 @@ export const BOT_LEVELS: readonly BotLevel[] = [
     multiPV: 8,
     temperature: 20,
     decidedPawns: 6,
+    maxCost: 35,
   },
   {
     id: 'medio',
@@ -123,13 +139,14 @@ export const BOT_LEVELS: readonly BotLevel[] = [
     multiPV: 6,
     temperature: 20,
     decidedPawns: 5,
+    maxCost: 25,
   },
   { id: 'discreto', elo: { attento: 1530, distratto: 1435 }, depth: 4, multiPV: 5, temperature: 22 },
-  { id: 'club', elo: { attento: 1722, distratto: 1555 }, depth: 5, multiPV: 5, temperature: 16 },
+  { id: 'club', elo: { attento: 1722, distratto: 1555 }, depth: 5, multiPV: 5, temperature: 16, maxCost: 12 },
   // Misurati contro l'ancoraggio a 1800, non a 1320: contro il piu' debole vincevano
   // quasi tutte le partite e la stima sarebbe stata solo un'estrapolazione senza senso.
-  { id: 'esperto', elo: { attento: 1892, distratto: 1860 }, depth: 6, multiPV: 4, temperature: 13 },
-  { id: 'forte', elo: { attento: 2352, distratto: 2236 }, depth: 8, multiPV: 3, temperature: 8 },
+  { id: 'esperto', elo: { attento: 1892, distratto: 1860 }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
+  { id: 'forte', elo: { attento: 2352, distratto: 2236 }, depth: 8, multiPV: 3, temperature: 8, maxCost: 8 },
 ];
 
 
@@ -217,6 +234,33 @@ const DECIDED_PAWNS = 3;
 const DECIDED_MAX_COST = 5;
 
 /**
+ * Tetto al costo di una mossa CAMPIONATA, anche a partita aperta.
+ *
+ * Nasce da una misura, non da un'intuizione. Al livello 4 (temperatura 22), in una
+ * posizione con la ricattura obbligata di un Cavallo, il campionamento dava questo:
+ *
+ *   dxe5  costo  0.0  ->  43,9%      <- la ricattura
+ *   Kd2   costo 20.3  ->  17,5%
+ *   b3    costo 23.6  ->  15,0%
+ *   f3    costo 26.7  ->  13,1%
+ *   g3    costo 31.4  ->  10,5%
+ *
+ * Cinquantasei volte su cento non ricatturava. E la distrazione non c'entrava:
+ * "attenta" azzera solo la papera deliberata, mentre il dado del campionamento si
+ * tira comunque e non aveva alcun limite. La promessa che l'applicazione fa
+ * all'utente — "ATTENTA non regala niente: sbaglia solo per non aver visto
+ * abbastanza lontano" — era quindi falsa.
+ *
+ * Quindici punti valgono un pedone e mezzo: sotto quella soglia c'e' ancora tutto lo
+ * spazio per giocare una mossa peggiore, sopra si sta regalando materiale.
+ *
+ * Va letto per quello che e': il tetto vale su cio' che il bot VEDE alla sua
+ * profondita'. Un livello basso continuera' a perdere pezzi per non aver guardato
+ * abbastanza avanti — che e' esattamente il modo in cui deve sbagliare.
+ */
+const MAX_COST = 15;
+
+/**
  * Quanto costa una mossa rispetto alla migliore.
  *
  * Il massimo fra due misure, e non e' un dettaglio: l'aspettativa di vittoria e'
@@ -271,11 +315,15 @@ export function selectBotMove(
   const decided = Math.abs(extendedCp(best)) / 100 >= (level.decidedPawns ?? DECIDED_PAWNS);
   const temperature = decided ? level.temperature * 0.4 : level.temperature;
 
-  // In posizione decisa si scartano del tutto le mosse che costano troppo, invece di
-  // renderle solo improbabili: e' l'unico modo di far sparire il regalo di materiale,
-  // perche' li' la valutazione non distingue piu' abbastanza da poterselo permettere.
+  // Le mosse troppo costose si scartano del tutto invece di renderle solo
+  // improbabili: e' l'unico modo di far sparire il regalo di materiale, perche' il
+  // campionamento esponenziale una probabilita' la lascia sempre. Il tetto e' piu'
+  // stretto in posizione decisa, dove la valutazione si comprime e mezzo pedone di
+  // scarto puo' voler dire una torre.
+  //
   // Almeno una linea sopravvive sempre: la migliore costa zero per definizione.
-  const lines = decided ? all.filter((line) => moveCost(best, line) <= DECIDED_MAX_COST) : all;
+  const ceiling = decided ? DECIDED_MAX_COST : (level.maxCost ?? MAX_COST);
+  const lines = all.filter((line) => moveCost(best, line) <= ceiling);
 
   // La svista: la peggiore fra le alternative CONSIDERATE, non una mossa a caso fra
   // tutte le legali. Un principiante che sbaglia gioca comunque una mossa che gli
@@ -284,8 +332,13 @@ export function selectBotMove(
   // A partita decisa la svista sparisce del tutto: e' li' che il bot deve stringere i
   // denti, e una papera gratuita mentre si converte (o si resiste) e' esattamente
   // cio' che rende inutile l'allenamento.
+  // La papera pesca fra TUTTE le candidate e non fra quelle sopravvissute al tetto:
+  // e' il suo mestiere regalare qualcosa, ed e' cio' che tiene i due assi separati e
+  // leggibili. Il livello dice quanto lontano vede la Nonna; la distrazione dice
+  // quanto spesso regala qualcosa apposta. Il campionamento non deve fare ne' l'una
+  // ne' l'altra cosa.
   if (!decided && rng() < distraction.blunderRate) {
-    return lines[lines.length - 1]!.pv[0]!;
+    return all[all.length - 1]!.pv[0]!;
   }
 
   const weights = lines.map((line) => Math.exp(-moveCost(best, line) / temperature));

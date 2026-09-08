@@ -2053,9 +2053,11 @@ export function mountApp(root: HTMLElement): void {
       // CHI GIOCA, ed erano nati quando dall'altra parte c'era un motore: alla Nonna
       // non si addicono, e "medio" detto di lei suona come un giudizio su di lei.
       // La scala numerata dice l'unica cosa che serve — che sono in ordine.
-      element.textContent = t('levelName', { n: index + 1 });
-      // L'Elo resta, ma nel suggerimento: e' la risposta a "quanto forte, di preciso?",
-      // una domanda che si fa una volta e non ogni volta che si apre il menu.
+      //
+      // L'Elo torna nell'etichetta e non solo nel suggerimento: su telefono il
+      // suggerimento non si vede affatto — non c'e' un puntatore da fermare sopra una
+      // voce — e li' il numero sarebbe semplicemente inaccessibile.
+      element.textContent = t('levelName', { n: index + 1, elo: option.elo[distraction.id] });
       element.title = t('levelElo', { elo: option.elo[distraction.id] });
       element.selected = option.id === level.id;
       select.append(element);
