@@ -168,7 +168,12 @@ export const BOT_LEVELS: readonly BotLevel[] = [
   // Misurati contro l'ancoraggio a 1800, non a 1320: contro il piu' debole vincevano
   // quasi tutte le partite e la stima sarebbe stata solo un'estrapolazione senza senso.
   { id: 'esperto', elo: { attento: 2069, distratto: 1919 }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
-  { id: 'forte', elo: { attento: 2663, distratto: 2391 }, depth: 7, multiPV: 4, temperature: 13, maxCost: 10 },
+  // Profondita' 7 e non 8, con le stesse quattro candidate e lo stesso tetto del
+  // livello 6: e' "il livello 6 con una semi-mossa in piu'". Misurato 2368/2217
+  // contro l'ancoraggio a 2200, dove il punteggio sta vicino al 50% e quindi il
+  // numero e' molto piu' affidabile del 2663 di prima, che veniva da un 93,5%
+  // cioe' da un'estrapolazione.
+  { id: 'forte', elo: { attento: 2368, distratto: 2217 }, depth: 7, multiPV: 4, temperature: 13, maxCost: 10 },
 ];
 
 
