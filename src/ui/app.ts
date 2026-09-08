@@ -61,6 +61,14 @@ const ANALYSIS_DEPTH = 14;
 const ANALYSIS_MULTIPV = 3;
 
 /**
+ * La soglia dell'errore, in punti di aspettativa. Duplicata da tutor/detect.ts di
+ * proposito: qui serve solo a decidere se la partita e' stata persa "senza errori",
+ * e legarla alla soglia con cui il tutor decide se parlare renderebbe le due cose
+ * solidali per sbaglio.
+ */
+const MISTAKE_DROP = 18;
+
+/**
  * Profondita' del GIUDIZIO, piu' alta di quella della valutazione mostrata.
  *
  * Misurato su una partita reale: la stessa posizione valutata a profondita' 14 dava
@@ -112,6 +120,29 @@ interface SavedGame {
   outcome?: Outcome | null;
   /** Quante volte si e' chiesto "e adesso?": fa parte del bilancio della partita. */
   hints?: number;
+  /** Quanto e' costata OGNI mossa giudicata, non solo quelle segnalate. */
+  losses?: MoveLoss[];
+}
+
+/**
+ * Quanto e' costata una mossa, registrata SEMPRE e non solo quando supera la soglia.
+ *
+ * E' la correzione di un difetto di impostazione. Il tutor parla solo per gli errori
+ * gravi — e fa bene, o diventa un brontolio continuo — ma finora scartavamo tutto il
+ * resto, e a fine partita non restava niente da dire a chi aveva perso senza commettere
+ * un solo errore segnalabile. Che e' il modo in cui si perde contro un avversario piu'
+ * forte: due o tre punti per mossa, venti volte di fila.
+ *
+ * Registrare costa zero: quelle analisi le abbiamo gia' fatte per decidere se parlare.
+ */
+interface MoveLoss {
+  ply: number;
+  number: number;
+  san: string;
+  /** Punti di aspettativa persi rispetto alla mossa migliore. */
+  drop: number;
+  /** La mossa che teneva, in SAN. Vuota se non e' stato possibile ricavarla. */
+  best: string;
 }
 
 /**
@@ -270,6 +301,15 @@ export function mountApp(root: HTMLElement): void {
   let retryTimer: number | null = null;
   /** Gli errori segnalati in questa partita, per il riepilogo. */
   const mistakeLog: MistakeEntry[] = saved?.mistakes ?? [];
+  /** Il costo di ogni mossa giudicata: il materiale della post-analisi. */
+  const losses: MoveLoss[] = saved?.losses ?? [];
+  /**
+   * A che punto e' la post-analisi: nascosta finche' la partita e' aperta, poi offerta,
+   * poi (se accettata) eventualmente in attesa della rianalisi, infine mostrata.
+   */
+  let postMortem: 'hidden' | 'offered' | 'thinking' | 'shown' = 'hidden';
+  /** La riga "Fammi pensare…", tenuta da parte per aggiornarne l'avanzamento. */
+  let thinkingEl: HTMLElement | null = null;
   /**
    * Il suggerimento aperto, se c'e'. `revealed` distingue il primo livello (quante
    * sono) dal secondo (quali sono): fra i due clic c'e' l'unico momento in cui si puo'
@@ -348,6 +388,11 @@ export function mountApp(root: HTMLElement): void {
       evaluation = null;
       refresh();
     });
+    // La post-analisi si offre quando la partita e' finita, e si ritira se si torna
+    // indietro: navigando dentro la partita si riapre, e offrire un bilancio di
+    // qualcosa che sta ancora succedendo non ha senso.
+    if (!finished()) postMortem = 'hidden';
+    else if (postMortem === 'hidden') postMortem = 'offered';
     renderStatus();
     renderControls();
     renderHint();
@@ -429,7 +474,11 @@ export function mountApp(root: HTMLElement): void {
    */
   function renderRecap(): void {
     recapEl.replaceChildren();
-    recapPanel.hidden = mistakeLog.length === 0 && hintsUsed === 0;
+    // L'offerta di post-analisi apre il pannello anche quando non c'e' nient'altro da
+    // dire: e' PROPRIO il caso interessante — nessun errore segnalato, e la partita
+    // persa lo stesso.
+    const offering = finished() && postMortem !== 'hidden';
+    recapPanel.hidden = mistakeLog.length === 0 && hintsUsed === 0 && !offering;
     if (recapPanel.hidden) return;
     const list = document.createElement('ul');
     for (const entry of mistakeLog) {
@@ -440,6 +489,152 @@ export function mountApp(root: HTMLElement): void {
     }
     if (mistakeLog.length > 0) recapEl.append(list);
     if (hintsUsed > 0) recapEl.append(text(t('recapHints', { count: hintsUsed }), 'recap-hints'));
+    renderPostMortem();
+  }
+
+  /**
+   * "Vuoi vedere perche' hai perso?", a partita finita.
+   *
+   * Serve al caso che il tutor non sa vedere: si perde senza commettere un solo errore
+   * segnalabile, perche' la posizione scivola via due o tre punti per mossa. Durante la
+   * partita tacere e' giusto — parlare a ogni imprecisione renderebbe la Nonna un
+   * brontolio — ma a fine partita la soglia non serve piu' a niente, e allora si guarda
+   * la classifica e si mostrano le peggiori QUALUNQUE sia il loro valore assoluto.
+   *
+   * E' un'offerta e non un verdetto automatico: chi ha appena perso decide lui se ha
+   * voglia di sentirselo dire.
+   */
+  function renderPostMortem(): void {
+    if (!finished() || postMortem === 'hidden') return;
+    if (postMortem === 'thinking') {
+      // Il testo si tiene da parte perche' la rianalisi lo aggiorna man mano:
+      // ridisegnare tutto il riepilogo ad ogni posizione farebbe sfarfallare il
+      // pannello per un minuto.
+      thinkingEl = text(t('whyThinking'), 'why-thinking');
+      recapEl.append(thinkingEl);
+      return;
+    }
+    if (postMortem === 'offered') {
+      const ask = document.createElement('button');
+      ask.type = 'button';
+      ask.className = 'why-ask';
+      ask.textContent = humanLost() ? t('whyLost') : t('whyReview');
+      ask.addEventListener('click', () => void showPostMortem());
+      recapEl.append(ask);
+      return;
+    }
+    // postMortem === 'shown'
+    const worst = worstMoves();
+    const box = document.createElement('div');
+    box.className = 'why';
+    box.append(text(t('whyTitle'), 'why-title'));
+    if (worst.length === 0) {
+      box.append(text(t('whyNothing'), 'why-note'));
+      recapEl.append(box);
+      return;
+    }
+    // La spiegazione "hai perso senza sbagliare" compare solo se e' VERA, e la verita'
+    // sta nei numeri e non nel registro degli interventi: il registro e' vuoto anche
+    // per una partita importata, dove la Nonna non c'era e non poteva dire niente.
+    // Si guarda quindi la mossa peggiore: se nemmeno quella arriva alla soglia
+    // dell'errore, allora la partita se n'e' andata davvero poco per volta.
+    // La PEGGIORE, non la prima: la lista qui sotto e' riordinata in ordine di
+    // partita, quindi worst[0] e' la piu' antica e non la piu' costosa.
+    const heaviest = Math.max(...worst.map((loss) => loss.drop));
+    if (humanLost() && heaviest < MISTAKE_DROP) {
+      box.append(text(t('whyClean'), 'why-note'));
+    }
+    const list = document.createElement('ul');
+    for (const loss of worst) {
+      const item = document.createElement('li');
+      item.textContent = t('whyLine', {
+        number: loss.number,
+        san: toFigurine(loss.san),
+        drop: Math.round(loss.drop),
+      });
+      if (loss.best) item.textContent += ` · ${t('whyBetter', { san: toFigurine(loss.best) })}`;
+      list.append(item);
+    }
+    box.append(list);
+    recapEl.append(box);
+  }
+
+  /** Le tre mosse piu' costose, in ordine di partita e non di gravita'. */
+  function worstMoves(): MoveLoss[] {
+    const mine = losses.filter((loss) => turnAfter(loss.ply) === humanColor && loss.drop >= 4);
+    return [...mine]
+      .sort((a, b) => b.drop - a.drop)
+      .slice(0, 3)
+      .sort((a, b) => a.ply - b.ply);
+  }
+
+  function finished(): boolean {
+    return outcome !== null || gameOver(goTo(state, state.plies.length)) !== null;
+  }
+
+  function humanLost(): boolean {
+    if (outcome) return outcome.result === (humanColor === 'w' ? '0-1' : '1-0');
+    const over = gameOver(goTo(state, state.plies.length));
+    return over?.winner !== undefined && over.winner !== null && over.winner !== humanColor;
+  }
+
+  /**
+   * Mostra la post-analisi, rianalizzando la partita se i dati non ci sono.
+   *
+   * Mancano quando la partita e' stata importata da un PGN, o quando si e' mosso piu'
+   * in fretta di quanto il motore analizzasse. Rianalizzare costa UNA analisi per
+   * posizione e non due per mossa: la posizione dopo la tua mossa e' la stessa da cui
+   * si giudica la successiva, quindi si percorre la partita una volta sola.
+   */
+  async function showPostMortem(): Promise<void> {
+    const judged = losses.filter((loss) => turnAfter(loss.ply) === humanColor).length;
+    const mine = state.plies.filter((_, ply) => turnAfter(ply) === humanColor).length;
+    // Meta' delle mosse basta a dire "il dato c'e'": le prime mosse di libro non
+    // vengono giudicate, e rianalizzare per quelle sarebbe attesa sprecata.
+    if (judged >= Math.ceil(mine / 2)) {
+      postMortem = 'shown';
+      renderRecap();
+      return;
+    }
+    postMortem = 'thinking';
+    renderRecap();
+    const mark = generation;
+    const analyses: Analysis[] = [];
+    for (let cursor = 0; cursor <= state.plies.length; cursor++) {
+      const fen = currentFen(goTo(state, cursor));
+      const analysis = await engine.analyse(fen, {
+        depth: ANALYSIS_DEPTH,
+        multiPV: ANALYSIS_MULTIPV,
+      });
+      // La partita e' cambiata sotto (nuova partita, importazione): l'analisi in corso
+      // parla di una partita che non c'e' piu'.
+      if (mark !== generation) return;
+      // Motore caduto a meta' strada: meglio niente che una classifica costruita su
+      // mezza partita, che indicherebbe come "momento peggiore" l'ultimo analizzato.
+      if (!analysis) {
+        postMortem = 'offered';
+        renderRecap();
+        return;
+      }
+      analyses.push(analysis);
+      // L'avanzamento, perche' l'attesa e' lunga: su una partita di quaranta mosse
+      // sono una settantina di posizioni, e in mezzo minuto senza nessun segnale si
+      // pensa che il programma sia bloccato.
+      if (thinkingEl) {
+        thinkingEl.textContent = `${t('whyThinking')} ${Math.round(
+          (cursor * 100) / state.plies.length,
+        )}%`;
+      }
+    }
+    losses.length = 0;
+    for (let ply = 0; ply < state.plies.length; ply++) {
+      if (turnAfter(ply) !== humanColor) continue;
+      const verdict = detectMistake(analyses[ply]!, analyses[ply + 1]!);
+      recordLoss(ply, verdict.drop, verdict.bestMove);
+    }
+    postMortem = 'shown';
+    saveGame();
+    renderRecap();
   }
 
   /**
@@ -952,6 +1147,10 @@ export function mountApp(root: HTMLElement): void {
     beforeBotMove = { fen: pending.fenAfter, analysis: after };
 
     const verdict = detectMistake(before, after);
+    // Il costo si registra SEMPRE, anche quando la Nonna tace: e' il materiale della
+    // post-analisi, e senza non si puo' dire niente a chi ha perso senza sbagliare
+    // niente di segnalabile.
+    recordLoss(state.plies.length - 1, verdict.drop, verdict.bestMove);
     if (isImportant(verdict)) {
       // La confutazione e' il seguito previsto dopo la mossa giocata: e' la risposta
       // alla domanda "perche' e' un errore".
@@ -1038,6 +1237,7 @@ export function mountApp(root: HTMLElement): void {
         moves: state.plies.map((ply) => `${ply.from}${ply.to}${ply.promotion ?? ''}`),
         humanColor,
         mistakes: mistakeLog,
+        losses,
         hints: hintsUsed,
         outcome,
       };
@@ -1091,6 +1291,45 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /** Traduce la mossa migliore da UCI a SAN, nella posizione in cui andava giocata. */
+  /**
+   * Annota quanto e' costata la mossa alla semi-mossa `ply`.
+   *
+   * Sostituisce invece di accumulare: rigiocando la stessa posizione dopo un ritorno
+   * indietro la mossa a quel ply e' un'altra, e due righe per lo stesso momento della
+   * partita direbbero una cosa che non e' mai accaduta.
+   */
+  function recordLoss(ply: number, drop: number, bestMove: string | null): void {
+    const san = state.plies[ply]?.san;
+    if (!san) return;
+    const entry: MoveLoss = {
+      ply,
+      number: moveNumberOf(state, ply),
+      san,
+      drop: Math.max(0, drop),
+      best: (bestMove ? sanAt(ply, bestMove) : null) ?? '',
+    };
+    const existing = losses.findIndex((loss) => loss.ply === ply);
+    if (existing === -1) losses.push(entry);
+    else losses[existing] = entry;
+    // Un ritorno indietro cancella il futuro: le righe oltre questo punto parlano di
+    // mosse che nella partita non ci sono piu'.
+    for (let i = losses.length - 1; i >= 0; i--) if (losses[i]!.ply > ply) losses.splice(i, 1);
+  }
+
+  /** La mossa UCI tradotta in SAN nella posizione che precede la semi-mossa `ply`. */
+  function sanAt(ply: number, uci: string): string | null {
+    const chess = positionAt(goTo(state, ply));
+    try {
+      return chess.move({
+        from: uci.slice(0, 2),
+        to: uci.slice(2, 4),
+        ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
+      }).san;
+    } catch {
+      return null;
+    }
+  }
+
   function sanOfBestMove(uci: string): string | null {
     const chess = positionAt(goTo(state, Math.max(0, state.plies.length - 1)));
     try {
@@ -1724,6 +1963,7 @@ export function mountApp(root: HTMLElement): void {
   /** Rilegge le nostre annotazioni da un PGN importato, per ricostruire il riepilogo. */
   function readAnnotations(comments: ReadonlyMap<number, string>): void {
     mistakeLog.length = 0;
+    losses.length = 0;
     for (const [ply, comment] of [...comments].sort((a, b) => a[0] - b[0])) {
       // Spazio bianco QUALUNQUE dopo il marcatore, e ripulito anche dentro: andando a
       // capo per stare negli ottanta caratteri, l'export puo' spezzare il marcatore
@@ -2054,6 +2294,7 @@ export function mountApp(root: HTMLElement): void {
     // Anche il riepilogo: appartiene alla partita, non alla sessione. Senza questo
     // gli errori di una partita comparivano nel riepilogo di quella successiva.
     mistakeLog.length = 0;
+    losses.length = 0;
     hintsUsed = 0;
   }
 
@@ -2424,6 +2665,7 @@ function loadGame(): {
   state: GameState;
   humanColor: Color;
   mistakes: MistakeEntry[];
+  losses: MoveLoss[];
   hints: number;
   outcome: Outcome | null;
 } | null {
@@ -2446,6 +2688,7 @@ function loadGame(): {
       state,
       humanColor: saved.humanColor === 'b' ? 'b' : 'w',
       mistakes: Array.isArray(saved.mistakes) ? saved.mistakes : [],
+      losses: Array.isArray(saved.losses) ? saved.losses : [],
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
       outcome: saved.outcome ?? null,
     };
