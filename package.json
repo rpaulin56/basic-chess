@@ -16,6 +16,8 @@
     "calibrate": "tsx scripts/calibrate.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "i18n:export": "tsx scripts/i18n-export.ts",
+    "i18n:import": "tsx scripts/i18n-import.ts",
     "review": "tsx scripts/review.ts",
     "explain": "tsx scripts/explain.ts",
     "botprobe": "tsx scripts/botprobe.ts",
