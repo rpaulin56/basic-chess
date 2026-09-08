@@ -200,6 +200,12 @@ export function mountApp(root: HTMLElement): void {
    */
   let showBar = localStorage.getItem('basic-chess:evalBar') === 'on';
   /**
+   * L'ultimo valore mostrato dalla barra, per non farla cadere al centro mentre
+   * si aspetta l'analisi della posizione nuova. Si azzera solo quando la partita
+   * cambia: li' il valore precedente non c'entra piu' niente.
+   */
+  let lastWhitePercent: number | null = null;
+  /**
    * Se la Nonna si fa sentire quando interviene.
    *
    * ACCESO di default, al contrario delle opzioni sulla valutazione: quelle mostrano
@@ -1348,9 +1354,17 @@ export function mountApp(root: HTMLElement): void {
       const forMover = winPercentOf(evaluation.line);
       white = evaluation.sideToMove === 'w' ? forMover : 100 - forMover;
     }
-    // Finche' non si sa niente (motore che carica, analisi in corso) la barra resta a
-    // meta': meglio ferma nel mezzo che scattante su un valore inventato.
-    const mine = white === null ? 50 : orientation === 'white' ? white : 100 - white;
+    // Mentre la Nonna pensa non si sa ancora niente della posizione nuova, e la
+    // barra TIENE L'ULTIMO VALORE invece di tornare al centro.
+    //
+    // Tornare al centro diceva una cosa falsa — "adesso e' pari" — proprio nel
+    // momento in cui l'utente non ha modo di sapere che e' solo un'attesa, e la
+    // faceva oscillare ad ogni mossa. L'ultimo valore e' vecchio di una mossa, ma
+    // di una soltanto: e' l'approssimazione piu' onesta che abbiamo mentre si
+    // aspetta. A meta' resta solo all'inizio, quando un valore precedente non c'e'.
+    if (white !== null) lastWhitePercent = white;
+    const known = white ?? lastWhitePercent;
+    const mine = known === null ? 50 : orientation === 'white' ? known : 100 - known;
     barEl.className = orientation === 'white' ? 'eval-bar light' : 'eval-bar dark';
     fillEl.style.height = `${Math.round(mine)}%`;
   }
@@ -1464,6 +1478,8 @@ export function mountApp(root: HTMLElement): void {
             orientation = humanColor === 'w' ? 'white' : 'black';
           }
           state = newGame();
+          // Partita diversa: il valore vecchio non descrive piu' niente.
+          lastWhitePercent = null;
           evaluation = null;
           clearTutor();
           refresh();
@@ -2019,6 +2035,8 @@ export function mountApp(root: HTMLElement): void {
     try {
       const imported = parseGameInput(text);
       state = imported.state;
+      // Partita diversa: il valore vecchio non descrive piu' niente.
+      lastWhitePercent = null;
       evaluation = null;
       clearTutor();
       if (imported.comments) readAnnotations(imported.comments);
