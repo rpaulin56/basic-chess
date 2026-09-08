@@ -32,6 +32,10 @@ export const it = {
   whyLost: 'Vuoi vedere perché hai perso?',
   whyReview: 'Vuoi rivedere i momenti chiave?',
   whyThinking: 'Fammi pensare…',
+  whyForeign:
+    "Questa partita non mi sembra che l'abbiamo giocata noi: non ho i miei appunti. Se ci tieni la posso studiare, ma devi darmi un po' di tempo…",
+  whyStudy: 'Studiala pure',
+  whyStop: 'Lascia perdere',
   whyTitle: 'Dove la partita è scivolata via',
   whyClean:
     'Non hai commesso nessun errore grave, e hai perso lo stesso. Succede quando la partita se ne va poco per volta invece che in una mossa sola: è così che perde quasi chiunque contro un avversario più forte. Queste sono le mosse che sono costate di più, anche se nessuna da sola era un errore.',
@@ -143,6 +147,7 @@ export const it = {
   hintClose: 'Chiudi',
   hintUnordered: 'In ordine alfabetico: nessuna di queste è “la migliore”.',
   orientKingExposed: 'Il tuo Re è scoperto: mettilo più al sicuro appena puoi.',
+  orientKingActive: 'Sono rimasti pochi pezzi: adesso il Re è un pezzo anche lui. Portalo verso il centro, dove serve.',
   orientOutpost: 'Un Cavallo nemico è installato nel tuo campo e nessun Pedone può scacciarlo: finché resta lì, ogni piano parte in svantaggio.',
   orientPassed: 'Hai un Pedone passato che io non ho: è una minaccia che cresce da sola.',
   orientOpenFile: 'Ho il controllo di una colonna aperta e tu no: è lì che può succedere qualcosa.',

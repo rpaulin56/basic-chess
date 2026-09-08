@@ -1,4 +1,4 @@
-import type { Color } from 'chess.js';
+import { Chess, type Color } from 'chess.js';
 import { features } from './features.js';
 import type { Explanation } from './positional.js';
 
@@ -24,15 +24,66 @@ import type { Explanation } from './positional.js';
 /** Quante osservazioni al massimo. Due sono un consiglio, sei sono un referto. */
 const MAX_REASONS = 2;
 
+/**
+ * Quanto materiale d'attacco serve perche' la sicurezza del re sia un tema.
+ *
+ * Sei punti: una Donna (9) basta da sola, Torre piu' pezzo leggero (8) pure, due
+ * pezzi leggeri (6) al limite. Un Cavallo solo (3) no — e quello e' il caso che ha
+ * prodotto il consiglio sbagliato, "metti il Re al sicuro" detto a chi aveva davanti
+ * un Re, un Cavallo e qualche pedone.
+ *
+ * Sotto questa soglia il consiglio non e' soltanto inutile: e' ROVESCIATO. In finale
+ * il Re e' un pezzo che deve combattere, e tenerlo al riparo dietro i suoi pedoni e'
+ * uno degli errori piu' comuni di chi comincia.
+ */
+const ATTACK_ENOUGH = 6;
+const PIECE_VALUE: Record<string, number> = { q: 9, r: 5, b: 3, n: 3 };
+
+/** Materiale d'attacco di `color`, pedoni e Re esclusi. */
+function attackingMaterial(fen: string, color: Color): number {
+  const chess = new Chess(fen);
+  let total = 0;
+  for (const row of chess.board()) {
+    for (const square of row) {
+      if (square && square.color === color) total += PIECE_VALUE[square.type] ?? 0;
+    }
+  }
+  return total;
+}
+
+/** Quanto dista il Re dal centro: 0 sulle quattro case centrali, 3 negli angoli. */
+function kingFromCentre(fen: string, color: Color): number {
+  const chess = new Chess(fen);
+  for (const row of chess.board()) {
+    for (const square of row) {
+      if (square && square.color === color && square.type === 'k') {
+        const file = 'abcdefgh'.indexOf(square.square[0]!);
+        const rank = Number(square.square[1]) - 1;
+        const fromEdge = Math.min(Math.min(file, 7 - file), Math.min(rank, 7 - rank));
+        return 3 - fromEdge;
+      }
+    }
+  }
+  return 0;
+}
+
 export function orientPosition(fen: string, color: Color): readonly Explanation[] {
   const mine = features(fen, color);
   const theirs = features(fen, color === 'w' ? 'b' : 'w');
   const found: Explanation[] = [];
 
   // La sicurezza del re viene prima di qualunque piano: se e' scoperto, il piano e'
-  // metterlo al sicuro.
-  if (mine.kingShield <= 1) {
+  // metterlo al sicuro. Ma SOLO se dall'altra parte c'e' con cosa attaccarlo: senza
+  // questa condizione il consiglio scattava anche in finale, dove e' rovesciato.
+  const attack = attackingMaterial(fen, color === 'w' ? 'b' : 'w');
+  if (mine.kingShield <= 1 && attack >= ATTACK_ENOUGH) {
     found.push({ key: 'orientKingExposed', params: {}, weight: 10 });
+  }
+  // Il contrario, e vale nello stesso momento in cui l'altro tace: finito il
+  // materiale d'attacco il Re diventa un pezzo, e lasciarlo nell'angolo e' rinunciare
+  // a giocare con un pezzo in meno.
+  if (attack < ATTACK_ENOUGH && kingFromCentre(fen, color) >= 2) {
+    found.push({ key: 'orientKingActive', params: {}, weight: 9 });
   }
   // Un cavallo installato a casa propria non se ne va da solo, e finche' e' li'
   // qualunque altro piano parte in svantaggio di un pezzo.

@@ -307,7 +307,9 @@ export function mountApp(root: HTMLElement): void {
    * A che punto e' la post-analisi: nascosta finche' la partita e' aperta, poi offerta,
    * poi (se accettata) eventualmente in attesa della rianalisi, infine mostrata.
    */
-  let postMortem: 'hidden' | 'offered' | 'thinking' | 'shown' = 'hidden';
+  let postMortem: 'hidden' | 'offered' | 'foreign' | 'thinking' | 'shown' = 'hidden';
+  /** Alzata per fermare la rianalisi in corso: la controlla il ciclo ad ogni posizione. */
+  let stopStudy = false;
   /** La riga "Fammi pensare…", tenuta da parte per aggiornarne l'avanzamento. */
   let thinkingEl: HTMLElement | null = null;
   /**
@@ -506,12 +508,44 @@ export function mountApp(root: HTMLElement): void {
    */
   function renderPostMortem(): void {
     if (!finished() || postMortem === 'hidden') return;
+    // La partita non porta i nostri appunti: prima di mettercisi mezzo minuto, lo
+    // dice e chiede il permesso. Il tempo e' dell'utente, non nostro.
+    if (postMortem === 'foreign') {
+      const box = document.createElement('div');
+      box.className = 'why';
+      box.append(text(t('whyForeign'), 'why-note'));
+      const study = document.createElement('button');
+      study.type = 'button';
+      study.className = 'why-ask';
+      study.textContent = t('whyStudy');
+      study.addEventListener('click', () => void study_());
+      const never = document.createElement('button');
+      never.type = 'button';
+      never.className = 'why-ask ghost';
+      never.textContent = t('whyStop');
+      never.addEventListener('click', () => {
+        postMortem = 'offered';
+        renderRecap();
+      });
+      box.append(study, never);
+      recapEl.append(box);
+      return;
+    }
     if (postMortem === 'thinking') {
       // Il testo si tiene da parte perche' la rianalisi lo aggiorna man mano:
       // ridisegnare tutto il riepilogo ad ogni posizione farebbe sfarfallare il
       // pannello per un minuto.
       thinkingEl = text(t('whyThinking'), 'why-thinking');
-      recapEl.append(thinkingEl);
+      // Interrompibile: mezzo minuto e' abbastanza perche' uno cambi idea, e un'attesa
+      // che non si puo' fermare e' una trappola anche quando e' breve.
+      const stop = document.createElement('button');
+      stop.type = 'button';
+      stop.className = 'why-ask ghost';
+      stop.textContent = t('whyStop');
+      stop.addEventListener('click', () => {
+        stopStudy = true;
+      });
+      recapEl.append(thinkingEl, stop);
       return;
     }
     if (postMortem === 'offered') {
@@ -519,7 +553,7 @@ export function mountApp(root: HTMLElement): void {
       ask.type = 'button';
       ask.className = 'why-ask';
       ask.textContent = humanLost() ? t('whyLost') : t('whyReview');
-      ask.addEventListener('click', () => void showPostMortem());
+      ask.addEventListener('click', showPostMortem);
       recapEl.append(ask);
       return;
     }
@@ -586,17 +620,19 @@ export function mountApp(root: HTMLElement): void {
    * posizione e non due per mossa: la posizione dopo la tua mossa e' la stessa da cui
    * si giudica la successiva, quindi si percorre la partita una volta sola.
    */
-  async function showPostMortem(): Promise<void> {
+  function showPostMortem(): void {
     const judged = losses.filter((loss) => turnAfter(loss.ply) === humanColor).length;
     const mine = state.plies.filter((_, ply) => turnAfter(ply) === humanColor).length;
     // Meta' delle mosse basta a dire "il dato c'e'": le prime mosse di libro non
     // vengono giudicate, e rianalizzare per quelle sarebbe attesa sprecata.
-    if (judged >= Math.ceil(mine / 2)) {
-      postMortem = 'shown';
-      renderRecap();
-      return;
-    }
+    postMortem = judged >= Math.ceil(mine / 2) ? 'shown' : 'foreign';
+    renderRecap();
+  }
+
+  /** Rianalizza la partita da capo, dopo che l'utente ha detto di si'. */
+  async function study_(): Promise<void> {
     postMortem = 'thinking';
+    stopStudy = false;
     renderRecap();
     const mark = generation;
     const analyses: Analysis[] = [];
@@ -609,6 +645,12 @@ export function mountApp(root: HTMLElement): void {
       // La partita e' cambiata sotto (nuova partita, importazione): l'analisi in corso
       // parla di una partita che non c'e' piu'.
       if (mark !== generation) return;
+      // L'utente ha detto basta: si torna all'offerta, cosi' puo' ripensarci.
+      if (stopStudy) {
+        postMortem = 'offered';
+        renderRecap();
+        return;
+      }
       // Motore caduto a meta' strada: meglio niente che una classifica costruita su
       // mezza partita, che indicherebbe come "momento peggiore" l'ultimo analizzato.
       if (!analysis) {

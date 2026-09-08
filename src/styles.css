@@ -576,6 +576,10 @@ select {
   cursor: pointer;
 }
 .why-thinking { font-size: 13px; color: var(--ink-soft); padding-top: 8px; font-style: italic; }
+/* Il secondo pulsante di una coppia: stessa forma, meno voce. Non deve competere
+   con quello che porta avanti, ma nemmeno nascondersi. */
+.why-ask.ghost { background: none; color: var(--ink-soft); border-color: var(--line); }
+.why-ask + .why-ask { margin-left: 6px; }
 .why { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
 .why-title {
   font-size: 12px;

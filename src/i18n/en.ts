@@ -34,6 +34,10 @@ export const en: Record<keyof typeof it, string> = {
   whyLost: 'Want to see why you lost?',
   whyReview: 'Want to go over the key moments?',
   whyThinking: 'Let me think…',
+  whyForeign:
+    'This does not look like a game we played together: I have no notes on it. I can study it if you care, but you will have to give me some time…',
+  whyStudy: 'Go ahead and study it',
+  whyStop: 'Never mind',
   whyTitle: 'Where the game slipped away',
   whyClean:
     'You made no serious mistake, and you lost all the same. That happens when a game goes little by little instead of in a single move: it is how almost everyone loses to a stronger player. These are the moves that cost the most, even though none of them was a mistake on its own.',
@@ -145,6 +149,7 @@ export const en: Record<keyof typeof it, string> = {
   hintClose: 'Close',
   hintUnordered: 'Alphabetical order: none of these is "the best one".',
   orientKingExposed: 'Your king is exposed: make it safer as soon as you can.',
+  orientKingActive: 'Few pieces are left: now your king is a piece too. Walk it towards the centre, where it counts.',
   orientOutpost: 'An enemy knight sits in your half and no pawn can chase it: while it stays, every plan starts a piece down.',
   orientPassed: 'You have a passed pawn and I do not: it is a threat that grows on its own.',
   orientOpenFile: 'I control an open file and you do not: that is where something can happen.',
