@@ -13,6 +13,8 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { Chess } from 'chess.js';
+import type { Analysis } from '../src/engine/types.js';
 import { parsePgn } from '../src/core/pgn.js';
 import { createEngine } from '../src/engine/uci.js';
 import { detectMistake } from '../src/tutor/detect.js';
@@ -34,6 +36,30 @@ const multiPV = Number(arg('multipv', '3'));
 if (!pgnPath) {
   console.error('Uso: npm run review -- --pgn <file.pgn> [--side w|b] [--all]');
   process.exit(1);
+}
+
+/**
+ * L'analisi di una posizione in cui la partita e' FINITA, uguale a quella
+ * dell'applicazione (vedi terminalAnalysis in ui/app.ts).
+ *
+ * Senza, la mossa che da' matto risultava "shallow" — scartata perche' l'analisi della
+ * posizione dopo ha profondita' zero. E ha profondita' zero per una ragione giusta: in
+ * una posizione finita non ci sono mosse da cercare. Qui il risultato non si cerca, si
+ * legge dalle regole.
+ *
+ * Duplicato e non condiviso perche' app.ts e' un modulo del browser che tira dentro
+ * mezza interfaccia: importarlo qui costerebbe piu' della decina di righe che copia.
+ */
+function terminalAnalysis(fen: string): Analysis | null {
+  const chess = new Chess(fen);
+  if (!chess.isGameOver()) return null;
+  const mated = chess.isCheckmate();
+  return {
+    fen,
+    depth,
+    bestMove: null,
+    lines: [{ multipv: 1, scoreCp: mated ? null : 0, mateIn: mated ? -1 : null, pv: [] }],
+  };
 }
 
 const { state } = parsePgn(readFileSync(pgnPath, 'utf8'));
@@ -70,7 +96,7 @@ for (let i = 0; i < state.plies.length; i++) {
   if (side && ply.color !== side) continue;
 
   const before = await engine.analyse(ply.fenBefore, { depth, multiPV });
-  const after = await engine.analyse(ply.fenAfter, { depth, multiPV });
+  const after = terminalAnalysis(ply.fenAfter) ?? (await engine.analyse(ply.fenAfter, { depth, multiPV }));
 
   const bestBefore = before.lines[0];
   const bestAfter = after.lines[0];
