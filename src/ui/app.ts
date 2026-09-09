@@ -1059,6 +1059,35 @@ export function mountApp(root: HTMLElement): void {
         first && second ? winPercentOf(first) - winPercentOf(second) : 0,
       );
     }
+    /*
+     * E anche le papere della NONNA, rifatte da capo.
+     *
+     * Erano raccolte solo dal vivo, mentre lei parlava: se il tutor era spento, o se
+     * si tornava indietro (un ripensamento rompe la catena delle analisi live), la
+     * lista restava vuota — e in una partita contro la Nonna distratta, che i regali
+     * li fa per costruzione, era proprio la cosa che non si vedeva. Segnalato da chi
+     * gioca, con la partita in mano.
+     *
+     * Qui le analisi ci sono tutte, una per posizione, e la stessa domanda si puo'
+     * rifare senza costo: la post-analisi torna a bastare a se stessa, come gia' fa
+     * per gli errori di chi gioca.
+     */
+    gifts.length = 0;
+    for (let ply = 0; ply < state.plies.length; ply++) {
+      if (turnAfter(ply) === humanColor) continue;
+      const verdict = detectMistake(analyses[ply]!, analyses[ply + 1]!);
+      if (!isImportant(verdict)) continue;
+      const reply = analyses[ply + 2];
+      gifts.push({
+        ply,
+        number: moveNumberOf(state, ply),
+        color: state.plies[ply]!.color,
+        // Senza una mossa dopo il regalo e' l'ultimo della partita: se la partita
+        // finisce li' e' perche' chi giocava l'ha chiusa, quindi il regalo l'ha visto.
+        seen: reply ? detectMistake(analyses[ply + 1]!, reply).drop < INACCURACY_DROP : true,
+        san: state.plies[ply]!.san,
+      });
+    }
     postMortem = 'shown';
     saveGame();
     renderPostMortem();
