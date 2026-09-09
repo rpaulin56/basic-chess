@@ -23,7 +23,7 @@ export type IconName =
   | 'tutor'
   | 'tutorOff'
   | 'hint'
-  | 'help'
+  | 'strength'
   | 'resign'
   | 'draw'
   | 'settings'
@@ -77,16 +77,36 @@ const PATHS: Record<IconName, string> = {
   tutorOff: BUBBLE + '<path d="M4 20 20 4" />',
   // "Dammi un'idea": la lampadina.
   hint: BULB,
-  // Punto interrogativo, non un punto interrogativo DENTRO UN CERCHIO: quello e'
-  // l'icona universale della guida in linea, e questa non apre una guida — spiega
-  // una scelta che si ha li' accanto.
-  help:
-    '<path d="M8.6 8.6a3.5 3.5 0 1 1 4.6 3.3c-1 .35-1.5 1.15-1.5 2.2v.5" />' +
-    '<circle cx="11.7" cy="18.3" r="1.15" fill="currentColor" stroke="none" />',
-  // Bandiera bianca: il gesto dell'abbandono in ogni sport. Il drappo e' pieno di
-  // bianco e non solo contornato, perche' una bandiera bianca si riconosce se e'
-  // bianca — era l'unico modo di dirlo, e per questo il colore qui ci sta.
-  resign: '<path d="M6 3v18" /><path class="drape" d="M6 4.2h11l-2.4 3.6L17 11.4H6z" />',
+  // Il bilanciere: quanto forte vuoi la Nonna.
+  //
+  // Sostituisce due menu a tendina e un punto interrogativo — tre oggetti larghi in
+  // una riga sotto la scacchiera, per una scelta che si fa a inizio partita e poi non
+  // si tocca piu'. Un peso da sollevare dice "forza" senza parole e in qualunque
+  // lingua, e apre il pannello dove la scelta si fa davvero, spiegazioni comprese.
+  strength: '<path d="M3 9.5v5M6.5 7v10M17.5 7v10M21 9.5v5M6.5 12h11" />',
+  // Il Re rovesciato: il gesto dell'abbandono negli SCACCHI, non nello sport in
+  // generale.
+  //
+  // Era una bandiera bianca, e non funzionava: il bianco su fondo quasi bianco non si
+  // vede, quindi restava una bandiera contornata — cioe' una bandiera qualunque. Il
+  // problema non era il disegno ma la metafora, che chiedeva al colore di portare
+  // tutto il significato. Un Re caduto non ha bisogno di nessun colore.
+  //
+  // La linea del terreno resta FUORI dalla rotazione ed e' orizzontale: il Re ruota,
+  // il pavimento no. Sono inciampato proprio li' al primo tentativo, ruotando anche
+  // la linea — e veniva fuori un muro verticale accanto a un pezzo storto.
+  //
+  // Il Re e' basso di proposito (undici unita' dalla base alla croce): ruotato di
+  // sessantacinque gradi attorno alla sua base, uno piu' alto uscirebbe dal riquadro
+  // dalla parte della corona.
+  resign:
+    '<g transform="rotate(-65 13 19)">' +
+    '<path d="M10 19h6" />' +
+    '<path d="M10.8 19 12 12.6h2L15.2 19z" />' +
+    '<circle cx="13" cy="11" r="1.6" />' +
+    '<path d="M13 6.6v2.2M11.7 7.7h2.6" />' +
+    '</g>' +
+    '<path d="M2.5 20.5h19" />',
   // Il mezzo punto, scritto. E' il modo in cui la patta si segna sul tabellone da
   // sempre: chi gioca a scacchi lo riconosce senza pensarci, e chi non lo riconosce
   // lo impara una volta sola (l'etichetta lo dice, al tocco e col puntatore).

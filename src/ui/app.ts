@@ -175,6 +175,8 @@ interface SavedGame {
   hints?: number;
   /** Quante mosse gia' giocate sono state ritirate per giocarne un'altra. */
   takeBacks?: number;
+  /** Quante volte si e' chiesto di vedere le mosse buone, non solo un orientamento. */
+  answers?: number;
   /** Quanto e' costata OGNI mossa giudicata, non solo quelle segnalate. */
   losses?: MoveLoss[];
 }
@@ -428,6 +430,16 @@ export function mountApp(root: HTMLElement): void {
    */
   let takeBacks = saved?.takeBacks ?? 0;
   /**
+   * Quante volte si e' vista la RISPOSTA, cioe' quali erano le mosse buone.
+   *
+   * Contata a parte dai consigli, ed e' una distinzione che pesa: chiedere "e adesso?"
+   * e' domandare da dove guardare, e si resta a cercare da soli; farsi mostrare le
+   * mosse e' avere la soluzione in mano. Sommarle in un numero solo diceva "aiuti: 6"
+   * a chi ne aveva chiesti sei di orientamento e a chi si era fatto dare sei volte la
+   * risposta, che sono due partite molto diverse.
+   */
+  let answersSeen = saved?.answers ?? 0;
+  /**
    * La partita chiusa per accordo, se lo e'. Resta REVERSIBILE: la freccia indietro
    * riapre una partita abbandonata, come per il ritiro della mossa. Qui si prova, non
    * si scommette — e imparare a riconoscere quando e' finita richiede di poter
@@ -562,6 +574,7 @@ export function mountApp(root: HTMLElement): void {
       },
       onReveal: () => {
         if (!review) return;
+        answersSeen++;
         const moves = review.verdict.betterMoves.length
           ? review.verdict.betterMoves
           : review.verdict.bestMove
@@ -606,7 +619,12 @@ export function mountApp(root: HTMLElement): void {
     // dire: e' PROPRIO il caso interessante — nessun errore segnalato, e la partita
     // persa lo stesso.
     const offering = finished() && postMortem !== 'hidden';
-    recapPanel.hidden = mistakeLog.length === 0 && hintsUsed === 0 && takeBacks === 0 && !offering;
+    recapPanel.hidden =
+      mistakeLog.length === 0 &&
+      hintsUsed === 0 &&
+      answersSeen === 0 &&
+      takeBacks === 0 &&
+      !offering;
     if (recapPanel.hidden) return;
     const list = document.createElement('ul');
     for (const entry of mistakeLog) {
@@ -617,6 +635,9 @@ export function mountApp(root: HTMLElement): void {
     }
     if (mistakeLog.length > 0) recapEl.append(list);
     if (hintsUsed > 0) recapEl.append(text(t('recapHints', { count: hintsUsed }), 'recap-hints'));
+    if (answersSeen > 0) {
+      recapEl.append(text(t('recapAnswers', { count: answersSeen }), 'recap-hints'));
+    }
     if (takeBacks > 0) {
       recapEl.append(text(t('recapTakeBacks', { count: takeBacks }), 'recap-hints'));
     }
@@ -1106,6 +1127,8 @@ export function mountApp(root: HTMLElement): void {
     renderHintPanel(hintEl, hint, {
       onReveal: () => {
         if (!hint) return;
+        answersSeen++;
+        saveGame();
         hint = { ...hint, revealed: true };
         renderHint();
       },
@@ -1597,6 +1620,7 @@ export function mountApp(root: HTMLElement): void {
         losses,
         hints: hintsUsed,
         takeBacks,
+        answers: answersSeen,
         outcome,
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
@@ -2214,17 +2238,20 @@ export function mountApp(root: HTMLElement): void {
       ),
     );
 
-    // Nella riga restano le due impostazioni che si cambiano DA UNA PARTITA
-    // ALL'ALTRA. Nome, lingua e visibilita' della valutazione si scelgono una volta
-    // e poi ingombrerebbero per sempre: sono finite nella finestra delle impostazioni.
+    /*
+     * Nella riga restano DUE oggetti: chi e' l'avversaria, e con che colore giochi.
+     *
+     * Erano cinque — due menu a tendina larghi, un punto interrogativo e le due
+     * figurine del colore — per scelte che si fanno a inizio partita e poi non si
+     * toccano piu'. Adesso il livello e la distrazione stanno dietro un bilanciere,
+     * insieme alle spiegazioni e alla tabella degli Elo: e' un pannello solo, e la
+     * domanda vera che ci si fa — "contro chi voglio giocare" — ha finalmente un posto
+     * unico invece di essere sparsa in tre controlli.
+     */
     const settings = document.createElement('div');
     settings.className = 'settings';
-    // Una "?" sola per i due selettori: la domanda vera non e' "cos'e' il livello" ma
-    // "quale coppia scelgo", e sono due meta' della stessa risposta.
     settings.append(
-      levelSelect(),
-      distractionSelect(),
-      iconButton('help', t('opponentHelp'), false, openOpponentHelp),
+      iconButton('strength', t('opponentHelp'), false, openOpponentHelp),
       colorChoice(),
     );
 
@@ -2389,6 +2416,7 @@ export function mountApp(root: HTMLElement): void {
     // vale tre.
     const effort = {
       ...(hintsUsed > 0 ? { Hints: String(hintsUsed) } : {}),
+      ...(answersSeen > 0 ? { Answers: String(answersSeen) } : {}),
       ...(takeBacks > 0 ? { Takebacks: String(takeBacks) } : {}),
     };
     // ECO e Opening sono tag standard di fatto (li scrivono ChessBase, SCID, Lichess):
@@ -2539,7 +2567,8 @@ export function mountApp(root: HTMLElement): void {
     }
   }
 
-  function levelSelect(): HTMLElement {
+  /** `onChange` ridisegna il pannello che lo contiene, non tutta la pagina. */
+  function levelSelect(onChange: () => void): HTMLElement {
     const select = document.createElement('select');
     select.title = t('levelTitle');
     for (const [index, option] of BOT_LEVELS.entries()) {
@@ -2568,7 +2597,7 @@ export function mountApp(root: HTMLElement): void {
     select.addEventListener('change', () => {
       level = levelById(select.value);
       localStorage.setItem('basic-chess:level', level.id);
-      refresh();
+      onChange();
     });
     return select;
   }
@@ -2584,7 +2613,7 @@ export function mountApp(root: HTMLElement): void {
    * L'attenzione dell'avversario, accanto al livello perche' e' una scelta dello
    * stesso tipo: si fa a inizio partita e cambia che partita sara'.
    */
-  function distractionSelect(): HTMLElement {
+  function distractionSelect(onChange: () => void): HTMLElement {
     const select = document.createElement('select');
     select.title = t('distractionTitle');
     for (const option of DISTRACTIONS) {
@@ -2597,7 +2626,7 @@ export function mountApp(root: HTMLElement): void {
     select.addEventListener('change', () => {
       distraction = distractionById(select.value);
       localStorage.setItem('basic-chess:distraction', distraction.id);
-      refresh();
+      onChange();
     });
     return select;
   }
@@ -2607,55 +2636,91 @@ export function mountApp(root: HTMLElement): void {
    * venderle: un'avversaria distratta allena a cogliere l'errore altrui, ma abitua ad
    * aspettarlo, e chi sceglie deve saperlo.
    */
+  /**
+   * "Contro che Nonna vuoi giocare": la scelta E la spiegazione, nello stesso posto.
+   *
+   * Prima la scelta stava in due menu sotto la scacchiera e la spiegazione dietro un
+   * punto interrogativo accanto a loro. Erano tre oggetti larghi, sempre presenti, per
+   * una decisione che si prende a inizio partita e poi non si tocca piu'.
+   *
+   * Qui invece si sceglie leggendo: i due menu stanno sopra le frasi che dicono cosa
+   * significano, e sopra la tabella che mostra le distanze fra i livelli. E' l'ordine
+   * in cui uno decide davvero.
+   *
+   * Il contenuto si ridisegna ad ogni cambio, perche' cambiando distrazione cambiano i
+   * numeri della tabella e cambiando livello cambia la riga evidenziata: lasciarli
+   * fermi mostrerebbe la scelta di prima accanto a quella nuova.
+   */
   function openOpponentHelp(): void {
     const dialog = document.createElement('dialog');
     dialog.className = 'settings-dialog';
-    const title = document.createElement('h2');
-    title.textContent = t('opponentHelpTitle');
-    dialog.append(title);
-    for (const key of ['opponentHelpLevel', 'opponentHelpCareful', 'opponentHelpSloppy']) {
-      const paragraph = document.createElement('p');
-      paragraph.className = 'help-line';
-      paragraph.textContent = t(key);
-      dialog.append(paragraph);
-    }
-    // La tabella di tutti i livelli, con le due colonne dell'attenzione accanto:
-    // e' la sola forma in cui l'Elo aiuta a scegliere, perche' mostra le DISTANZE.
-    // Mostra anche, senza doverlo spiegare, quanto pesa la distrazione.
-    const table = document.createElement('table');
-    table.className = 'level-table';
-    const head = document.createElement('tr');
-    for (const label of ['', t('distractionCareful'), t('distractionSloppy')]) {
-      const cell = document.createElement('th');
-      cell.textContent = label;
-      head.append(cell);
-    }
-    table.append(head);
-    for (const [index, option] of BOT_LEVELS.entries()) {
-      const row = document.createElement('tr');
-      if (option.id === level.id) row.className = 'current';
-      const name = document.createElement('th');
-      name.textContent = t('levelName', { n: index + 1 });
-      row.append(name);
-      for (const id of ['attento', 'distratto'] as const) {
-        const cell = document.createElement('td');
-        cell.textContent = String(option.elo[id]);
-        row.append(cell);
+
+    const fill = (): void => {
+      dialog.replaceChildren();
+      const title = document.createElement('h2');
+      title.textContent = t('opponentHelpTitle');
+      dialog.append(title);
+
+      const choice = document.createElement('div');
+      choice.className = 'settings';
+      choice.append(levelSelect(fill), distractionSelect(fill));
+      dialog.append(choice);
+
+      for (const key of ['opponentHelpLevel', 'opponentHelpCareful', 'opponentHelpSloppy']) {
+        const paragraph = document.createElement('p');
+        paragraph.className = 'help-line';
+        paragraph.textContent = t(key);
+        dialog.append(paragraph);
       }
-      table.append(row);
-    }
-    dialog.append(table);
-    const note = document.createElement('p');
-    note.className = 'help-line';
-    note.textContent = t('opponentHelpElo');
-    dialog.append(note);
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.className = 'settings-close';
-    close.textContent = t('settingsClose');
-    close.addEventListener('click', () => dialog.close());
-    dialog.append(close);
-    dialog.addEventListener('close', () => dialog.remove());
+
+      // La tabella di tutti i livelli, con le due colonne dell'attenzione accanto:
+      // e' la sola forma in cui l'Elo aiuta a scegliere, perche' mostra le DISTANZE.
+      // Mostra anche, senza doverlo spiegare, quanto pesa la distrazione.
+      const table = document.createElement('table');
+      table.className = 'level-table';
+      const head = document.createElement('tr');
+      for (const label of ['', t('distractionCareful'), t('distractionSloppy')]) {
+        const cell = document.createElement('th');
+        cell.textContent = label;
+        head.append(cell);
+      }
+      table.append(head);
+      for (const [index, option] of BOT_LEVELS.entries()) {
+        const row = document.createElement('tr');
+        if (option.id === level.id) row.className = 'current';
+        const name = document.createElement('th');
+        name.textContent = t('levelName', { n: index + 1 });
+        row.append(name);
+        for (const id of ['attento', 'distratto'] as const) {
+          const cell = document.createElement('td');
+          cell.textContent = String(option.elo[id]);
+          row.append(cell);
+        }
+        table.append(row);
+      }
+      dialog.append(table);
+
+      const note = document.createElement('p');
+      note.className = 'help-line';
+      note.textContent = t('opponentHelpElo');
+      dialog.append(note);
+
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'settings-close';
+      close.textContent = t('settingsClose');
+      close.addEventListener('click', () => dialog.close());
+      dialog.append(close);
+    };
+
+    fill();
+    dialog.addEventListener('close', () => {
+      dialog.remove();
+      // La riga sotto la scacchiera e la scacchiera stessa dipendono da cio' che si e'
+      // scelto qui: si ridisegna alla chiusura, non ad ogni cambio, per non far
+      // lampeggiare la pagina sotto la finestra aperta.
+      refresh();
+    });
     document.body.append(dialog);
     dialog.showModal();
   }
@@ -2891,7 +2956,13 @@ export function mountApp(root: HTMLElement): void {
     // gli errori di una partita comparivano nel riepilogo di quella successiva.
     mistakeLog.length = 0;
     losses.length = 0;
+    // Tutti e tre i contatori, non solo i consigli: `takeBacks` non veniva azzerato e
+    // si portava dietro i ripensamenti della partita prima, che finivano nel PGN di
+    // quella dopo. Un contatore dimenticato qui non da' nessun errore, dice solo un
+    // numero sbagliato — ed e' il motivo per cui e' rimasto nascosto un giorno intero.
     hintsUsed = 0;
+    answersSeen = 0;
+    takeBacks = 0;
   }
 
   /**
@@ -3308,6 +3379,7 @@ interface LoadedGame {
   losses: MoveLoss[];
   hints: number;
   takeBacks: number;
+  answers: number;
   outcome: Outcome | null;
 }
 
@@ -3341,6 +3413,7 @@ function loadFrom(saved: SavedGame): LoadedGame | null {
       losses: Array.isArray(saved.losses) ? saved.losses : [],
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
       takeBacks: typeof saved.takeBacks === 'number' ? saved.takeBacks : 0,
+      answers: typeof saved.answers === 'number' ? saved.answers : 0,
       outcome: saved.outcome ?? null,
     };
   } catch {
