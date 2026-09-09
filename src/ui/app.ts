@@ -2051,7 +2051,23 @@ export function mountApp(root: HTMLElement): void {
       }
     }
     if (hasFuture(state)) {
-      takeBacks++;
+      /*
+       * Rigiocare la STESSA mossa non e' un ripensamento.
+       *
+       * Si torna indietro anche solo per riguardare — e da li' capita di rimettere il
+       * pezzo dove stava invece di premere la freccia avanti, che e' il gesto piu'
+       * naturale visto che il pezzo si puo' prendere. Il conteggio lo registrava come
+       * una mossa annullata, e a fine partita il numero non tornava con le mosse
+       * elencate: due errori corretti e "mosse annullate: 4".
+       *
+       * Il confronto e' su partenza e arrivo. La promozione qui non si sa ancora (la
+       * si chiede dopo), quindi promuovere a Torre dove prima si era promosso a Donna
+       * non viene contato: e' un caso raro, e sbagliare per difetto e' il verso giusto
+       * per un contatore che finisce in un rimprovero.
+       */
+      const replaced = state.plies[state.cursor];
+      const sameMove = replaced !== undefined && replaced.from === origin && replaced.to === target;
+      if (!sameMove) takeBacks++;
       state = truncateHere(state);
     }
 
