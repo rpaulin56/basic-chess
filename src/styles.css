@@ -686,6 +686,15 @@ select {
   margin-top: 10px;
   margin-bottom: 6px;
 }
+/* Il consiglio per la prossima partita: l'unica frase del pannello che non parla di
+   quella appena finita, e per questo sta staccata in fondo. */
+.why-advice {
+  font-size: 13px;
+  color: var(--accent);
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 10px;
+}
 .why-units { font-size: 12px; color: var(--ink-soft); margin-top: 8px; }
 .why ul { margin: 0; padding-left: 18px; font-size: 13px; }
 .why li { margin-bottom: 3px; }

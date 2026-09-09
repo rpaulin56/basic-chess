@@ -63,6 +63,14 @@ export const en: Record<keyof typeof it, string> = {
   whyBetter: 'better {san}',
   whyGoodTitle: 'And something good',
   whyGoodLine: '{number}. {san} — the other moves did not hold here, and you found it.',
+  whyAdviceTakeBacks: 'You won, but I let you take some moves back: work on your attention.',
+  whyAdviceAnswers:
+    'You won, but more than once I showed you the good moves: try trusting what you see.',
+  whyAdviceHints: 'You won by asking me for plenty of advice: next time try without.',
+  whyAdviceFocused: 'Easy, was it? Try me focused: I will not give anything away.',
+  whyAdviceLevelUp: 'Too easy for you: move up to level {n}.',
+  whyAdviceBeyond:
+    'You beat me at my strongest. I will always want to play with you, but now you can aim higher: play with a clock, against real opponents.',
   whyNothing: 'I find no moments worth going over: you played rather well.',
   levelName: 'Level {n}',
   levelElo: 'Estimated strength: {elo} Elo',

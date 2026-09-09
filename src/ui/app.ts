@@ -725,6 +725,7 @@ export function mountApp(root: HTMLElement): void {
     if (worst.length === 0) {
       box.append(text(t('whyNothing'), 'why-note'));
       appendGood(box, good);
+      appendAdvice(box);
       whyEl.append(box);
       return;
     }
@@ -767,6 +768,7 @@ export function mountApp(root: HTMLElement): void {
     // ha capito la trova dove ha finito di leggere e si e' fatto la domanda.
     appendGood(box, good);
     box.append(text(t('whyUnits'), 'why-units'));
+    appendAdvice(box);
     whyEl.append(box);
   }
 
@@ -784,12 +786,50 @@ export function mountApp(root: HTMLElement): void {
    * l'88% si vince comunque, sotto il 12% e' gia' persa. In mezzo c'e' la partita.
    */
   /**
+   * Il consiglio finale, dopo una vittoria: una frase sola, e solo se ce n'e' una vera.
+   *
+   * L'ordine delle condizioni e' la parte che conta, ed e' deliberato: prima come hai
+   * vinto, poi contro chi. Se hai vinto annullando quattro mosse il livello non
+   * c'entra niente — il problema e' l'attenzione, e dirti "sali di livello" sarebbe un
+   * complimento al posto sbagliato.
+   *
+   * Non si suggerisce MAI di scendere, ed e' una scelta del committente che condivido:
+   * chi si frustra scende da solo, e una nonna che dice "sei troppo debole per questo
+   * livello" e' un'altra nonna.
+   *
+   * L'ultima riga manda l'utente FUORI dal programma, e va bene cosi': e' la stessa
+   * cosa che dice la dichiarazione d'intenti nei crediti, cioe' che qui si capiscono i
+   * propri errori ma non si diventa giocatori. Detta pero' senza congedare nessuno —
+   * "ho sempre voglia di giocare con te" — perche' una nonna non ti manda via.
+   */
+  function advice(): string | null {
+    if (!finished() || humanLost() || humanDrew()) return null;
+    if (takeBacks >= 3) return t('whyAdviceTakeBacks');
+    if (answersSeen >= 2) return t('whyAdviceAnswers');
+    if (hintsUsed >= 3) return t('whyAdviceHints');
+    // "Pulita" e' lo stesso criterio della post-analisi: nessuna mossa costata mentre
+    // la partita era in bilico. Senza quello, un consiglio a salire arriverebbe anche
+    // a chi ha vinto per il rotto della cuffia.
+    if (worstMoves().length > 0) return null;
+    if (distraction.id === 'distratto') return t('whyAdviceFocused');
+    const next = BOT_LEVELS.indexOf(level) + 1;
+    if (next < BOT_LEVELS.length) return t('whyAdviceLevelUp', { n: next + 1 });
+    return t('whyAdviceBeyond');
+  }
+
+  /**
    * Le mosse buone, in fondo: si finisce con quello che si e' fatto bene.
    *
    * Non e' cortesia. Chi ha appena letto tre suoi errori chiude il pannello con quelli
    * in testa, e il merito riconosciuto per ultimo e' l'unico che resta. Ma solo se c'e'
    * davvero — vedi goodMoves, che e' avaro apposta.
    */
+  /** Il consiglio in fondo, staccato: e' l'unica frase che guarda alla prossima partita. */
+  function appendAdvice(box: HTMLElement): void {
+    const sentence = advice();
+    if (sentence) box.append(text(sentence, 'why-advice'));
+  }
+
   function appendGood(box: HTMLElement, good: readonly MoveLoss[]): void {
     if (good.length === 0) return;
     box.append(text(t('whyGoodTitle'), 'why-good-title'));

@@ -54,13 +54,21 @@ export const it = {
   whyStop: 'Lascia perdere',
   whyTitle: 'Dove la partita è scivolata via',
   whyClean:
-    "Ti sei difeso bene e non hai fatto grandi errori. Ma alla lunga tanti piccoli errori fanno perdere lo stesso: te ne mostro qualcuno, per darti un'idea.",
+    "Hai tenuto bene e non hai fatto grandi errori. Ma alla lunga tanti piccoli errori fanno perdere lo stesso: te ne mostro qualcuno, per darti un'idea.",
   whyLine: '{number}. {san} — {drop} punti di aspettativa',
   whyUnits:
     'I punti sono di aspettativa di vittoria: su cento partite giocate da quella posizione, quante ne porteresti a casa. Perderne dieci in una mossa sola è tanto.',
   whyBetter: 'meglio {san}',
   whyGoodTitle: 'E qualcosa di buono',
   whyGoodLine: '{number}. {san} — qui le altre mosse non tenevano, e tu l’hai trovata.',
+  whyAdviceTakeBacks: 'Hai vinto, ma ti ho perdonato qualche mossa: lavora sull’attenzione.',
+  whyAdviceAnswers:
+    'Hai vinto, ma più di una volta ti ho mostrato le mosse buone: prova a fidarti di quello che vedi.',
+  whyAdviceHints: 'Hai vinto chiedendomi parecchi consigli: la prossima volta prova a non chiederli.',
+  whyAdviceFocused: 'Facile, eh? Prova con me attenta: non ti regalo più niente.',
+  whyAdviceLevelUp: 'Troppo facile per te: passa al livello {n}.',
+  whyAdviceBeyond:
+    'Mi hai battuta al mio massimo. Io ho sempre voglia di giocare con te, ma ora puoi puntare più in alto: giocare a tempo, con avversari veri.',
   whyNothing: 'Non trovo momenti che valga la pena rivedere: hai giocato niente male.',
   levelName: 'Livello {n}',
   levelElo: 'Forza stimata: {elo} Elo',
@@ -190,7 +198,7 @@ export const it = {
   distractionTitle: 'Quanto vuoi concentrata la Nonna',
   distractionCareful: 'attenta',
   distractionSloppy: 'distratta',
-  tutorMissedChance: 'Avevo appena sbagliato io, ma non te ne sei accorto.',
+  tutorMissedChance: 'Avevo appena sbagliato io, e non ne hai approfittato.',
   endgameIntro: 'Questo finale ha un nome e una teoria precisa: vale la pena impararla una volta per tutte.',
   endgameClose: 'Non ora',
   endgamePractice: 'da giocare',
