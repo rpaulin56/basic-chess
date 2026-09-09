@@ -204,7 +204,7 @@ export const en: Record<keyof typeof it, string> = {
   orientIsolated: 'You are left with an isolated pawn to defend: keep it in mind when choosing trades.',
   recapHints: 'Hints asked for in this game: {count}.',
   recapAnswers: 'Times I showed you the good moves: {count}.',
-  recapTakeBacks: 'Moves taken back in this game: {count}.',
+  recapTakeBacks: 'Second thoughts in this game: {count}.',
   hintManyOpen: 'Almost anything works here: this position is not decided now, and there is no move to find.',
   orientNothing: 'No feature stands out. So ask yourself this: which of your pieces is taking the least part, and how can you get it playing?',
   hintMore: '… and others.',

@@ -203,7 +203,7 @@ export const it = {
   orientIsolated: 'Ti resta un pedone isolato da difendere: tienine conto quando scegli i cambi.',
   recapHints: 'Consigli chiesti in questa partita: {count}.',
   recapAnswers: 'Volte in cui ti ho mostrato le mosse buone: {count}.',
-  recapTakeBacks: 'Mosse annullate in questa partita: {count}.',
+  recapTakeBacks: 'Ripensamenti in questa partita: {count}.',
   hintManyOpen: 'Qui va bene quasi tutto: la posizione non si decide adesso, e non c’è una mossa da trovare.',
   orientNothing: 'Non spicca nessuna caratteristica particolare. Domandati questo: quale dei tuoi pezzi sta partecipando di meno, e come puoi farlo giocare?',
   hintMore: '… e altre.',
