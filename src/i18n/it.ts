@@ -74,7 +74,9 @@ export const it = {
   whyAdviceLevelUp: 'Troppo facile per te: passa al livello {n}.',
   whyAdviceBeyond:
     'Mi hai battuta al mio massimo. Io ho sempre voglia di giocare con te, ma ora puoi puntare più in alto: giocare a tempo, con avversari veri.',
-  whyNothing: 'Non trovo momenti che valga la pena rivedere: hai giocato niente male.',
+  whyNothing: 'Non ho particolari errori da segnalarti: non hai giocato affatto male.',
+  whyNothingCorrected:
+    'A parte quello che ti ho già perdonato mentre giocavamo, non ho errori da segnalarti: non hai giocato affatto male.',
   levelName: 'Livello {n}',
   levelElo: 'Forza stimata: {elo} Elo',
   playAsWhite: 'Hai il Bianco',

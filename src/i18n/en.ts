@@ -76,7 +76,9 @@ export const en: Record<keyof typeof it, string> = {
   whyAdviceLevelUp: 'Too easy for you: move up to level {n}.',
   whyAdviceBeyond:
     'You beat me at my strongest. I will always want to play with you, but now you can aim higher: play with a clock, against real opponents.',
-  whyNothing: 'I find no moments worth going over: you played rather well.',
+  whyNothing: 'I have no real mistakes to point out: you did not play badly at all.',
+  whyNothingCorrected:
+    'Apart from what I already let you take back, I have no mistakes to point out: you did not play badly at all.',
   levelName: 'Level {n}',
   levelElo: 'Estimated strength: {elo} Elo',
   playAsWhite: 'You have White',

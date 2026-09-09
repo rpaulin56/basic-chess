@@ -760,7 +760,18 @@ export function mountApp(root: HTMLElement): void {
     const slipped = humanLost() || (humanDrew() && wasWinning());
     box.append(text(slipped ? t('whyTitle') : t('whyTitleWon'), 'why-title'));
     if (worst.length === 0) {
-      box.append(text(t('whyNothing'), 'why-note'));
+      /*
+       * "Non ho errori da segnalarti" e' vero, ma a meta': gli errori annullati
+       * durante la partita non sono qui perche' non sono mai stati giocati, e chi ha
+       * appena ripensato quattro mosse legge una promozione che non gli spetta.
+       *
+       * La Nonna li aveva gia' visti e lasciati correggere, quindi la frase giusta
+       * non e' "non hai sbagliato" ma "a parte quelli, non hai sbagliato": e' anche
+       * l'unico posto in cui il ripensamento viene raccontato come una GENTILEZZA sua
+       * invece che come una riga di conteggio.
+       */
+      const forgiven = mistakeLog.some((entry) => wasCorrected(entry));
+      box.append(text(t(forgiven ? 'whyNothingCorrected' : 'whyNothing'), 'why-note'));
       appendGood(box, good);
       appendGifts(box);
       appendAdvice(box);
