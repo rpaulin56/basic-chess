@@ -2267,25 +2267,23 @@ export function mountApp(root: HTMLElement): void {
     // sta in due righe e deve spezzarsi FRA un gruppo e l'altro.
     //
     // L'ordine non e' solo semantico, e' anche aritmetico. I gruppi hanno 2, 2, 1, 2 e
-    // 3 pulsanti: l'unica partizione che dia cinque e cinque senza spezzarne uno e'
-    // 2+2+1 sopra e 2+3 sotto, e questo OBBLIGA "posizione" a stare al terzo posto.
-    // Fortuna vuole che la divisione che ne esce si legga bene: sopra tutto cio' che
-    // riguarda LA POSIZIONE che si ha davanti — scorrerla, girarla, farla entrare e
-    // uscire come testo — e sotto tutto cio' che riguarda LA PARTITA come vicenda, la
-    // Nonna che la commenta e i comandi che la chiudono o ne aprono un'altra.
+    // Dodici icone, due righe da sei.
     //
-    // L'anello debole e' "impostazioni" in prima riga: sta li' perche' i conti
-    // tornino, non perche' appartenga alla posizione. Spostarlo darebbe righe da
-    // quattro e sei, e si perderebbe la simmetria che fa sembrare la spezzatura una
-    // scelta invece che un incidente.
+    // Erano cinque, cinque e due: tre righe, e l'ultima mezza vuota. Sei e sei le
+    // riempie tutte e due, e le sei non sono un numero scelto per far tornare i conti
+    // — sono i cinque gruppi che ci sono davvero, spezzati nell'unico punto in cui
+    // 2+1+3 e 2+4 cadono da soli.
+    //
+    // Sopra sta cio' che riguarda LA POSIZIONE che si ha davanti: girarla e regolare
+    // il programma, farla entrare e uscire come testo, chiedere alla Nonna. Sotto cio'
+    // che riguarda LA PARTITA come vicenda: scorrerla avanti e indietro, e i comandi
+    // che la chiudono o ne aprono un'altra.
+    //
+    // Le frecce sono scese dalla prima riga alla seconda, e ci stanno meglio: scorrere
+    // le mosse e' guardare la partita, non la posizione. Confinano con "nuova partita",
+    // che e' il vicino piu' scomodo della barra — ma un separatore le divide, e quel
+    // pulsante chiede conferma.
     toolbar.append(
-      group(
-        iconButton('previous', t('previous'), state.cursor === 0, () => seek(stepMove(-1))),
-        iconButton('next', t('next'), state.cursor >= state.plies.length, () =>
-          seek(stepMove(1)),
-        ),
-      ),
-      separator(),
       group(
         iconButton('flip', t('flipBoard'), false, () => {
           orientation = orientation === 'white' ? 'black' : 'white';
@@ -2314,10 +2312,6 @@ export function mountApp(root: HTMLElement): void {
           { label: t('exportFen'), run: () => void copy(currentFen(state)) },
         ]),
       ),
-      // Qui la barra va a capo QUANDO deve andarci: e' il confine fra la posizione e
-      // la partita, ed e' anche il punto che fa cinque pulsanti per riga. Finche' le
-      // dieci icone ci stanno in fila, l'elemento non ha larghezza e non si vede.
-      lineBreak(),
       separator(),
       // La Nonna: chi e', se parla, e cosa dice se le si chiede.
       //
@@ -2352,9 +2346,14 @@ export function mountApp(root: HTMLElement): void {
           () => void askHint(),
         ),
       ),
-      // Secondo salto a capo: i comandi che aprono e chiudono una partita restano
-      // soli sulla loro riga, ed e' giusto che siano quelli separati dal resto.
       lineBreak(),
+      separator(),
+      group(
+        iconButton('previous', t('previous'), state.cursor === 0, () => seek(stepMove(-1))),
+        iconButton('next', t('next'), state.cursor >= state.plies.length, () =>
+          seek(stepMove(1)),
+        ),
+      ),
       separator(),
       group(
         // Ricominciare fa perdere la partita, quindi in teoria vorrebbe un'etichetta -
@@ -2380,10 +2379,9 @@ export function mountApp(root: HTMLElement): void {
         // modo di concentrare in un punto solo i comandi che hanno conseguenze,
         // invece di spargerli fra gli innocui.
         //
-        // "Nuova partita" per PRIMA, e non e' un dettaglio: la tiene confinante con
-        // "Posizione", e le due scacchiere — quella schierata e quella sparsa — si
-        // leggono come coppia solo se stanno vicine. Da sole nessuna delle due dice
-        // cosa fa.
+        // "Nuova partita" per PRIMA perche' e' quella che si cerca: dopo il matto la
+        // domanda e' sempre la stessa, e la si trova all'inizio del gruppo invece che
+        // fra la patta e l'abbandono.
         //
         // Qui c'era anche "Ritira la mossa", e non c'e' piu': tornare indietro con la
         // freccia e rigiocare fa la stessa cosa.
