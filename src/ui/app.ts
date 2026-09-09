@@ -646,16 +646,18 @@ export function mountApp(root: HTMLElement): void {
    */
   function renderRecap(): void {
     recapEl.replaceChildren();
-    // L'offerta di post-analisi apre il pannello anche quando non c'e' nient'altro da
-    // dire: e' PROPRIO il caso interessante — nessun errore segnalato, e la partita
-    // persa lo stesso.
-    const offering = finished() && postMortem !== 'hidden';
+    /*
+     * Il pannello esiste solo se ha qualcosa da dire.
+     *
+     * Teneva aperto anche il caso "niente da dire", perche' ci viveva dentro l'offerta
+     * di post-analisi — e quella andava mostrata proprio quando non c'era nessun
+     * errore segnalato. Da quando la post-analisi ha un pannello suo in cima alla
+     * colonna, quella ragione non c'e' piu': restava un riquadro intitolato "Mosse
+     * critiche" con dentro il vuoto, che e' il modo migliore per insegnare a non
+     * guardare quella zona dello schermo.
+     */
     recapPanel.hidden =
-      mistakeLog.length === 0 &&
-      hintsUsed === 0 &&
-      answersSeen === 0 &&
-      takeBacks === 0 &&
-      !offering;
+      mistakeLog.length === 0 && hintsUsed === 0 && answersSeen === 0 && takeBacks === 0;
     if (recapPanel.hidden) return;
     const list = document.createElement('ul');
     for (const entry of mistakeLog) {
