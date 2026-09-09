@@ -690,7 +690,17 @@ select {
    quella appena finita, e per questo sta staccata in fondo. */
 /* I regali della Nonna: l'unica riga in cui parla dei propri errori, quindi ha il
    verde delle cose andate bene e non il marrone dei rimproveri. */
-.why-gifts { font-size: 13px; color: #3d6431; margin-top: 8px; }
+/* I regali della Nonna: stesso titoletto verde delle mosse buone, perche' anche qui
+   si sta parlando di qualcosa che hai fatto bene — accorgertene. */
+.why-gifts-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #3d6431;
+  font-weight: 600;
+  margin-top: 10px;
+  margin-bottom: 6px;
+}
 
 .why-advice {
   font-size: 13px;

@@ -189,9 +189,8 @@ interface SavedGame {
   takeBacks?: number;
   /** Quante volte si e' chiesto di vedere le mosse buone, non solo un orientamento. */
   answers?: number;
-  /** Errori importanti della Nonna, e quanti ne ha colti chi gioca. */
-  gifts?: number;
-  giftsSeen?: number;
+  /** Gli errori importanti della Nonna, con la mossa e se sono stati colti. */
+  gifts?: Gift[];
   /** Quanto e' costata OGNI mossa giudicata, non solo quelle segnalate. */
   losses?: MoveLoss[];
 }
@@ -207,6 +206,15 @@ interface SavedGame {
  *
  * Registrare costa zero: quelle analisi le abbiamo gia' fatte per decidere se parlare.
  */
+/** Un errore importante della Nonna, e se chi gioca se n'e' accorto. */
+interface Gift {
+  ply: number;
+  number: number;
+  color: Color;
+  san: string;
+  seen: boolean;
+}
+
 interface MoveLoss {
   ply: number;
   number: number;
@@ -454,9 +462,14 @@ export function mountApp(root: HTMLElement): void {
    * risposta, che sono due partite molto diverse.
    */
   let answersSeen = saved?.answers ?? 0;
-  /** Quante volte la Nonna ha sbagliato in modo importante, e quante l'hai punita. */
-  let gifts = saved?.gifts ?? 0;
-  let giftsSeen = saved?.giftsSeen ?? 0;
+  /**
+   * DOVE la Nonna ha sbagliato, non quante volte.
+   *
+   * Era un contatore, ed era un'informazione monca: "ti ho regalato qualcosa due
+   * volte" non si puo' andare a guardare. Con la mossa, invece, la papera diventa un
+   * momento della partita come gli altri — e la si ritrova cliccandola nella lista.
+   */
+  const gifts: Gift[] = saved?.gifts ?? [];
   /**
    * La partita chiusa per accordo, se lo e'. Resta REVERSIBILE: la freccia indietro
    * riapre una partita abbandonata, come per il ritiro della mossa. Qui si prova, non
@@ -771,7 +784,7 @@ export function mountApp(root: HTMLElement): void {
     for (const loss of worst) {
       const item = document.createElement('li');
       item.textContent = t('whyLine', {
-        number: loss.number,
+        move: moveLabel(loss.number, humanColor),
         san: toFigurine(loss.san),
         drop: Math.round(loss.drop),
       });
@@ -856,14 +869,37 @@ export function mountApp(root: HTMLElement): void {
    * parla dei propri errori.
    */
   function appendGifts(box: HTMLElement): void {
-    if (gifts === 0) return;
-    const line =
-      gifts === 1
-        ? t(giftsSeen === 1 ? 'giftsOneSeen' : 'giftsOneMissed')
-        : giftsSeen === gifts
-          ? t('giftsAllSeen', { count: gifts })
-          : t('giftsSomeSeen', { count: gifts, taken: giftsSeen });
-    box.append(text(line, 'why-gifts'));
+    if (gifts.length === 0) return;
+    box.append(text(t('giftsTitle'), 'why-gifts-title'));
+    const list = document.createElement('ul');
+    // In ordine di partita come tutto il resto del pannello, e al massimo tre: a un
+    // livello distratto le papere possono essere parecchie, e un elenco lungo di mosse
+    // altrui affoga le proprie.
+    const shown = [...gifts].sort((a, b) => a.ply - b.ply).slice(0, 3);
+    for (const gift of shown) {
+      const item = document.createElement('li');
+      item.textContent = t(gift.seen ? 'giftLineSeen' : 'giftLineMissed', {
+        move: moveLabel(gift.number, gift.color),
+        san: toFigurine(gift.san),
+      });
+      list.append(item);
+    }
+    box.append(list);
+    if (gifts.length > 3) {
+      const seen = gifts.filter((gift) => gift.seen).length;
+      box.append(text(t('giftsMore', { count: gifts.length, taken: seen }), 'why-units'));
+    }
+  }
+
+  /**
+   * "23." per il Bianco, "23…" per il Nero.
+   *
+   * E' la notazione standard, e serve a dire di CHI e' la mossa senza scriverlo. Le
+   * righe della post-analisi usavano il punto per tutti, quindi una mossa del Nero si
+   * leggeva come una del Bianco — cosa che nel riepilogo era gia' giusta e qui no.
+   */
+  function moveLabel(number: number, color: Color): string {
+    return `${number}${color === 'w' ? '.' : '…'}`;
   }
 
   /** Il consiglio in fondo, staccato: e' l'unica frase che guarda alla prossima partita. */
@@ -878,7 +914,10 @@ export function mountApp(root: HTMLElement): void {
     const list = document.createElement('ul');
     for (const move of good) {
       const item = document.createElement('li');
-      item.textContent = t('whyGoodLine', { number: move.number, san: toFigurine(move.san) });
+      item.textContent = t('whyGoodLine', {
+        move: moveLabel(move.number, humanColor),
+        san: toFigurine(move.san),
+      });
       list.append(item);
     }
     box.append(list);
@@ -1586,9 +1625,18 @@ export function mountApp(root: HTMLElement): void {
      * costata meno di un'imprecisione. Non pretendiamo che sia la mossa MIGLIORE:
      * prendersi un pezzo in tre modi diversi e' comunque essersi accorti del pezzo.
      */
-    if (afterOpponentError) {
-      gifts++;
-      if (verdictOf(before, after).drop < INACCURACY_DROP) giftsSeen++;
+    if (afterOpponentError && botPly) {
+      const ply = state.plies.length - 2;
+      gifts.push({
+        ply,
+        number: moveNumberOf(state, ply),
+        color: botPly.color,
+        san: botPly.san,
+        // "Visto" vuol dire che la mossa dopo non ha buttato via il regalo, cioe' e'
+        // costata meno di un'imprecisione. Non pretendiamo la mossa MIGLIORE:
+        // prendersi un pezzo in tre modi diversi e' comunque essersi accorti del pezzo.
+        seen: verdictOf(before, after).drop < INACCURACY_DROP,
+      });
     }
 
     const verdict = verdictOf(before, after);
@@ -1727,7 +1775,6 @@ export function mountApp(root: HTMLElement): void {
         takeBacks,
         answers: answersSeen,
         gifts,
-        giftsSeen,
         outcome,
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
@@ -3070,8 +3117,7 @@ export function mountApp(root: HTMLElement): void {
     hintsUsed = 0;
     answersSeen = 0;
     takeBacks = 0;
-    gifts = 0;
-    giftsSeen = 0;
+    gifts.length = 0;
   }
 
   /**
@@ -3489,8 +3535,7 @@ interface LoadedGame {
   hints: number;
   takeBacks: number;
   answers: number;
-  gifts: number;
-  giftsSeen: number;
+  gifts: Gift[];
   outcome: Outcome | null;
 }
 
@@ -3525,8 +3570,7 @@ function loadFrom(saved: SavedGame): LoadedGame | null {
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
       takeBacks: typeof saved.takeBacks === 'number' ? saved.takeBacks : 0,
       answers: typeof saved.answers === 'number' ? saved.answers : 0,
-      gifts: typeof saved.gifts === 'number' ? saved.gifts : 0,
-      giftsSeen: typeof saved.giftsSeen === 'number' ? saved.giftsSeen : 0,
+      gifts: Array.isArray(saved.gifts) ? saved.gifts : [],
       outcome: saved.outcome ?? null,
     };
   } catch {
