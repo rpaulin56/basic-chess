@@ -211,10 +211,47 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
  */
 .controls { display: flex; flex-direction: column; gap: 10px; }
 
-/* A capo quando non ci sta: su telefono le icone diventano di 42 pixel e dieci in
-   fila sono piu' larghe dello schermo — senza questo era tutta la pagina a scorrere
-   di lato, scacchiera compresa. */
-.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+/*
+ * La barra ha DUE forme, e nessuna via di mezzo: dodici icone in fila, oppure sei e
+ * sei. Il salto, quando serve, cade dove diciamo noi.
+ *
+ * Lasciar decidere al flex dove andare a capo dava una terza forma, otto piu'
+ * quattro, che e' la peggiore delle tre: spezza il gruppo della Nonna a meta' e non
+ * corrisponde a niente. E si vedeva restringendo la finestra sul PC — dodici, otto e
+ * quattro, di nuovo dodici quando la colonna destra scivolava sotto, ancora otto e
+ * quattro, e solo alla fine sei e sei.
+ *
+ * Il rimedio e' toglierli la scelta: `nowrap` finche' le dodici ci stanno, e sotto
+ * quella misura il salto obbligato al centro. La soglia e' la larghezza vera della
+ * fila — 570 pixel misurati, 580 per non stare sul filo — e si misura sul CONTENITORE
+ * e non sulla finestra, perche' la barra sta in una colonna che cambia larghezza
+ * anche a finestra ferma (e' proprio il salto della colonna destra che faceva
+ * ricomparire le dodici in fila).
+ */
+.controls { container-type: inline-size; }
+.toolbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; }
+/*
+ * E sotto i 780 la barra resta spezzata comunque, anche se ci starebbe.
+ *
+ * Li' la colonna destra scivola sotto la scacchiera e la barra si ritrova larga
+ * quanto la pagina: la fila da dodici tornerebbe a entrarci, e restringendo la
+ * finestra si vedrebbe dodici, sei e sei, di nuovo dodici, e ancora sei e sei. La
+ * barra non deve rimettersi in fila mentre la si stringe: da qui in giu' la forma e'
+ * una sola.
+ */
+@media (max-width: 780px) {
+  .toolbar { flex-wrap: wrap; }
+  .toolbar-break { flex-basis: 100%; height: 0; }
+  .toolbar-break + .sep { display: none; }
+}
+
+@container (max-width: 580px) {
+  /* `wrap` e non solo il salto: sotto i 300 pixel — telefoni piccoli, icone da 46 —
+     nemmeno le sei ci stanno, e li' e' giusto che il flex spezzi ancora. */
+  .toolbar { flex-wrap: wrap; }
+  .toolbar-break { flex-basis: 100%; height: 0; }
+  .toolbar-break + .sep { display: none; }
+}
 /* 40 e non 34: con "ritira mossa" salito nella barra e' sparita una riga intera di
    pulsanti, e lo spazio guadagnato in altezza vale piu' speso in leggibilita' che
    lasciato vuoto. */
@@ -250,34 +287,6 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 .icon-btn svg .piece-dark { fill: var(--ink); stroke: none; }
 .icon-btn svg .piece-light { fill: #fff; stroke: var(--ink); stroke-width: 0.9; }
 .toolbar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 7px; }
-
-/*
- * Il salto a capo della barra, deciso da noi invece che dalla larghezza.
- *
- * Misurato: le dieci icone a 46 pixel (schermo tattile) vogliono 518 pixel di barra e
- * su telefono ne hanno 343. Tenerle in una riga sola vorrebbe dire scendere a 33
- * pixel, cioe' bersagli piu' piccoli di quelli del desktop e sotto la soglia
- * raccomandata per il dito: non vale il prezzo. Il punto e' che se deve andare a capo
- * lo faccia DOVE VOGLIAMO — cinque e cinque, fra la posizione e la partita — invece
- * che sette e tre, che sembra un incidente.
- *
- * La soglia e' sulla LARGHEZZA e non sul tipo di puntatore: con il mouse le icone
- * sono da 40 pixel e la fila ne vuole 478, quindi anche una finestra di desktop
- * stretta va a capo — e andava a capo storto, sette e tre. Sopra la soglia l'elemento
- * non ha larghezza e la barra resta una riga sola.
- *
- * 600 e non 510 (la larghezza in cui la fila col mouse comincia a non entrare):
- * il margine copre anche il caso del dito su schermo largo, dove le icone da 46 pixel
- * vogliono 570. Il costo e' che fra 510 e 600, col mouse, si vedono due righe dove ne
- * basterebbe una: una finestra cosi' stretta su desktop e' rara, e due righe ordinate
- * sono comunque meglio di sette-e-tre.
- */
-@media (max-width: 600px) {
-  .toolbar-break { flex-basis: 100%; height: 0; }
-  /* Il separatore che segue il salto sarebbe il primo elemento della riga nuova: una
-     stanghetta appesa al margine sinistro, che non separa niente. */
-  .toolbar-break + .sep { display: none; }
-}
 
 /* Menu di un pulsante-icona (esporta). Ancorato al pulsante e sopra tutto il resto. */
 .toolbar .group { display: flex; align-items: center; gap: 2px; }
@@ -515,7 +524,14 @@ select {
 @media (pointer: coarse) {
   .icon-btn { width: 46px; height: 46px; }
   .toolbar .sep { margin: 0 4px; }
-  /* vedi .toolbar-break piu' sotto */
+  /* Icone piu' grandi, fila piu' lunga: col dito le dodici vogliono 618 pixel invece
+     di 570, e la soglia del salto va spostata di conseguenza. Senza questo, su un
+     tablet largo la barra restava in una riga sola e sbordava. */
+  @container (max-width: 640px) {
+    .toolbar { flex-wrap: wrap; }
+    .toolbar-break { flex-basis: 100%; height: 0; }
+    .toolbar-break + .sep { display: none; }
+  }
 }
 
 
