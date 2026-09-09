@@ -2319,9 +2319,14 @@ export function mountApp(root: HTMLElement): void {
       // dieci icone ci stanno in fila, l'elemento non ha larghezza e non si vede.
       lineBreak(),
       separator(),
-      // La voce della Nonna: se parla, e cosa dice se le si chiede. Sono due facce
-      // della stessa cosa, e stanno insieme per questo.
+      // La Nonna: chi e', se parla, e cosa dice se le si chiede.
+      //
+      // Il bilanciere sta qui e non piu' nella riga sotto la scacchiera: e' la stessa
+      // domanda degli altri due — che avversaria ho davanti — e teneva occupata una
+      // riga separata per starsene da solo. Per primo perche' viene prima: chi e'
+      // decide come gioca, e solo dopo viene cosa dice.
       group(
+        iconButton('strength', t('opponentHelp'), false, openOpponentHelp),
         iconButton(
           tutorEnabled ? 'tutor' : 'tutorOff',
           tutorEnabled ? t('tutorOn') : t('tutorOff'),
@@ -2406,10 +2411,7 @@ export function mountApp(root: HTMLElement): void {
      */
     const settings = document.createElement('div');
     settings.className = 'settings';
-    settings.append(
-      iconButton('strength', t('opponentHelp'), false, openOpponentHelp),
-      colorChoice(),
-    );
+    settings.append(colorChoice());
 
     controlsEl.append(toolbar, settings);
   }

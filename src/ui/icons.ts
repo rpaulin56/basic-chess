@@ -92,21 +92,21 @@ const PATHS: Record<IconName, string> = {
   // problema non era il disegno ma la metafora, che chiedeva al colore di portare
   // tutto il significato. Un Re caduto non ha bisogno di nessun colore.
   //
-  // La linea del terreno resta FUORI dalla rotazione ed e' orizzontale: il Re ruota,
-  // il pavimento no. Sono inciampato proprio li' al primo tentativo, ruotando anche
-  // la linea — e veniva fuori un muro verticale accanto a un pezzo storto.
+  // COMPLETAMENTE ORIZZONTALE, e senza la linea del terreno. La prima versione era
+  // inclinata di sessantacinque gradi con il pavimento sotto: il pavimento serviva a
+  // dire "e' caduto e non e' storto", ma a ventidue pixel aggiungeva un tratto lungo
+  // quanto tutta l'icona, e quel tratto era la cosa piu' visibile del disegno. Un Re
+  // steso del tutto lo dice da solo: se e' orizzontale non puo' essere in piedi.
   //
-  // Il Re e' basso di proposito (undici unita' dalla base alla croce): ruotato di
-  // sessantacinque gradi attorno alla sua base, uno piu' alto uscirebbe dal riquadro
-  // dalla parte della corona.
+  // La traslazione centra la figura nel riquadro: ruotando attorno alla base il pezzo
+  // finisce in basso a sinistra, e senza correzione l'icona pende da una parte.
   resign:
-    '<g transform="rotate(-65 13 19)">' +
+    '<g transform="translate(6 -7) rotate(-90 13 19)">' +
     '<path d="M10 19h6" />' +
     '<path d="M10.8 19 12 12.6h2L15.2 19z" />' +
     '<circle cx="13" cy="11" r="1.6" />' +
     '<path d="M13 6.6v2.2M11.7 7.7h2.6" />' +
-    '</g>' +
-    '<path d="M2.5 20.5h19" />',
+    '</g>',
   // Il mezzo punto, scritto. E' il modo in cui la patta si segna sul tabellone da
   // sempre: chi gioca a scacchi lo riconosce senza pensarci, e chi non lo riconosce
   // lo impara una volta sola (l'etichetta lo dice, al tocco e col puntatore).
