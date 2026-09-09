@@ -2352,6 +2352,9 @@ export function mountApp(root: HTMLElement): void {
           () => void askHint(),
         ),
       ),
+      // Secondo salto a capo: i comandi che aprono e chiudono una partita restano
+      // soli sulla loro riga, ed e' giusto che siano quelli separati dal resto.
+      lineBreak(),
       separator(),
       group(
         // Ricominciare fa perdere la partita, quindi in teoria vorrebbe un'etichetta -
@@ -2371,17 +2374,7 @@ export function mountApp(root: HTMLElement): void {
           if (state.plies.length > 0 && !finished && !confirm(t('newGameConfirm'))) return;
           // Il salvavita: la partita che si sta lasciando resta recuperabile finche'
           // non se ne gioca un'altra.
-          stashGame();
-          if (state.plies.some((ply) => ply.color === humanColor)) {
-            humanColor = humanColor === 'w' ? 'b' : 'w';
-            orientation = humanColor === 'w' ? 'white' : 'black';
-          }
-          state = newGame();
-          // Partita diversa: il valore vecchio non descrive piu' niente.
-          lastWhitePercent = null;
-          evaluation = null;
-          clearTutor();
-          refresh();
+          beginGame(hasPlayed() ? other(humanColor) : humanColor);
         }),
         // Le tre cose che chiudono o aprono una partita, tutte insieme: e' anche il
         // modo di concentrare in un punto solo i comandi che hanno conseguenze,
@@ -2394,6 +2387,7 @@ export function mountApp(root: HTMLElement): void {
         //
         // Qui c'era anche "Ritira la mossa", e non c'e' piu': tornare indietro con la
         // freccia e rigiocare fa la stessa cosa.
+        colorMenu(),
         iconButton('draw', t('drawOffer'), !canOffer(), () => void makeOffer('draw')),
         iconButton('resign', t('resign'), !canOffer(), () => void makeOffer('resign')),
       ),
@@ -2409,11 +2403,10 @@ export function mountApp(root: HTMLElement): void {
      * domanda vera che ci si fa — "contro chi voglio giocare" — ha finalmente un posto
      * unico invece di essere sparsa in tre controlli.
      */
-    const settings = document.createElement('div');
-    settings.className = 'settings';
-    settings.append(colorChoice());
-
-    controlsEl.append(toolbar, settings);
+    // Sotto la scacchiera non resta piu' niente: il livello sta dietro il bilanciere e
+    // il colore fra i comandi che aprono e chiudono una partita. Erano cinque controlli
+    // sempre presenti, per scelte che si fanno una volta.
+    controlsEl.append(toolbar);
   }
 
   /*
@@ -2883,41 +2876,83 @@ export function mountApp(root: HTMLElement): void {
     dialog.showModal();
   }
 
-  function colorChoice(): HTMLElement {
-    const group = document.createElement('div');
-    group.className = 'side-choice';
-    group.setAttribute('role', 'radiogroup');
-    group.setAttribute('aria-label', t('playAs'));
-    for (const color of ['w', 'b'] as const) {
-      const label = document.createElement('label');
-      const title = t(color === 'w' ? 'playAsWhite' : 'playAsBlack');
-      label.title = title;
-      const input = document.createElement('input');
-      input.type = 'radio';
-      input.name = 'side';
-      input.value = color;
-      input.checked = color === humanColor;
-      input.setAttribute('aria-label', title);
-      input.addEventListener('change', () => {
-        if (!input.checked) return;
-        humanColor = color;
-        orientation = color === 'w' ? 'white' : 'black';
-        refresh();
-      });
-      // Solo la figurina, senza il robot accanto: da quando l'avversaria e' la Nonna
-      // un robot non c'e' piu', e disegnarlo direbbe una cosa falsa. La scelta e'
-      // "quale colore hai tu", e una sagoma bianca o nera lo dice per intero.
-      label.append(input, sideIcon('person', color === 'w'));
-      group.append(label);
-    }
-    return group;
+  /** Il colore opposto. Scritto una volta perche' lo si chiede da cinque posti. */
+  function other(color: Color): Color {
+    return color === 'w' ? 'b' : 'w';
   }
 
-  function sideIcon(name: IconName, light: boolean): HTMLElement {
-    const span = document.createElement('span');
-    span.className = light ? 'side-icon light' : 'side-icon dark';
-    span.append(createIcon(name));
-    return span;
+  /** Vero se in questa partita ho gia' mosso io almeno una volta. */
+  function hasPlayed(): boolean {
+    return state.plies.some((ply) => ply.color === humanColor);
+  }
+
+  /**
+   * Comincia una partita nuova con il colore dato.
+   *
+   * Il colore e' un PARAMETRO e non piu' una regola interna, perche' i posti da cui si
+   * comincia una partita adesso sono tre e vogliono cose diverse: "nuova partita"
+   * scambia i colori come si fa fra persone, "gioca invece col Nero" prende l'altro
+   * colore prima ancora di aver mosso, e "un'altra partita col Bianco" tiene lo stesso.
+   */
+  function beginGame(color: Color): void {
+    // Il salvavita: la partita che si sta lasciando resta recuperabile finche' non se
+    // ne gioca un'altra.
+    stashGame();
+    humanColor = color;
+    orientation = color === 'w' ? 'white' : 'black';
+    state = newGame();
+    // Partita diversa: il valore vecchio non descrive piu' niente.
+    lastWhitePercent = null;
+    evaluation = null;
+    clearTutor();
+    refresh();
+  }
+
+  /**
+   * Con che colore giochi: una figurina del TUO colore, e un menu con una voce sola.
+   *
+   * Erano due caselle di scelta accanto ai menu del livello, e sembravano
+   * un'impostazione. Non lo erano: premerle a partita in corso regalava alla Nonna la
+   * posizione che avevi costruito, e lei muoveva subito — senza conferma, senza
+   * avviso, e senza che il salvavita potesse rimediare, perche' non era una partita
+   * nuova. Misurato: sei mosse, un clic, e la Nonna gioca la settima al posto tuo.
+   *
+   * Adesso e' un comando, sta con gli altri che aprono o chiudono una partita, e la
+   * voce del menu DICE cosa fara' — che cambia in quattro situazioni diverse, perche'
+   * "cambio colore" vuol dire quattro cose diverse a seconda di dove sei.
+   */
+  function colorMenu(): HTMLElement {
+    const mine = t(humanColor === 'w' ? 'colorWhite' : 'colorBlack');
+    const theirs = t(humanColor === 'w' ? 'colorBlack' : 'colorWhite');
+    const item = !hasPlayed()
+      ? // Non ho ancora mosso: cambiare colore non butta via niente di mio. Se la
+        // Nonna aveva aperto, la sua mossa si perde, ed e' poco male.
+        { label: t('colorPlayInstead', { color: theirs }), run: () => beginGame(other(humanColor)) }
+      : finished()
+        ? // Partita finita: "nuova partita" scambia i colori da sola, quindi la voce
+          // utile qui e' quella che li TIENE.
+          { label: t('colorSameAgain', { color: mine }), run: () => beginGame(humanColor) }
+        : // Partita in corso: e' uno scambio di posti, non una scelta. Va detto per
+          // esteso e va confermato, perche' e' l'unico comando che ti toglie la
+          // posizione che hai costruito senza darti modo di riprenderla.
+          {
+            label: t('colorSwap', { mine: theirs, theirs: mine }),
+            run: () => {
+              if (!confirm(t('colorSwapConfirm'))) return;
+              humanColor = other(humanColor);
+              orientation = humanColor === 'w' ? 'white' : 'black';
+              clearTutor();
+              refresh();
+            },
+          };
+
+    const wrap = menuButton('person', t(humanColor === 'w' ? 'playAsWhite' : 'playAsBlack'), false, [
+      item,
+    ]);
+    // La figurina si tinge del colore con cui giochi: da sola direbbe "il colore", non
+    // QUALE colore — lo stesso motivo per cui il mappamondo porta accanto la sigla.
+    wrap.querySelector('button')?.classList.add(humanColor === 'w' ? 'side-light' : 'side-dark');
+    return wrap;
   }
 
   /**

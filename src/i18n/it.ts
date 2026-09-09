@@ -79,6 +79,13 @@ export const it = {
   levelElo: 'Forza stimata: {elo} Elo',
   playAsWhite: 'Hai il Bianco',
   playAsBlack: 'Hai il Nero',
+  colorWhite: 'Bianco',
+  colorBlack: 'Nero',
+  colorPlayInstead: 'Gioca invece con il {color}',
+  colorSameAgain: 'Un’altra partita con il {color}',
+  colorSwap: 'Scàmbiati con la Nonna: lei prende il {theirs}, tu il {mine}',
+  colorSwapConfirm:
+    'Scambiare i colori adesso? La Nonna prende la tua posizione e muove al posto tuo.',
   copied: 'Copiato negli appunti.',
   importTitle: 'Importa posizione (FEN) o partita (PGN)',
   importPrompt: 'Incolla un FEN (posizione) oppure un PGN (intera partita):',

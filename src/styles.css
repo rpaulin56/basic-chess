@@ -317,32 +317,16 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
  * Due coppie di figurine invece di un menu a tendina: il colore e' un'informazione
  * visiva, e la coppia dice anche che l'altro colore lo prende il bot.
  */
-.side-choice { display: flex; gap: 4px; }
-.side-choice label {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px 7px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--panel);
-  cursor: pointer;
-}
-/* Il radio vero resta nel DOM per la tastiera e i lettori di schermo, ma non si vede:
-   il suo stato lo mostra il bordo dell'etichetta. */
-.side-choice input { position: absolute; opacity: 0; width: 0; height: 0; }
-.side-choice label:hover { border-color: var(--accent); }
-.side-choice label:has(input:checked) {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.side-choice label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-.side-icon { display: inline-flex; }
-/* Il contorno e' sempre scuro, altrimenti la figurina bianca sparirebbe sul fondo
-   chiaro; a cambiare e' solo il riempimento. */
-.side-icon svg { stroke: var(--ink); }
-.side-icon svg .body { fill: var(--ink); }
-.side-icon.light svg .body { fill: #fff; }
+/*
+ * La figurina del colore con cui giochi, dentro il pulsante che apre il menu.
+ *
+ * Erano due caselle di scelta affiancate; adesso e' una sola, e si tinge del colore
+ * corrente. Il tratto resta `currentColor` come tutte le altre icone, cosi' lo stato
+ * disabilitato e il passaggio del mouse continuano a funzionare da soli: a cambiare
+ * e' solo il RIEMPIMENTO della sagoma.
+ */
+.icon-btn.side-light svg .body { fill: #fff; }
+.icon-btn.side-dark svg .body { fill: var(--ink); }
 
 .settings { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 
