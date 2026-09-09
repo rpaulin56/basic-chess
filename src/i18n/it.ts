@@ -53,6 +53,7 @@ export const it = {
   whyStudy: 'Studiala pure',
   whyStop: 'Lascia perdere',
   whyTitle: 'Dove la partita è scivolata via',
+  whyTitleWon: 'Qualche momento da rivedere',
   whyClean:
     "Hai tenuto bene e non hai fatto grandi errori. Ma alla lunga tanti piccoli errori fanno perdere lo stesso: te ne mostro qualcuno, per darti un'idea.",
   whyLine: '{number}. {san} — {drop} punti di aspettativa',
@@ -60,6 +61,10 @@ export const it = {
     'I punti sono di aspettativa di vittoria: su cento partite giocate da quella posizione, quante ne porteresti a casa. Perderne dieci in una mossa sola è tanto.',
   whyBetter: 'meglio {san}',
   whyGoodTitle: 'E qualcosa di buono',
+  giftsOneSeen: 'Una volta ti ho regalato qualcosa, e l’hai visto subito.',
+  giftsOneMissed: 'Una volta ti ho regalato qualcosa, e non l’hai visto.',
+  giftsAllSeen: 'Ti ho regalato qualcosa {count} volte, e le hai viste tutte.',
+  giftsSomeSeen: 'Ti ho regalato qualcosa {count} volte, e ne hai viste {taken}.',
   whyGoodLine: '{number}. {san} — qui le altre mosse non tenevano, e tu l’hai trovata.',
   whyAdviceTakeBacks: 'Hai vinto, ma ti ho perdonato qualche mossa: lavora sull’attenzione.',
   whyAdviceAnswers:

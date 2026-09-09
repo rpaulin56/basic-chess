@@ -688,6 +688,10 @@ select {
 }
 /* Il consiglio per la prossima partita: l'unica frase del pannello che non parla di
    quella appena finita, e per questo sta staccata in fondo. */
+/* I regali della Nonna: l'unica riga in cui parla dei propri errori, quindi ha il
+   verde delle cose andate bene e non il marrone dei rimproveri. */
+.why-gifts { font-size: 13px; color: #3d6431; margin-top: 8px; }
+
 .why-advice {
   font-size: 13px;
   color: var(--accent);

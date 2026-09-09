@@ -69,6 +69,18 @@ const ANALYSIS_MULTIPV = 3;
 const MISTAKE_DROP = 18;
 
 /**
+ * Sotto questo scarto una mossa non si elenca nemmeno a fine partita.
+ *
+ * Dieci punti e' la soglia dell'IMPRECISIONE, cioe' il primo gradino a cui il tutor
+ * da' un nome. La post-analisi elencava da quattro, e il risultato l'ha visto il
+ * committente su una partita vinta comodamente: due righe da cinque e dieci punti
+ * sotto il titolo "dove la partita e' scivolata via", per una partita che non era
+ * scivolata da nessuna parte. Se non e' nemmeno un'imprecisione, non ha un nome — e
+ * mettere in un elenco una cosa che non sappiamo nominare e' pedanteria.
+ */
+const INACCURACY_DROP = 10;
+
+/**
  * Quanto la mossa migliore deve battere la seconda perche' trovarla sia un merito.
  *
  * Quindici punti di aspettativa: sotto, le alternative erano abbastanza buone da
@@ -177,6 +189,9 @@ interface SavedGame {
   takeBacks?: number;
   /** Quante volte si e' chiesto di vedere le mosse buone, non solo un orientamento. */
   answers?: number;
+  /** Errori importanti della Nonna, e quanti ne ha colti chi gioca. */
+  gifts?: number;
+  giftsSeen?: number;
   /** Quanto e' costata OGNI mossa giudicata, non solo quelle segnalate. */
   losses?: MoveLoss[];
 }
@@ -439,6 +454,9 @@ export function mountApp(root: HTMLElement): void {
    * risposta, che sono due partite molto diverse.
    */
   let answersSeen = saved?.answers ?? 0;
+  /** Quante volte la Nonna ha sbagliato in modo importante, e quante l'hai punita. */
+  let gifts = saved?.gifts ?? 0;
+  let giftsSeen = saved?.giftsSeen ?? 0;
   /**
    * La partita chiusa per accordo, se lo e'. Resta REVERSIBILE: la freccia indietro
    * riapre una partita abbandonata, come per il ritiro della mossa. Qui si prova, non
@@ -721,10 +739,15 @@ export function mountApp(root: HTMLElement): void {
     const good = goodMoves();
     const box = document.createElement('div');
     box.className = 'why';
-    box.append(text(t('whyTitle'), 'why-title'));
+    // Il titolo dipende da come e' finita. "Dove la partita e' scivolata via" e' vero
+    // se hai perso, o se hai buttato una vittoria; su una partita VINTA e' falso, e
+    // trasforma due osservazioni in un rimprovero che nessuno ha meritato.
+    const slipped = humanLost() || (humanDrew() && wasWinning());
+    box.append(text(slipped ? t('whyTitle') : t('whyTitleWon'), 'why-title'));
     if (worst.length === 0) {
       box.append(text(t('whyNothing'), 'why-note'));
       appendGood(box, good);
+      appendGifts(box);
       appendAdvice(box);
       whyEl.append(box);
       return;
@@ -767,6 +790,7 @@ export function mountApp(root: HTMLElement): void {
     // Sotto e non sopra: chi ha gia' capito legge le mosse e salta la nota; chi non
     // ha capito la trova dove ha finito di leggere e si e' fatto la domanda.
     appendGood(box, good);
+    appendGifts(box);
     box.append(text(t('whyUnits'), 'why-units'));
     appendAdvice(box);
     whyEl.append(box);
@@ -824,6 +848,24 @@ export function mountApp(root: HTMLElement): void {
    * in testa, e il merito riconosciuto per ultimo e' l'unico che resta. Ma solo se c'e'
    * davvero — vedi goodMoves, che e' avaro apposta.
    */
+  /**
+   * "Ti ho regalato qualcosa e l'hai visto": il merito che mancava.
+   *
+   * Sta prima del consiglio e dopo le mosse buone, perche' non parla di come hai
+   * giocato ma di come hai guardato ME. E' l'unica riga del pannello in cui la Nonna
+   * parla dei propri errori.
+   */
+  function appendGifts(box: HTMLElement): void {
+    if (gifts === 0) return;
+    const line =
+      gifts === 1
+        ? t(giftsSeen === 1 ? 'giftsOneSeen' : 'giftsOneMissed')
+        : giftsSeen === gifts
+          ? t('giftsAllSeen', { count: gifts })
+          : t('giftsSomeSeen', { count: gifts, taken: giftsSeen });
+    box.append(text(line, 'why-gifts'));
+  }
+
   /** Il consiglio in fondo, staccato: e' l'unica frase che guarda alla prossima partita. */
   function appendAdvice(box: HTMLElement): void {
     const sentence = advice();
@@ -848,7 +890,7 @@ export function mountApp(root: HTMLElement): void {
 
   /** Le tre mosse piu' costose, in ordine di partita e non di gravita'. */
   function worstMoves(): MoveLoss[] {
-    const mine = losses.filter((loss) => inPlay(loss) && loss.drop >= 4);
+    const mine = losses.filter((loss) => inPlay(loss) && loss.drop >= INACCURACY_DROP);
     return [...mine]
       .sort((a, b) => b.drop - a.drop)
       .slice(0, 3)
@@ -1472,6 +1514,11 @@ export function mountApp(root: HTMLElement): void {
     };
   }
 
+  /** Il giudizio su una mossa, con le opzioni di serie. Un nome per non ripeterlo. */
+  function verdictOf(before: Analysis, after: Analysis): ReturnType<typeof detectMistake> {
+    return detectMistake(before, after);
+  }
+
   async function runReview(): Promise<void> {
     const pending = pendingReview;
     pendingReview = null;
@@ -1526,7 +1573,25 @@ export function mountApp(root: HTMLElement): void {
       isImportant(detectMistake(beforeBotMove.analysis, before));
     beforeBotMove = { fen: pending.fenAfter, analysis: after };
 
-    const verdict = detectMistake(before, after);
+    /*
+     * I regali della Nonna, e quanti ne hai visti.
+     *
+     * Riconoscere l'errore dell'avversario e' l'abilita' che la modalita' "distratta"
+     * promette di allenare — sta scritto nel testo di aiuto — e finora non la
+     * misuravamo mai: avevamo il rimprovero per quando NON approfitti
+     * (`missedChance`) e niente per quando cogli. Un'asimmetria: si contava solo il
+     * fallimento.
+     *
+     * "Visto" vuol dire che la mossa dopo non ha buttato via il regalo, cioe' e'
+     * costata meno di un'imprecisione. Non pretendiamo che sia la mossa MIGLIORE:
+     * prendersi un pezzo in tre modi diversi e' comunque essersi accorti del pezzo.
+     */
+    if (afterOpponentError) {
+      gifts++;
+      if (verdictOf(before, after).drop < INACCURACY_DROP) giftsSeen++;
+    }
+
+    const verdict = verdictOf(before, after);
     // Il costo si registra SEMPRE, anche quando la Nonna tace: e' il materiale della
     // post-analisi, e senza non si puo' dire niente a chi ha perso senza sbagliare
     // niente di segnalabile.
@@ -1661,6 +1726,8 @@ export function mountApp(root: HTMLElement): void {
         hints: hintsUsed,
         takeBacks,
         answers: answersSeen,
+        gifts,
+        giftsSeen,
         outcome,
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
@@ -3003,6 +3070,8 @@ export function mountApp(root: HTMLElement): void {
     hintsUsed = 0;
     answersSeen = 0;
     takeBacks = 0;
+    gifts = 0;
+    giftsSeen = 0;
   }
 
   /**
@@ -3420,6 +3489,8 @@ interface LoadedGame {
   hints: number;
   takeBacks: number;
   answers: number;
+  gifts: number;
+  giftsSeen: number;
   outcome: Outcome | null;
 }
 
@@ -3454,6 +3525,8 @@ function loadFrom(saved: SavedGame): LoadedGame | null {
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
       takeBacks: typeof saved.takeBacks === 'number' ? saved.takeBacks : 0,
       answers: typeof saved.answers === 'number' ? saved.answers : 0,
+      gifts: typeof saved.gifts === 'number' ? saved.gifts : 0,
+      giftsSeen: typeof saved.giftsSeen === 'number' ? saved.giftsSeen : 0,
       outcome: saved.outcome ?? null,
     };
   } catch {

@@ -55,6 +55,7 @@ export const en: Record<keyof typeof it, string> = {
   whyStudy: 'Go ahead and study it',
   whyStop: 'Never mind',
   whyTitle: 'Where the game slipped away',
+  whyTitleWon: 'A few moments worth a look',
   whyClean:
     'You held your ground and made no serious mistake. But a lot of small errors lose a game just as surely: let me show you a few, to give you the idea.',
   whyLine: '{number}. {san} — {drop} expectancy points',
@@ -62,6 +63,10 @@ export const en: Record<keyof typeof it, string> = {
     'The points are win expectancy: out of a hundred games from that position, how many you would come away with. Losing ten in a single move is a lot.',
   whyBetter: 'better {san}',
   whyGoodTitle: 'And something good',
+  giftsOneSeen: 'Once I gave you something, and you spotted it straight away.',
+  giftsOneMissed: 'Once I gave you something, and you did not spot it.',
+  giftsAllSeen: 'I gave you something {count} times, and you spotted them all.',
+  giftsSomeSeen: 'I gave you something {count} times, and you spotted {taken}.',
   whyGoodLine: '{number}. {san} — the other moves did not hold here, and you found it.',
   whyAdviceTakeBacks: 'You won, but I let you take some moves back: work on your attention.',
   whyAdviceAnswers:
