@@ -108,6 +108,22 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
  */
 .cg-wrap coords coord { color: var(--ink) !important; opacity: 0.75; }
 
+/*
+ * Le lettere delle colonne: nell'angolo in basso a destra della LORO casa, a qualunque
+ * dimensione.
+ *
+ * Chessground sposta la striscia di 24 pixel fissi e centra ogni lettera nella sua
+ * colonna. Con case da 61 pixel, sul PC, lo spostamento la porta verso l'angolo: e'
+ * il disegno voluto. Con case da 42, sul telefono, la porta oltre meta' casa — ogni
+ * lettera si leggeva sotto la colonna ACCANTO, e l'ultima usciva dalla scacchiera.
+ * Segnalato giocando col Nero, dove l'ultima e' la "a"; col Bianco succedeva uguale.
+ *
+ * Senza spostamento e allineate a destra, le lettere restano dentro la casa per
+ * costruzione, invece che per coincidenza di misure.
+ */
+.cg-wrap coords.files { left: 0; }
+.cg-wrap coords.files coord { text-align: right; padding-right: 3px; }
+
 /* chessground si dimensiona sul contenitore: deve essere quadrato. */
 .board-wrap {
   position: relative;
