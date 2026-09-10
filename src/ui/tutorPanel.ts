@@ -244,9 +244,12 @@ function action(label: string, onClick: () => void, className = '', title = ''):
  *
  * In italiano l'articolo davanti a un numero dipende da come il numero si PRONUNCIA:
  * "lo zero", "l'uno", "l'otto", "l'undici", "l'ottanta". Scrivere sempre "al" produce
- * "al 0%", che nessuno direbbe. In inglese il problema non esiste e si usa "to".
+ * "al 0%", che nessuno direbbe. In inglese il problema non esiste e si usa "to"; in
+ * francese "a'", con lo spazio stretto che non va a capo prima del simbolo, come vuole
+ * la tipografia francese.
  */
 function toPercent(value: number): string {
+  if (locale() === 'fr') return `à ${value}\u202F%`;
   if (locale() !== 'it') return `to ${value}%`;
   if (value === 0) return `allo ${value}%`;
   const vowelStart = [1, 8, 11, 18].includes(value) || (value >= 80 && value <= 89);

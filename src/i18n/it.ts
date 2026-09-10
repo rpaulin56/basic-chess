@@ -136,7 +136,7 @@ export const it = {
   tutorContinueTitle: 'Se la tieni, vedrai cosa succede...',
   tutorShowBest: 'Mostra le mosse buone',
   tutorBestWas: 'La mossa migliore era {move}.',
-  tutorBetterWere: 'Tenevano la posizione: {moves}. La migliore era {best}.',
+  tutorBetterWere: 'Le mosse buone erano: {moves}. La migliore era {best}.',
   recap: 'Mosse critiche',
   recapCorrected: 'annullata',
   recapKept: 'mantenuta',

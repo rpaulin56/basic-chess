@@ -7,14 +7,15 @@
  */
 import { it } from './it.js';
 import { en } from './en.js';
+import { fr } from './fr.js';
 
 export type Dict = Record<keyof typeof it, string>;
-export type LocaleCode = 'it' | 'en';
+export type LocaleCode = 'it' | 'en' | 'fr';
 
-const DICTS: Record<LocaleCode, Dict> = { it, en };
+const DICTS: Record<LocaleCode, Dict> = { it, en, fr };
 
 /** Le lingue disponibili, nell'ordine in cui compaiono nel menu. */
-export const LOCALES: readonly LocaleCode[] = ['it', 'en'];
+export const LOCALES: readonly LocaleCode[] = ['it', 'en', 'fr'];
 
 /**
  * Il nome di ogni lingua NELLA PROPRIA lingua, e mai tradotto.
@@ -29,6 +30,7 @@ export const LOCALES: readonly LocaleCode[] = ['it', 'en'];
 export const LOCALE_NAMES: Record<LocaleCode, string> = {
   it: 'Italiano',
   en: 'English',
+  fr: 'Français',
 };
 
 let current: LocaleCode = detectLocale();
@@ -47,7 +49,7 @@ let current: LocaleCode = detectLocale();
  */
 function detectLocale(): LocaleCode {
   const saved = localStorage.getItem('basic-chess:locale');
-  if (saved === 'it' || saved === 'en') return saved;
+  if (saved === 'it' || saved === 'en' || saved === 'fr') return saved;
   return 'en';
 }
 
