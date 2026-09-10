@@ -35,7 +35,7 @@ import { orientPosition } from '../tutor/orientation.js';
 import { moveNumberOf } from '../core/game.js';
 import type { Key } from 'chessground/types';
 import { createBoardView, type BoardView } from './boardView.js';
-import { createIcon, type IconName } from './icons.js';
+import { createIcon, type IconName, createStrengthIcon } from './icons.js';
 import { createCredits } from './credits.js';
 import { createEngineSession } from './engineSession.js';
 import { playChime } from './sound.js';
@@ -2656,12 +2656,12 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /**
-   * Il bilanciere, con sopra quanto e' forte la Nonna adesso.
+   * Il bilanciere, che dice quanto e' forte la Nonna adesso.
    *
-   * Il numero del livello nell'angolo, come i messaggi non letti: si legge a colpo
-   * d'occhio e risponde a "a che livello sto giocando?" senza aprire niente. E un occhio
-   * piccolo in basso, ma SOLO se e' attenta: la distinzione e' "c'e' o non c'e'", perche'
-   * aperto contro chiuso, a quella misura, non si distingue.
+   * I dischi crescono con il livello (vedi `createStrengthIcon`). E un occhio piccolo
+   * sopra la sbarra, ma SOLO se e' attenta: la distinzione e' "c'e' o non c'e'", perche'
+   * aperto contro chiuso, a quella misura, non si distingue. Il numero esatto del
+   * livello sta nel pannello che l'icona apre.
    */
   /**
    * Rimette il bilanciere aggiornato al suo posto, e solo lui.
@@ -2678,11 +2678,7 @@ export function mountApp(root: HTMLElement): void {
   function strengthButton(): HTMLElement {
     const button = iconButton('strength', t('opponentHelp'), false, openOpponentHelp);
     button.classList.add('strength');
-    const badge = document.createElement('span');
-    badge.className = 'strength-level';
-    badge.setAttribute('aria-hidden', 'true');
-    badge.textContent = level.id.replace(/^l/, '');
-    button.append(badge);
+    button.querySelector('svg')?.replaceWith(createStrengthIcon(Number(level.id.replace(/^l/, '')) || 1));
     if (distraction.id === 'attento') {
       const eye = createIcon('eye');
       eye.classList.add('strength-eye');

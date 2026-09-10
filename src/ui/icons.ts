@@ -197,6 +197,42 @@ const PATHS: Record<IconName, string> = {
 };
 
 export function createIcon(name: IconName): SVGSVGElement {
+  return svgWith(PATHS[name]);
+}
+
+/**
+ * Il bilanciere caricato secondo il livello: piu' dischi, piu' forte la Nonna.
+ *
+ * Idea dell'autore, al posto di un numero nell'angolo: il numero esatto si legge
+ * toccando l'icona, e quello che serve a colpo d'occhio e' la TENDENZA — scarico o
+ * carico — che un peso dice senza parole e in qualunque lingua. Provato a grandezza
+ * reale: 1 e 5 si distinguono subito, 3 e 4 meno, ed e' un prezzo accettabile.
+ *
+ * Dall'interno verso l'esterno, per lato: 1 un disco piccolo, 2 due piccoli, 3 grande
+ * e piccolo, 4 due grandi, 5 due grandi e uno piccolo. Il 2 era un disco grande solo:
+ * due piccoli si leggono meglio come "un gradino sopra l'1" (proposta dell'autore).
+ */
+const PLATES: readonly (readonly ('big' | 'small')[])[] = [
+  ['small'],
+  ['small', 'small'],
+  ['big', 'small'],
+  ['big', 'big'],
+  ['big', 'big', 'small'],
+];
+const PLATE_X = [7, 4.5, 2];
+
+export function createStrengthIcon(level: number): SVGSVGElement {
+  const plates = PLATES[Math.min(PLATES.length, Math.max(1, level)) - 1] ?? PLATES[0]!;
+  let d = 'M7 12h10';
+  plates.forEach((kind, index) => {
+    const [top, bottom] = kind === 'big' ? [7, 17] : [9.5, 14.5];
+    const x = PLATE_X[index]!;
+    d += `M${x} ${top}V${bottom}M${24 - x} ${top}V${bottom}`;
+  });
+  return svgWith(`<path d="${d}" />`);
+}
+
+function svgWith(inner: string): SVGSVGElement {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('width', '22');
@@ -208,6 +244,6 @@ export function createIcon(name: IconName): SVGSVGElement {
   svg.setAttribute('stroke-linejoin', 'round');
   // Decorativa: il significato lo porta l'aria-label del pulsante che la contiene.
   svg.setAttribute('aria-hidden', 'true');
-  svg.innerHTML = PATHS[name];
+  svg.innerHTML = inner;
   return svg;
 }
