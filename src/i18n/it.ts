@@ -177,6 +177,7 @@ export const it = {
   previewClose: 'Torna alla partita',
   previewCaption: 'Conseguenze, semi-mossa {index} di {total}',
   previewBefore: 'Posizione prima della tua mossa',
+  previewReplay: 'Rivedi la sequenza',
   previewStart: 'Posizione dopo la tua mossa',
   tutorOff: 'Nessun aiuto',
   tutorOn: 'Aiuto attivo',

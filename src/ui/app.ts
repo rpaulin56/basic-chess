@@ -1480,11 +1480,13 @@ export function mountApp(root: HTMLElement): void {
    * vede subito la posizione finale, come prima: una scacchiera che si muove da sola
    * e' esattamente cio' che ha chiesto di evitare.
    */
-  function startPreviewAnimation(): void {
+  function startPreviewAnimation(replay = false): void {
     stopPreviewAnimation();
     if (!preview) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      preview = { ...preview, index: preview.consequence.manifestAt };
+      // All'apertura la posizione finale; a chi chiede di RIVEDERE, l'inizio: da li'
+      // scorre lui con le frecce, al suo passo.
+      preview = { ...preview, index: replay ? -1 : preview.consequence.manifestAt };
       return;
     }
     previewTimer = window.setInterval(() => {
@@ -1561,8 +1563,11 @@ export function mountApp(root: HTMLElement): void {
           : t('previewCaption', { index: preview.index, total });
     const moves = document.createElement('span');
     moves.className = 'preview-moves';
+    // `Math.max`: l'indice parte da -1, e `slice(0, -1)` non vuol dire "niente" ma
+    // "tutto tranne l'ultima" — nella posizione di PRIMA si leggevano gia' le mosse
+    // della confutazione. Visto provandolo.
     moves.textContent = preview.consequence.san
-      .slice(0, preview.index)
+      .slice(0, Math.max(0, preview.index))
       .map(toFigurine)
       .join(' ');
 
@@ -1579,10 +1584,25 @@ export function mountApp(root: HTMLElement): void {
         refresh();
       });
 
+    const replay = iconButton('replay', t('previewReplay'), false, () => {
+      if (!preview) return;
+      preview = { ...preview, index: -1 };
+      startPreviewAnimation(true);
+      refresh();
+    });
+
+    // I pulsanti PRIMA del testo, e non dopo. La didascalia cambia lunghezza a ogni
+    // passo — "Posizione prima della tua mossa" e' il doppio di "Conseguenze,
+    // semi-mossa 3 di 8" — e con i pulsanti dopo di lei le frecce si spostavano
+    // sotto il dito proprio mentre le si premeva in fila. Segnalato giocando.
+    //
+    // "Rivedi" in coda alle frecce e non in mezzo: sbagliare un tocco su "avanti" deve
+    // far fare al piu' un passo, non far ripartire tutto da capo.
     previewEl.append(
-      caption,
       step(-1, 'previous', t('previous')),
       step(+1, 'next', t('next')),
+      replay,
+      caption,
       moves,
     );
   }

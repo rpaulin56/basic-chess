@@ -30,7 +30,8 @@ export type IconName =
   | 'position'
   | 'person'
   | 'newGame'
-  | 'world';
+  | 'world'
+  | 'replay';
 
 /**
  * Ogni icona e' il contenuto di un viewBox 24x24. Tratto e riempimento sono decisi
@@ -158,6 +159,15 @@ const PATHS: Record<IconName, string> = {
     '<circle cx="12" cy="12" r="9" />' +
     '<path d="M3 12h18" />' +
     '<path d="M12 3a13 13 0 0 1 0 18a13 13 0 0 1 0-18z" />',
+  // Rivedi: una freccia sola che torna indietro, con il triangolo del "play" dentro.
+  //
+  // Una freccia circolare da sola si confonderebbe con "gira la scacchiera", che di
+  // archi ne ha due. Il triangolo e' cio' che la distingue, ed e' anche la cosa vera:
+  // non riporta soltanto all'inizio, fa ripartire la riproduzione.
+  replay:
+    '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />' +
+    '<path d="M3 3v5h5" />' +
+    '<path d="M10 9v6l5-3z" fill="currentColor" />',
   // Posizione: un foglio di testo.
   //
   // E' la terza versione di questa icona, e le prime due sbagliavano per motivi

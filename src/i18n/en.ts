@@ -178,6 +178,7 @@ export const en: Record<keyof typeof it, string> = {
   previewClose: 'Back to the game',
   previewCaption: 'Consequences, half-move {index} of {total}',
   previewBefore: 'Position before your move',
+  previewReplay: 'Replay the sequence',
   previewStart: 'Position after your move',
   tutorOff: 'Help off',
   tutorOn: 'Help on',
