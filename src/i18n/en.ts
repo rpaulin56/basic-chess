@@ -235,7 +235,7 @@ export const en: Record<keyof typeof it, string> = {
   egPawns: 'Pawn endgame',
   egRooks: 'Rook endgame',
   endgameEnteringIntro: 'You could reach this endgame. Better to know it beforehand.',
-  opponentHelp: 'Which Grandma you want to play',
+  opponentHelp: 'How strong you want Grandma',
   opponentHelpTitle: 'How to choose',
   opponentHelpLevel: 'The LEVEL is how far ahead Grandma sees. At a low level her mistakes come from there: she did not calculate far enough. To beat her you have to calculate better than she does.',
   opponentHelpCareful:
