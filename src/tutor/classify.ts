@@ -141,12 +141,24 @@ function settledIndex(plies: number): number {
  * tutto normale a scacchi, e una regola che pretende la ricattura immediata sbaglia
  * ogni volta che c'e' di mezzo una mossa intermedia.
  */
-function manifestIndex(balances: readonly number[], settled: number, final: number): number {
+function manifestIndex(
+  balances: readonly number[],
+  settled: number,
+  final: number,
+  /**
+   * Le semi-mosse in cui il bilancio e' solo di passaggio: una cattura che la mossa dopo
+   * riprende sulla stessa casa. In una partita di prova, dopo un Alfiere perso subito,
+   * la linea proseguiva con exd5 exd5: per una semi-mossa il conto risaliva di un
+   * pedone, la regola lo prendeva per un recupero, e annunciava "la conseguenza arriva
+   * tra quattro mosse" per un pezzo perso alla prima.
+   */
+  transient: readonly boolean[],
+): number {
   for (let i = 1; i <= settled; i++) {
     if (balances[i] !== final) continue;
     // Dev'essere il punto in cui la situazione si stabilizza, non un passaggio: da
     // qui in poi il bilancio non deve piu' risalire sopra il valore finale.
-    if (balances.slice(i, settled + 1).every((balance) => balance <= final)) return i;
+    if (balances.slice(i, settled + 1).every((balance, k) => transient[i + k] === true || balance <= final)) return i;
   }
   return settled;
 }
@@ -168,6 +180,8 @@ export function classifyConsequence(
   let mateAtPly = 0;
   const balances: number[] = [materialBalance(chess, victim)];
   let forcingMoves = 0;
+  /** Dove arriva ogni semi-mossa e se cattura: serve a riconoscere un cambio in corso. */
+  const played: { to: string; captured: boolean }[] = [];
 
   for (const uci of refutation.slice(0, HORIZON)) {
     let move;
@@ -182,6 +196,7 @@ export function classifyConsequence(
     }
     line.push(uci);
     san.push(move.san);
+    played.push({ to: move.to, captured: move.captured !== undefined });
     if (chess.isCheckmate() && matesIn === null) {
       matesIn = Math.ceil(line.length / 2);
       mateAtPly = line.length;
@@ -195,6 +210,13 @@ export function classifyConsequence(
 
   if (line.length === 0) return null;
 
+  // transient[i]: la semi-mossa i ha catturato, e la i+1 riprende sulla stessa casa.
+  const transient = balances.map((_, i) => {
+    const here = played[i - 1];
+    const next = played[i];
+    return i > 0 && here !== undefined && next !== undefined && here.captured && next.captured && next.to === here.to;
+  });
+
   const start = balances[0]!;
   const settledAt = settledIndex(line.length);
   const materialLoss = start - balances[settledAt]!;
@@ -206,7 +228,7 @@ export function classifyConsequence(
   if (matesIn !== null) {
     manifestAt = mateAtPly;
   } else if (materialLoss >= MATERIAL_THRESHOLD) {
-    manifestAt = manifestIndex(balances, settledAt, balances[settledAt]!);
+    manifestAt = manifestIndex(balances, settledAt, balances[settledAt]!, transient);
   }
 
   // "Immediato" vuol dire entro una mossa per parte: se ti prendono un pezzo e tu

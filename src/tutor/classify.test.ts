@@ -205,3 +205,16 @@ describe('semplificazione dei cambi alla pari', () => {
     expect(result!.lost.map((piece) => `${piece.type}${piece.square}`)).toEqual(['pd4']);
   });
 });
+
+describe('un cambio in corso non e\' un recupero', () => {
+  it("l'Alfiere perso subito resta una svista anche se dopo si cambiano i pedoni", () => {
+    // Partita di prova: 1.e4 e6 2.Ba6?? Nxa6, e la linea del motore interrotta a
+    // profondita' 14 prosegue con exd5 exd5. Prima questa linea dava "tattico, la
+    // conseguenza arriva tra quattro mosse".
+    const fen = 'rnbqkbnr/pppp1ppp/B3p3/8/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2';
+    const line = ['b8a6', 'd2d4', 'f8e7', 'b1c3', 'd7d5', 'e4d5', 'e6d5', 'g1f3'];
+    const consequence = classifyConsequence(fen, line);
+    expect(consequence?.category).toBe('banale');
+    expect(consequence?.manifestAt).toBe(1);
+  });
+});

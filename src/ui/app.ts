@@ -280,6 +280,16 @@ export function mountApp(root: HTMLElement): void {
   let lastAnalysis: Analysis | null = null;
   /** Mossa dell'utente in attesa di giudizio (con l'analisi della posizione di partenza). */
   let pendingReview: { before: Analysis | null; fenBefore: string; fenAfter: string } | null = null;
+  /**
+   * Vero mentre il tutor sta giudicando una mossa.
+   *
+   * Il motore fa una ricerca alla volta, e una richiesta nuova FERMA quella in corso:
+   * l'analisi interrotta torna con la profondita' a cui era arrivata. Se nel frattempo
+   * un ridisegno faceva partire la valutazione o la mossa della Nonna, il giudizio
+   * riceveva una ricerca piu' corta — e con quella la stessa mossa e' stata chiamata
+   * "errore tattico" invece di "svista", e una volta perfino "errore strategico".
+   */
+  let reviewing = false;
   /** Verdetto da mostrare; finche' c'e', il bot NON risponde e si aspetta l'utente. */
   let review: {
     verdict: MistakeVerdict;
@@ -1641,8 +1651,20 @@ export function mountApp(root: HTMLElement): void {
     // Finche' un verdetto e' sullo schermo il bot resta fermo: l'utente deve poter
     // ritirare la mossa senza che la partita gli scappi avanti.
     if (review) return;
+    // Mentre il tutor giudica non parte nient'altro: ne' la valutazione ne' la mossa
+    // della Nonna, che interromperebbero la sua ricerca (vedi `reviewing`).
+    if (reviewing) return;
     if (pendingReview) {
-      await runReview();
+      reviewing = true;
+      try {
+        await runReview();
+      } finally {
+        reviewing = false;
+      }
+      // Il ridisegno con cui runReview si chiude trovava `reviewing` ancora acceso, e si
+      // fermava li'. Si riparte da qui: senza verdetto la Nonna risponde, con il verdetto
+      // `review` tiene tutto fermo come prima.
+      void driveEngine();
       return;
     }
     const atEnd = state.cursor === state.plies.length;
@@ -1713,6 +1735,19 @@ export function mountApp(root: HTMLElement): void {
     return detectMistake(before, after);
   }
 
+  /**
+   * Un'analisi alla profondita' del tutor, rifatta una volta se torna piu' corta.
+   *
+   * Torna piu' corta quando qualcos'altro l'ha interrotta. Il "prima" aveva gia' questo
+   * controllo, il "dopo" no: ed e' proprio il "dopo" a dare la linea da cui si capisce
+   * CHE errore e'.
+   */
+  async function fullAnalysis(fen: string): Promise<Analysis | null> {
+    const first = await engine.analyse(fen, { depth: REVIEW_DEPTH, multiPV: ANALYSIS_MULTIPV });
+    if (!first || first.depth >= REVIEW_DEPTH) return first;
+    return engine.analyse(fen, { depth: REVIEW_DEPTH, multiPV: ANALYSIS_MULTIPV });
+  }
+
   async function runReview(): Promise<void> {
     const pending = pendingReview;
     pendingReview = null;
@@ -1723,10 +1758,7 @@ export function mountApp(root: HTMLElement): void {
     const before =
       pending.before && pending.before.depth >= REVIEW_DEPTH
         ? pending.before
-        : await engine.analyse(pending.fenBefore, {
-            depth: REVIEW_DEPTH,
-            multiPV: ANALYSIS_MULTIPV,
-          });
+        : await fullAnalysis(pending.fenBefore);
     // Se l'analisi fallisce si rinuncia al giudizio ma NON alla partita: si torna a
     // disegnare, cosi' il bot riprende a muovere.
     if (!before) {
@@ -1736,10 +1768,7 @@ export function mountApp(root: HTMLElement): void {
     if (mine !== generation) return;
     const after =
       terminalAnalysis(pending.fenAfter) ??
-      (await engine.analyse(pending.fenAfter, {
-        depth: REVIEW_DEPTH,
-        multiPV: ANALYSIS_MULTIPV,
-      }));
+      (await fullAnalysis(pending.fenAfter));
     if (!after) {
       refresh();
       return;
