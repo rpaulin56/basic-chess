@@ -29,6 +29,7 @@ import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect
 import { classifyConsequence, transportArrows, type Consequence } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
+import { obviousMove } from '../tutor/goodMoves.js';
 import { buildHint } from '../tutor/hint.js';
 import { orientPosition } from '../tutor/orientation.js';
 import { moveNumberOf } from '../core/game.js';
@@ -1012,12 +1013,28 @@ export function mountApp(root: HTMLElement): void {
    */
   function goodMoves(): MoveLoss[] {
     const mine = losses.filter(
-      (loss) => inPlay(loss) && loss.drop <= 2 && loss.gap >= GOOD_MOVE_GAP,
+      (loss) => inPlay(loss) && loss.drop <= 2 && loss.gap >= GOOD_MOVE_GAP && !obvious(loss.ply),
     );
     return [...mine]
       .sort((a, b) => b.gap - a.gap)
       .slice(0, 2)
       .sort((a, b) => a.ply - b.ply);
+  }
+
+  /**
+   * Una mossa forzata o una ripresa: lo scarto con la seconda puo' essere enorme, ma non
+   * c'era niente da trovare (vedi `obviousMove`).
+   */
+  function obvious(ply: number): boolean {
+    const played = state.plies[ply];
+    if (!played) return false;
+    const previous = state.plies[ply - 1];
+    return obviousMove(
+      played.fenBefore,
+      played.from,
+      played.to,
+      previous ? { to: previous.to, san: previous.san } : undefined,
+    );
   }
 
   function finished(): boolean {
