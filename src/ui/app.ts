@@ -2308,17 +2308,17 @@ export function mountApp(root: HTMLElement): void {
           'rewind-text',
         ),
       );
+      // Dopo un ritiro niente collegamento. "Rimettila com'era" annullava l'annullamento
+      // a chi aveva appena scelto, e rimettere la mossa equivaleva a TENERLA senza
+      // vedere la confutazione: la stessa conferma silenziosa tolta dal fumetto. Chi
+      // proprio vuole riaverla ha la freccia avanti. Segnalato giocando: confondeva.
+      if (retrying) return;
       const back = document.createElement('button');
       back.type = 'button';
       back.className = 'rewind-back';
-      // Tornare alla fine, dopo un ritiro, vuol dire rimettere la mossa dov'era: e'
-      // una scelta legittima ("ci ho ripensato, la tengo") e va detta con le sue
-      // parole, non con quelle della navigazione.
       // Da qui ha mosso la Nonna: la frase si chiude col punto, e "oppure" non avrebbe
       // niente a cui contrapporsi — l'unica cosa da fare e' tornare alla fine.
-      back.textContent = retrying
-        ? t('rewindRedo')
-        : t(theirTurn ? 'rewindBackTheirs' : 'rewindBack');
+      back.textContent = t(theirTurn ? 'rewindBackTheirs' : 'rewindBack');
       back.addEventListener('click', () => seek(state.plies.length));
       statusEl.append(back);
       return;
