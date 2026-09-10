@@ -38,7 +38,6 @@ import { createBoardView, type BoardView } from './boardView.js';
 import { createIcon, type IconName, createStrengthIcon } from './icons.js';
 import { createCredits } from './credits.js';
 import { createEngineSession } from './engineSession.js';
-import { playChime } from './sound.js';
 import { renderMoveList } from './moveList.js';
 import { renderTutorPanel } from './tutorPanel.js';
 import { renderHintPanel, type HintView } from './hintPanel.js';
@@ -355,15 +354,6 @@ export function mountApp(root: HTMLElement): void {
    * cambia: li' il valore precedente non c'entra piu' niente.
    */
   let lastWhitePercent: number | null = null;
-  /**
-   * Se la Nonna si fa sentire quando interviene.
-   *
-   * ACCESO di default, al contrario delle opzioni sulla valutazione: quelle mostrano
-   * qualcosa in piu' a chi la cerca, questo risolve un problema che l'utente ha senza
-   * saperlo — su telefono il pannello della Nonna sta sotto la piega, e chi non lo sa
-   * non pensa certo ad andare nelle impostazioni ad accendere un avviso.
-   */
-  let sound = localStorage.getItem('basic-chess:sound') !== 'off';
   /**
    * Se mostrare anche la profondita' della ricerca accanto al punteggio.
    *
@@ -1845,10 +1835,6 @@ export function mountApp(root: HTMLElement): void {
         fenBeforeMistake: pending.fenBefore,
         mistakeMove: [state.plies[state.plies.length - 1]!.from, state.plies[state.plies.length - 1]!.to],
       };
-      // Il richiamo suona QUI, dove la Nonna prende la parola, e non a ogni ridisegno
-      // del pannello: il pannello si ridisegna anche quando si cambia lingua o si
-      // apre un menu, e sentire il campanello in quei momenti sarebbe incomprensibile.
-      if (sound) playChime();
       // Il riepilogo si costruisce durante la partita: a fine partita le posizioni
       // intermedie non ci sono piu' e ricostruirlo costerebbe una rianalisi completa.
       mistakeLog.push({
@@ -3294,17 +3280,6 @@ export function mountApp(root: HTMLElement): void {
       localStorage.setItem('basic-chess:depth', on ? 'on' : 'off');
     });
 
-    // Fuori dal gruppo della valutazione, e senza rientro: non e' un modo di vedere
-    // il punteggio, e' come la Nonna si annuncia.
-    const soundRow = flag('showSound', sound, (on) => {
-      sound = on;
-      localStorage.setItem('basic-chess:sound', on ? 'on' : 'off');
-      // Un assaggio quando lo si accende: un interruttore su un suono che non si e'
-      // mai sentito e' una scommessa al buio.
-      if (on) playChime();
-    });
-    soundRow.classList.remove('nested');
-
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'settings-close';
@@ -3317,7 +3292,6 @@ export function mountApp(root: HTMLElement): void {
       barRow,
       evalRow,
       depthRow,
-      soundRow,
       close,
     );
     // Il cambio di lingua deve ridisegnare tutto, e finche' la finestra e' aperta

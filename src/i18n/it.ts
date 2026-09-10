@@ -43,7 +43,6 @@ export const it = {
   showBar: 'Come barra accanto alla scacchiera',
   showEval: 'Come numero sotto la scacchiera',
   showDepth: 'Con la profondità di analisi',
-  showSound: 'Suona quando la Nonna interviene',
   whyLost: 'Vuoi vedere perché hai perso?',
   whyNotWon: 'Vuoi vedere perché non hai vinto?',
   whyReview: 'Vuoi rivedere i momenti chiave?',

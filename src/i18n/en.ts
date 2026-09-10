@@ -45,7 +45,6 @@ export const en: Record<keyof typeof it, string> = {
   showBar: 'As a bar beside the board',
   showEval: 'As a number under the board',
   showDepth: 'With the search depth',
-  showSound: 'Play a sound when Grandma speaks',
   whyLost: 'Want to see why you lost?',
   whyNotWon: 'Want to see why you did not win?',
   whyReview: 'Want to go over the key moments?',
