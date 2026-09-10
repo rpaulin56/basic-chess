@@ -191,6 +191,7 @@ export const it = {
   hintBookOne: 'Da qui la teoria conosce una sola continuazione.',
   hintBookMany: 'Da qui la teoria conosce {count} continuazioni: devi scegliere tu.',
   hintLeavingBook: 'Da qui non c’è più teoria: si gioca.',
+  openingLeft: 'fuori teoria dopo {move}',
   hintOnly: 'C’è una mossa sola che salva la posizione. È una posizione tattica: prenditi il tempo di cercarla.',
   hintFew: 'Le mosse che vanno bene sono solo {count}: la posizione è più delicata di quanto sembri.',
   hintMany: 'Puoi giocare {count} mosse diverse senza rovinare niente. Devi scegliere un piano di gioco.',

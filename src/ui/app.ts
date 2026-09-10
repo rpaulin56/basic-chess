@@ -411,6 +411,17 @@ export function mountApp(root: HTMLElement): void {
    * guardando.
    */
   let gameOpening: Opening | null = null;
+  /**
+   * La semi-mossa che ha portato FUORI dalla teoria, guardando fino alla posizione
+   * mostrata; null finche' si e' in teoria. Serve a dire chi e' uscito: il nome che
+   * spariva in silenzio, subito dopo la tua mossa perche' la Nonna risponde in un
+   * attimo, faceva credere di essere usciti noi.
+   */
+  let bookExit: number | null = null;
+  /** La stessa cosa sull'intera partita: e' quella che finisce nel PGN. */
+  let gameBookExit: number | null = null;
+  /** "In teoria?" per posizione. La risposta non cambia: ogni ridisegno calcola solo le mosse nuove. */
+  const theoryCache = new Map<string, boolean>();
   let botThinking = false;
   /**
    * Contatore di versione dello stato. Ogni analisi lo cattura prima di partire e lo
@@ -1447,16 +1458,25 @@ export function mountApp(root: HTMLElement): void {
     ];
     try {
       const found = await findOpening(fens);
-      const theory = await stillInTheory(found);
+      const theory = found !== null && (await theoryAt(currentFen(state)));
       const whole =
         state.cursor === state.plies.length
           ? found
           : await findOpening([state.startFen, ...state.plies.map((ply) => ply.fenAfter)]);
+      const exitWhole = await bookExitPly(state.plies.length);
+      const exitHere = state.cursor === state.plies.length ? exitWhole : await bookExitPly(state.cursor);
       if (mine !== generation) return;
       gameOpening = whole;
-      if (found?.name !== opening?.name || found?.plies !== opening?.plies || theory !== inTheory) {
+      gameBookExit = exitWhole;
+      if (
+        found?.name !== opening?.name ||
+        found?.plies !== opening?.plies ||
+        theory !== inTheory ||
+        exitHere !== bookExit
+      ) {
         opening = found;
         inTheory = theory;
+        bookExit = exitHere;
         renderOpening();
       }
     } catch {
@@ -1476,32 +1496,68 @@ export function mountApp(root: HTMLElement): void {
    * ancora su un sentiero battuto. E' lo stesso calcolo che risponde a "e adesso?",
    * e costa una trentina di ricerche in una mappa.
    */
-  async function stillInTheory(found: Opening | null): Promise<boolean> {
-    if (!found) return false;
-    if (found.plies === state.cursor) return true;
-    const fen = currentFen(state);
-    const candidates = positionAt(state)
-      .moves({ verbose: true })
-      .map((move) => {
+  async function theoryAt(fen: string): Promise<boolean> {
+    const cached = theoryCache.get(fen);
+    if (cached !== undefined) return cached;
+    let known = (await findOpening([fen])) !== null;
+    if (!known) {
+      const candidates = new Chess(fen).moves({ verbose: true }).map((move) => {
         const after = new Chess(fen);
         after.move(move.san);
         return { san: move.san, fenAfter: after.fen() };
       });
-    return (await findContinuations(candidates)).length > 0;
+      known = (await findContinuations(candidates)).length > 0;
+    }
+    theoryCache.set(fen, known);
+    return known;
+  }
+
+  /**
+   * Quale semi-mossa, fra le prime `upTo`, ha portato fuori dalla teoria.
+   *
+   * La stessa regola del nome: una posizione e' teoria se ha un nome, o se una mossa da
+   * li' porta a una posizione che ce l'ha. Se la partita rientra per trasposizione il
+   * conto riparte, e conta l'ultima uscita.
+   */
+  async function bookExitPly(upTo: number): Promise<number | null> {
+    let exit: number | null = null;
+    let previous = await theoryAt(state.startFen);
+    for (let ply = 0; ply < upTo; ply++) {
+      const now = await theoryAt(state.plies[ply]!.fenAfter);
+      if (previous && !now) exit = ply;
+      else if (now) exit = null;
+      previous = now;
+    }
+    return exit;
   }
 
   function renderOpening(): void {
     openingEl.replaceChildren();
-    // Fuori dalla teoria il nome sparisce: continuare a esibirlo sarebbe una didascalia
-    // che parla di una posizione che non c'e' piu'.
-    openingEl.hidden = !opening || !inTheory;
-    if (!opening || !inTheory) return;
+    // In teoria il nome; fuori, lo stesso nome in grigio e la mossa che ne e' uscita.
+    //
+    // Prima il nome spariva e basta. In una Scandinava la Nonna e' uscita con 2...a6
+    // un attimo dopo 2.exd5, e sullo schermo sembrava che fosse stata la mossa di chi
+    // gioca a portare fuori. Scrivere la mossa dice chi e' stato, senza bisogno di dire
+    // "sei uscito" — che in italiano avrebbe anche un genere.
+    const out = !inTheory && bookExit !== null;
+    openingEl.hidden = !opening || (!inTheory && !out);
+    openingEl.classList.toggle('out', out);
+    if (!opening || openingEl.hidden) return;
     const eco = document.createElement('span');
     eco.className = 'opening-eco';
     eco.textContent = opening.eco;
     const name = document.createElement('span');
     name.textContent = opening.name;
     openingEl.append(eco, name);
+    const exitPly = bookExit !== null ? state.plies[bookExit] : undefined;
+    if (out && bookExit !== null && exitPly) {
+      const left = document.createElement('span');
+      left.className = 'opening-left';
+      left.textContent = t('openingLeft', {
+        move: `${moveLabel(moveNumberOf(state, bookExit), exitPly.color)}${toFigurine(exitPly.san)}`,
+      });
+      openingEl.append(left);
+    }
   }
 
   // --- diagramma della conseguenza ---------------------------------------
@@ -2857,16 +2913,17 @@ export function mountApp(root: HTMLElement): void {
       });
     };
 
-    // Dove finisce la teoria, segnato sulla mossa che ci ha portati: rileggendo il PGN
-    // fra sei mesi e' esattamente il punto che si vuole ritrovare.
+    // La mossa che ESCE dalla teoria, segnata con la stessa regola del nome sotto la
+    // scacchiera: rileggendo il PGN fra sei mesi e' il punto che si vuole ritrovare.
     //
-    // Il NOME dell'apertura non si ripete qui: sta gia' nei tag ECO e Opening, e
-    // ripeterlo sarebbe la prolissita' che stiamo togliendo. Il confine e' l'ultima
-    // posizione che il libro CONOSCE — sullo schermo il nome sopravvive di una
-    // semi-mossa in piu' (vedi stillInTheory), ma quella e' una gentilezza per non
-    // farlo lampeggiare nei buchi dell'indice, non un'affermazione sulla teoria.
-    if (gameOpening && gameOpening.plies > 0 && gameOpening.plies <= state.plies.length) {
-      put(gameOpening.plies - 1, 'end of book');
+    // Prima il commento stava sull'ultima posizione che nel libro ha un NOME, e diceva
+    // "end of book" dopo 1...d5 in una Scandinava in cui 2.exd5 e' teoria piena: una
+    // posizione di passaggio, senza nome ma con tre continuazioni conosciute. Chi
+    // rileggeva credeva di essere uscito lui; era uscita la Nonna, con 2...a6.
+    //
+    // Il NOME dell'apertura non si ripete: sta gia' nei tag ECO e Opening.
+    if (gameBookExit !== null && gameBookExit < state.plies.length) {
+      put(gameBookExit, 'out of book');
     }
 
     // Dove comincia ogni finale tipico: e' l'altro punto che si cerca rileggendo una

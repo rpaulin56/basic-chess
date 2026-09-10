@@ -209,6 +209,7 @@ export const fr: Record<keyof typeof it, string> = {
   hintBookOne: 'À partir d’ici, la théorie ne connaît qu’une seule suite.',
   hintBookMany: `À partir d’ici, la théorie connaît {count} suites${NB}: à toi de choisir.`,
   hintLeavingBook: `Ici, la théorie s’arrête${NB}: on joue.`,
+  openingLeft: 'hors théorie après {move}',
   hintOnly: `Un seul coup sauve la position. C’est une position tactique${NB}: prends le temps de le chercher.`,
   hintFew: `Seuls {count} coups conviennent${NB}: la position est plus délicate qu’elle n’en a l’air.`,
   hintMany: 'Tu peux jouer {count} coups différents sans rien gâcher. Il faut choisir un plan.',

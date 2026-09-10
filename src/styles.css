@@ -522,6 +522,9 @@ select {
   color: var(--ink);
   line-height: 1.35;
 }
+/* Fuori dalla teoria il nome resta, in grigio, seguito dalla mossa che ne e' uscita. */
+.opening.out { color: var(--ink-soft); }
+.opening-left { font-style: italic; white-space: nowrap; }
 .opening-eco {
   flex: none;
   font-size: 11px;

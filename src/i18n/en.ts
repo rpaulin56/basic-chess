@@ -192,6 +192,7 @@ export const en: Record<keyof typeof it, string> = {
   hintBookOne: 'Theory knows a single continuation from here.',
   hintBookMany: 'Theory knows {count} continuations from here: the choice is yours.',
   hintLeavingBook: 'Theory ends here: from now on you are on your own.',
+  openingLeft: 'out of book after {move}',
   hintOnly: 'Only one move holds the position. This is a tactical position: take the time to find it.',
   hintFew: 'Only {count} moves hold the position: it is sharper than it looks.',
   hintMany: 'You can play {count} different moves without spoiling anything. You have to choose a plan.',
