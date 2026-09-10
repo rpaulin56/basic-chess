@@ -233,7 +233,7 @@ export const it = {
   egOppositeBishops: 'Alfieri di colore contrario',
   egPawns: 'Finale di Pedoni',
   egRooks: 'Finale di Torri',
-  endgameEnteringIntro: 'Un cambio ti porterebbe a questo finale. Meglio conoscerlo prima di entrarci: il cambio ti conviene?',
+  endgameEnteringIntro: 'Potresti arrivare a questo finale. Meglio conoscerlo prima.',
   opponentHelp: 'Contro che Nonna vuoi giocare',
   opponentHelpTitle: 'Come scegliere',
   opponentHelpLevel: 'Il LIVELLO è quanto lontano vede la Nonna. A un livello basso, i suoi errori vengono da lì: non ha calcolato abbastanza avanti. Per batterla devi calcolare meglio di lei.',

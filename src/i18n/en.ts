@@ -234,7 +234,7 @@ export const en: Record<keyof typeof it, string> = {
   egOppositeBishops: 'Opposite-coloured bishops',
   egPawns: 'Pawn endgame',
   egRooks: 'Rook endgame',
-  endgameEnteringIntro: 'A trade would take you into this endgame. Better to know it before you go in: does the trade suit you?',
+  endgameEnteringIntro: 'You could reach this endgame. Better to know it beforehand.',
   opponentHelp: 'Which Grandma you want to play',
   opponentHelpTitle: 'How to choose',
   opponentHelpLevel: 'The LEVEL is how far ahead Grandma sees. At a low level her mistakes come from there: she did not calculate far enough. To beat her you have to calculate better than she does.',

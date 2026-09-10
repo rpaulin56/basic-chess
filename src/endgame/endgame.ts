@@ -20,6 +20,8 @@
  * utenti, che il proprietario puo' cancellare domani.
  */
 
+import { Chess } from 'chess.js';
+
 export interface EndgameResource {
   readonly label: string;
   readonly url: string;
@@ -257,4 +259,52 @@ export function classifyEndgame(fen: string): Endgame | null {
   }
 
   return null;
+}
+
+const VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+
+/**
+ * I finali tipici a cui si puo' arrivare da qui con la prossima mossa, SENZA regalare
+ * materiale.
+ *
+ * Si guarda la mossa e, se e' una cattura, anche la ripresa avversaria sulla stessa
+ * casa: un cambio sono due semi-mosse. Ma un finale conta solo se per arrivarci non si
+ * da' piu' di quanto si prende — pedone 1, pezzi leggeri 3, Torre 5, Donna 9.
+ *
+ * Senza questa condizione la regola chiamava "cambio" anche un regalo: l'Alfiere dato
+ * per un pedone, se dopo restava un finale di Torri, veniva annunciato come una strada
+ * da considerare. A un principiante un annuncio cosi' suggerisce di giocarla.
+ *
+ * Restano dentro tre cose diverse, e vanno bene tutte e tre: il cambio alla pari da
+ * iniziare, la ripresa di un pezzo appena preso (in una partita vera: la Donna presa
+ * in c6 e la Torre che la riprende), e la cattura che vince materiale. I sacrifici
+ * restano fuori per ora: quelli che portano a un finale vinto esistono, ma
+ * distinguerli da quelli che perdono chiede il motore, non un conto di pezzi.
+ *
+ * Da una posizione che e' GIA' un finale tipico non si annuncia niente.
+ */
+export function reachableEndgames(fen: string): Endgame[] {
+  if (classifyEndgame(fen)) return [];
+  const start = new Chess(fen);
+  if (start.isGameOver()) return [];
+  const found = new Map<string, Endgame>();
+  for (const move of start.moves({ verbose: true })) {
+    const after = new Chess(fen);
+    after.move(move.san);
+    const mine = VALUE[move.promotion ?? move.piece] ?? 0;
+    const gain = move.captured ? (VALUE[move.captured] ?? 0) : 0;
+    const replies = after.moves({ verbose: true }).filter((reply) => reply.to === move.to);
+    // Il finale subito dopo la mossa: vale se il pezzo non puo' essere ripreso, o se
+    // anche ripreso la cattura non costa niente.
+    const direct = classifyEndgame(after.fen());
+    if (direct && gain - (replies.length > 0 ? mine : 0) >= 0) found.set(direct.key, direct);
+    if (!move.captured || gain - mine < 0) continue;
+    for (const reply of replies) {
+      const traded = new Chess(after.fen());
+      traded.move(reply.san);
+      const endgame = classifyEndgame(traded.fen());
+      if (endgame) found.set(endgame.key, endgame);
+    }
+  }
+  return [...found.values()];
 }

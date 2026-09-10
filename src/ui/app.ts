@@ -44,7 +44,7 @@ import { renderHintPanel, type HintView } from './hintPanel.js';
 import { renderEndgamePanel, type EndgameView } from './endgamePanel.js';
 import { renderOfferPanel, type OfferView } from './offerPanel.js';
 import { acceptsDraw, judgeDraw, judgeResign } from '../tutor/adjudicate.js';
-import { classifyEndgame, type Endgame } from '../endgame/endgame.js';
+import { classifyEndgame, type Endgame, reachableEndgames } from '../endgame/endgame.js';
 import { LOCALES, LOCALE_NAMES, locale, setLocale, t } from '../i18n/index.js';
 
 type Promotion = 'q' | 'r' | 'b' | 'n';
@@ -502,6 +502,11 @@ export function mountApp(root: HTMLElement): void {
    * si imparerebbe a non vedere quella zona dello schermo.
    */
   const endgamesSeen = new Set<string>();
+  /**
+   * I finali ANNUNCIATI come raggiungibili, tenuti a parte da quelli raggiunti: averne
+   * annunciato uno non deve impedire, quando ci si arriva davvero, di dire che ci si e'.
+   */
+  const endgamesAnnounced = new Set<string>();
   /** Il finale da mostrare adesso, se c'e'. */
   let endgame: EndgameView | null = null;
 
@@ -1159,15 +1164,30 @@ export function mountApp(root: HTMLElement): void {
   function updateEndgame(): void {
     const found = classifyEndgame(currentFen(state));
     if (found) {
+      // Arrivati nel finale, la scheda dice che ci si e' — anche se era stato annunciato
+      // un attimo prima come raggiungibile. Prima l'annuncio lo segnava come "gia'
+      // visto", e dentro il finale restava la frase dell'annuncio: in una partita vera,
+      // per ventotto mosse di finale di Torri.
       if (!endgamesSeen.has(found.key)) {
         endgamesSeen.add(found.key);
         endgame = { endgame: found, entering: false };
       }
     } else {
-      const ahead = endgameAhead();
-      if (ahead && !endgamesSeen.has(ahead.key)) {
-        endgamesSeen.add(ahead.key);
-        endgame = { endgame: ahead, entering: true };
+      const ahead = endgamesAhead();
+      if (ahead) {
+        // L'occasione e' passata: la scheda che la annunciava si ritira da sola, invece
+        // di restare a parlare di un finale che da qui non si raggiunge piu'.
+        const shown = endgame;
+        if (shown?.entering && !ahead.some((reachable) => reachable.key === shown.endgame.key)) {
+          endgame = null;
+        }
+        const next = ahead.find(
+          (reachable) => !endgamesSeen.has(reachable.key) && !endgamesAnnounced.has(reachable.key),
+        );
+        if (next) {
+          endgamesAnnounced.add(next.key);
+          endgame = { endgame: next, entering: true };
+        }
       }
     }
     // La sfida si ricalcola ogni volta: la scheda compare appena si arriva nel finale,
@@ -1230,36 +1250,18 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /**
-   * Il finale tipico in cui si puo' entrare da qui con un cambio.
+   * I finali tipici raggiungibili con la prossima mossa (vedi `reachableEndgames`).
    *
-   * Si guardano le mosse legali e, per le catture, anche la ripresa avversaria sulla
-   * stessa casa: un cambio sono due semi-mosse, e fermarsi alla prima non vedrebbe il
-   * caso piu' comune di tutti. Restituisce il primo finale RICONOSCIUTO che si trova,
-   * senza dire con quale mossa: sapere che dietro l'angolo c'e' "torre e pedone contro
-   * torre" e' l'informazione utile, sapere quale mossa ci porta sarebbe la soluzione.
-   *
-   * Costa qualche centinaio di conteggi di pezzi, cioe' niente, e solo quando tocca
-   * all'utente muovere.
+   * null quando la domanda non ha senso — non tocca a chi gioca, o si sta guardando
+   * una posizione passata — e un elenco, anche vuoto, quando ce l'ha. La differenza
+   * serve: la scheda che annuncia un finale si ritira solo quando l'occasione e'
+   * davvero passata, non ogni volta che muove la Nonna.
    */
-  function endgameAhead(): Endgame | null {
+  function endgamesAhead(): readonly Endgame[] | null {
     if (state.cursor !== state.plies.length) return null;
     const chess = positionAt(state);
     if (chess.turn() !== humanColor || chess.isGameOver()) return null;
-    for (const move of chess.moves({ verbose: true })) {
-      const after = new Chess(currentFen(state));
-      after.move(move.san);
-      const direct = classifyEndgame(after.fen());
-      if (direct) return direct;
-      if (!move.captured) continue;
-      for (const reply of after.moves({ verbose: true })) {
-        if (reply.to !== move.to) continue;
-        const traded = new Chess(after.fen());
-        traded.move(reply.san);
-        const found = classifyEndgame(traded.fen());
-        if (found) return found;
-      }
-    }
-    return null;
+    return reachableEndgames(currentFen(state));
   }
 
   function renderOffer(): void {
@@ -3320,6 +3322,7 @@ export function mountApp(root: HTMLElement): void {
     offer = null;
     // Anche i finali gia' visti: appartengono alla partita, non alla sessione.
     endgamesSeen.clear();
+    endgamesAnnounced.clear();
     endgame = null;
     hint = null;
     beforeBotMove = null;

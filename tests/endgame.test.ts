@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyEndgame, countMaterial } from '../src/endgame/endgame.js';
+import { classifyEndgame, countMaterial, reachableEndgames } from '../src/endgame/endgame.js';
 
 describe('countMaterial', () => {
   it('distingue gli alfieri per colore di casa', () => {
@@ -69,5 +69,36 @@ describe('classifyEndgame', () => {
       expect(found?.resources.length).toBeGreaterThan(0);
       for (const resource of found!.resources) expect(resource.url).toMatch(/^https:\/\//);
     }
+  });
+});
+
+/**
+ * "Potresti arrivare a questo finale": solo se per arrivarci non si regala materiale.
+ *
+ * Nati da una partita vera, dove l'annuncio compariva nel momento sbagliato, e da una
+ * prova in cui un Alfiere dato per un pedone veniva chiamato "cambio".
+ */
+describe('reachableEndgames', () => {
+  const keys = (fen: string): string[] => reachableEndgames(fen).map((endgame) => endgame.key);
+
+  it('riprendere la Donna appena presa porta al finale di Torri', () => {
+    // Partita vera, prima di 48.Rxc6: la Nonna aveva appena giocato 47...Qxc6.
+    expect(keys('1r2k3/2p4p/2q5/4P1p1/1P3P2/1R4P1/7P/2R3K1 w - - 0 48')).toContain('egRooks');
+  });
+
+  it('un cambio alla pari, Cavallo per Alfiere, conta', () => {
+    expect(keys('r5k1/pp3ppp/2b5/8/3N4/8/PP3PPP/R5K1 w - - 0 1')).toContain('egRooks');
+  });
+
+  it("l'Alfiere dato per un pedone non e' un cambio", () => {
+    expect(keys('r5k1/6pp/8/8/8/3B4/8/R5K1 w - - 0 1')).toEqual([]);
+  });
+
+  it('la Torre data per un Cavallo difeso nemmeno', () => {
+    expect(keys('r5k1/pp3ppp/2n5/8/8/8/PP3PPP/2R3K1 w - - 0 1')).toEqual([]);
+  });
+
+  it("da un finale gia' raggiunto non annuncia niente", () => {
+    expect(keys('4r3/5ppp/8/8/8/8/5PPP/4RK1k w - - 0 1')).toEqual([]);
   });
 });
