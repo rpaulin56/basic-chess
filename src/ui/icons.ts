@@ -31,7 +31,8 @@ export type IconName =
   | 'person'
   | 'newGame'
   | 'world'
-  | 'replay';
+  | 'replay'
+  | 'eye';
 
 /**
  * Ogni icona e' il contenuto di un viewBox 24x24. Tratto e riempimento sono decisi
@@ -168,6 +169,13 @@ const PATHS: Record<IconName, string> = {
     '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />' +
     '<path d="M3 3v5h5" />' +
     '<path d="M10 9v6l5-3z" fill="currentColor" />',
+  // L'occhio della Nonna attenta: compare sul bilanciere SOLO quando lo e'.
+  //
+  // Occhio aperto contro palpebra abbassata era la prima idea, ma a dodici pixel la
+  // differenza sta in un paio di pixel e non si legge. C'e' o non c'e' si legge sempre.
+  eye:
+    '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />' +
+    '<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />',
   // Posizione: un foglio di testo.
   //
   // E' la terza versione di questa icona, e le prime due sbagliavano per motivi

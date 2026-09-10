@@ -2516,7 +2516,7 @@ export function mountApp(root: HTMLElement): void {
       // riga separata per starsene da solo. Per primo perche' viene prima: chi e'
       // decide come gioca, e solo dopo viene cosa dice.
       group(
-        iconButton('strength', t('opponentHelp'), false, openOpponentHelp),
+        strengthButton(),
         iconButton(
           tutorEnabled ? 'tutor' : 'tutorOff',
           tutorEnabled ? t('tutorOn') : t('tutorOff'),
@@ -2653,6 +2653,42 @@ export function mountApp(root: HTMLElement): void {
     element.append(createIcon(name));
     element.addEventListener('click', onClick);
     return element;
+  }
+
+  /**
+   * Il bilanciere, con sopra quanto e' forte la Nonna adesso.
+   *
+   * Il numero del livello nell'angolo, come i messaggi non letti: si legge a colpo
+   * d'occhio e risponde a "a che livello sto giocando?" senza aprire niente. E un occhio
+   * piccolo in basso, ma SOLO se e' attenta: la distinzione e' "c'e' o non c'e'", perche'
+   * aperto contro chiuso, a quella misura, non si distingue.
+   */
+  /**
+   * Rimette il bilanciere aggiornato al suo posto, e solo lui.
+   *
+   * Livello e attenzione si scelgono in un pannello che ridisegna se stesso e non la
+   * pagina, e cosi' il numero e l'occhio restavano quelli di prima fino alla mossa
+   * dopo: visto provandolo. Un `refresh` completo da li' non va bene — invalida le
+   * analisi in corso, e la Nonna potrebbe star pensando.
+   */
+  function updateStrengthButton(): void {
+    document.querySelector('.icon-btn.strength')?.replaceWith(strengthButton());
+  }
+
+  function strengthButton(): HTMLElement {
+    const button = iconButton('strength', t('opponentHelp'), false, openOpponentHelp);
+    button.classList.add('strength');
+    const badge = document.createElement('span');
+    badge.className = 'strength-level';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.textContent = level.id.replace(/^l/, '');
+    button.append(badge);
+    if (distraction.id === 'attento') {
+      const eye = createIcon('eye');
+      eye.classList.add('strength-eye');
+      button.append(eye);
+    }
+    return button;
   }
 
   /**
@@ -2949,6 +2985,7 @@ export function mountApp(root: HTMLElement): void {
       level = levelById(select.value);
       localStorage.setItem('basic-chess:level', level.id);
       onChange();
+      updateStrengthButton();
     });
     return select;
   }
@@ -2978,6 +3015,7 @@ export function mountApp(root: HTMLElement): void {
       distraction = distractionById(select.value);
       localStorage.setItem('basic-chess:distraction', distraction.id);
       onChange();
+      updateStrengthButton();
     });
     return select;
   }

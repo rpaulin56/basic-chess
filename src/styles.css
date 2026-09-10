@@ -284,6 +284,33 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   cursor: pointer;
 }
 .icon-btn:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+/* Il bilanciere porta il livello nell'angolo e, se la Nonna e' attenta, un occhio in
+   basso. Il colore segue il pulsante (currentColor), cosi' il passaggio del mouse li
+   tinge insieme all'icona. */
+.icon-btn.strength { position: relative; }
+.icon-btn .strength-level {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: currentColor;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+.icon-btn .strength-level::first-line { color: var(--panel); }
+.icon-btn svg.strength-eye {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.4;
+}
 .icon-btn:disabled { opacity: 0.3; cursor: default; }
 /* Il tutor acceso e' uno STATO, non un'azione: si vede senza doverci passare sopra. */
 .icon-btn.on { color: var(--accent); background: var(--accent-soft); }
