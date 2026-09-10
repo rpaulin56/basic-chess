@@ -12,13 +12,23 @@ describe('orientamento: il Re', () => {
   const keys = (fen: string, color: 'w' | 'b'): string[] =>
     orientPosition(fen, color).map((reason) => reason.key);
 
-  // Re bianco in g1 senza pedoni davanti; la Donna nera e' ancora in gioco.
-  const withQueen = '3qk3/pppppppp/8/8/8/8/8/6K1 w - - 0 1';
+  // Re bianco in g1 senza pedoni davanti, e la Donna nera sulla colonna g aperta.
+  const withQueen = '4k1q1/pppppppp/8/8/8/8/8/6K1 w - - 0 1';
   // Stessa idea, ma all'avversario resta solo un Cavallo: tre punti, sotto la soglia.
   const endgame = '4k3/8/5n2/8/8/8/5PPP/6K1 w - - 0 1';
 
   it('con la Donna in gioco, un Re scoperto e il tema', () => {
     expect(keys(withQueen, 'w')).toContain('orientKingExposed');
+  });
+
+  // Le due condizioni aggiunte dopo una partita vera, dove il consiglio scattava a ogni
+  // mossa in una posizione chiusa e senza Donne.
+  it('senza la Donna avversaria no, anche con due Torri e una colonna aperta', () => {
+    expect(keys('3rk2r/pppppppp/8/8/8/8/8/6K1 w - - 0 1', 'w')).not.toContain('orientKingExposed');
+  });
+
+  it('con la Donna ma senza una strada verso il Re, nemmeno', () => {
+    expect(keys('3qk3/pppppppp/8/8/8/8/8/6K1 w - - 0 1', 'w')).not.toContain('orientKingExposed');
   });
 
   it('con il solo Cavallo avversario, non lo e piu', () => {

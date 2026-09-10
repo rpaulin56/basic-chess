@@ -61,6 +61,10 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
     animation: { enabled: true, duration: 180 },
     highlight: { lastMove: true, check: true },
     movable: { free: false, showDests: true },
+    // Le PREMOSSE di chessground sono accese di default, e noi non le usiamo: quando
+    // tocca alla Nonna si poteva prendere un proprio pezzo e vederne le case, come se
+    // si potesse muovere. Non si puo', e la scacchiera non deve dire il contrario.
+    premovable: { enabled: false },
     drawable: { enabled: true, visible: true },
     events: { move: (orig, dest) => onMove(orig, dest) },
   });

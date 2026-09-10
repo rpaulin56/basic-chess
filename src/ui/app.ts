@@ -554,6 +554,9 @@ export function mountApp(root: HTMLElement): void {
         ? t('moves')
         : `${t('moves')} · ${moveNumberOf(state, state.plies.length - 1)}`;
     renderMoveList(movesEl, state, (cursor) => {
+      // Lo stesso blocco di `seek`, per la stessa ragione: la lista non passa di li', e
+      // un clic durante il verdetto spostava la partita sotto la Nonna. Visto provandolo.
+      if (review) return;
       state = goTo(state, cursor);
       evaluation = null;
       refresh();
@@ -695,8 +698,17 @@ export function mountApp(root: HTMLElement): void {
     const list = document.createElement('ul');
     for (const entry of mistakeLog) {
       const item = document.createElement('li');
-      item.className = wasCorrected(entry) ? 'recap-corrected' : '';
-      item.textContent = recapLine(entry, wasCorrected(entry));
+      // Finche' la Nonna aspetta la decisione la mossa e' ancora sulla scacchiera, e
+      // "mantenuta" era vero per il codice e falso per chi legge: sembrava di aver
+      // confermato senza aver premuto niente. Segnalato giocando — e il PGN di quella
+      // partita aveva tutte le mosse contestate annullate, nessuna mantenuta.
+      const pending = review !== null && entry.ply === state.plies.length - 1;
+      // E subito dopo "Annulla la mossa" e' annullata, anche se nel seguito c'e' ancora:
+      // `wasCorrected` la vede tale solo quando al suo posto se ne gioca un'altra, e fino
+      // a quel momento la riga diceva "mantenuta" proprio a chi l'aveva appena tolta.
+      const undone = wasCorrected(entry) || (retryAt === state.cursor && entry.ply === state.cursor);
+      item.className = !pending && undone ? 'recap-corrected' : '';
+      item.textContent = recapLine(entry, pending ? null : undone);
       list.append(item);
     }
     if (mistakeLog.length > 0) recapEl.append(list);
@@ -2116,6 +2128,7 @@ export function mountApp(root: HTMLElement): void {
       state = goTo(state, state.cursor + 1);
       replaying = true;
       evaluation = null;
+      retryAt = null;
       review = null;
       preview = null;
       refresh();
@@ -2205,6 +2218,8 @@ export function mountApp(root: HTMLElement): void {
     state = next;
     pendingReview = judgeable ? { before, fenBefore, fenAfter: currentFen(state) } : null;
     evaluation = null;
+    // Il ritiro e' concluso: c'e' una mossa nuova al suo posto.
+    retryAt = null;
     review = null;
     preview = null;
     refresh();
@@ -2282,8 +2297,16 @@ export function mountApp(root: HTMLElement): void {
       const number = moveNumberOf(state, Math.max(0, state.cursor - 1));
       const total = moveNumberOf(state, state.plies.length - 1);
       statusEl.className = 'status rewind';
+      // Da una posizione in cui tocca alla Nonna non si puo' giocare, e "gioca per
+      // riprendere da qui" invitava a una cosa impossibile.
+      const theirTurn = positionAt(state).turn() !== humanColor;
       statusEl.append(
-        text(retrying ? t('rewindRetry') : t('rewindNotice', { number, total }), 'rewind-text'),
+        text(
+          retrying
+            ? t('rewindRetry')
+            : t(theirTurn ? 'rewindNoticeTheirs' : 'rewindNotice', { number, total }),
+          'rewind-text',
+        ),
       );
       const back = document.createElement('button');
       back.type = 'button';
@@ -2474,7 +2497,11 @@ export function mountApp(root: HTMLElement): void {
         iconButton(
           tutorEnabled ? 'tutor' : 'tutorOff',
           tutorEnabled ? t('tutorOn') : t('tutorOff'),
-          false,
+          // Spento mentre la Nonna aspetta una decisione. Spegnerla li' TENEVA la mossa
+          // senza dirlo — lei spariva e la partita andava avanti — e il fumetto sta
+          // proprio accanto a "E adesso?", che in quel momento e' spento: il dito che
+          // cerca l'uno trova l'altro. La decisione deve essere esplicita.
+          review !== null,
           () => {
             tutorEnabled = !tutorEnabled;
             localStorage.setItem('basic-chess:tutor', tutorEnabled ? 'on' : 'off');
@@ -2499,8 +2526,10 @@ export function mountApp(root: HTMLElement): void {
       lineBreak(),
       separator(),
       group(
-        iconButton('previous', t('previous'), state.cursor === 0, () => seek(stepMove(-1))),
-        iconButton('next', t('next'), state.cursor >= state.plies.length, () =>
+        iconButton('previous', t('previous'), state.cursor === 0 || review !== null, () =>
+          seek(stepMove(-1)),
+        ),
+        iconButton('next', t('next'), state.cursor >= state.plies.length || review !== null, () =>
           seek(stepMove(1)),
         ),
       ),
@@ -3290,6 +3319,7 @@ export function mountApp(root: HTMLElement): void {
     endgame = null;
     hint = null;
     beforeBotMove = null;
+    retryAt = null;
     review = null;
     preview = null;
     forcedLine = null;
@@ -3336,6 +3366,18 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function seek(cursor: number): void {
+    /*
+     * Mentre la Nonna aspetta una decisione la partita non si sposta.
+     *
+     * Il verdetto parla dell'ULTIMA mossa, e "Annulla la mossa" toglie la semi-mossa
+     * prima del cursore: navigando nel frattempo — frecce, tastiera, un clic sulla
+     * lista — il cursore finiva altrove, e l'annullamento avrebbe tolto la mossa
+     * sbagliata. Un blocco solo qui copre tutte e tre le strade.
+     */
+    if (review) return;
+    // Navigando il ritiro e' finito, in un verso o nell'altro: tornare poi per caso
+    // proprio su quella posizione non deve riaccendere "ho tolto la tua mossa".
+    retryAt = null;
     // Navigare riapre una partita chiusa per accordo: l'abbandono e' reversibile
     // quanto una mossa ritirata.
     outcome = null;
@@ -3350,6 +3392,18 @@ export function mountApp(root: HTMLElement): void {
   // si ripercorre una partita per capire dove si e' sbagliato.
   document.addEventListener('keydown', (event) => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
+    // Con il diagramma delle conseguenze aperto le frecce scorrono QUELLO: e' il gesto
+    // naturale su PC, e prima spostava la partita sotto il verdetto.
+    if (preview && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+      const next = preview.index + (event.key === 'ArrowLeft' ? -1 : 1);
+      if (next >= -1 && next <= preview.consequence.manifestAt) {
+        stopPreviewAnimation();
+        preview = { ...preview, index: next };
+        refresh();
+      }
+      event.preventDefault();
+      return;
+    }
     if (event.key === 'ArrowLeft') seek(state.cursor - 1);
     else if (event.key === 'ArrowRight') seek(state.cursor + 1);
     else if (event.key === 'Home') seek(0);
@@ -3694,16 +3748,19 @@ const RECAP_CATEGORY: Record<string, string> = {
   strategico: 'headStrategico',
 };
 
-function recapLine(entry: MistakeEntry, corrected: boolean): string {
+/** `corrected` null: la decisione non e' ancora stata presa, e allora lo stato non si scrive. */
+function recapLine(entry: MistakeEntry, corrected: boolean | null): string {
   const number = `${entry.number}${entry.color === 'w' ? '.' : '...'}`;
-  return t('recapLine', {
+  const params = {
     number,
     san: toFigurine(entry.san),
     kind: entry.category ? t(RECAP_CATEGORY[entry.category] ?? 'headStrategico') : '—',
     severity: t(RECAP_SEVERITY[entry.severity] ?? 'tutorMistake'),
     what: `-${Math.round(entry.drop)}`,
-    state: t(corrected ? 'recapCorrected' : 'recapKept'),
-  });
+  };
+  return corrected === null
+    ? t('recapLinePending', params)
+    : t('recapLine', { ...params, state: t(corrected ? 'recapCorrected' : 'recapKept') });
 }
 
 

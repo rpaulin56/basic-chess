@@ -51,6 +51,12 @@ function attackingMaterial(fen: string, color: Color): number {
   return total;
 }
 
+function hasQueen(fen: string, color: Color): boolean {
+  return new Chess(fen)
+    .board()
+    .some((row) => row.some((square) => square !== null && square.color === color && square.type === 'q'));
+}
+
 /** Quanto dista il Re dal centro: 0 sulle quattro case centrali, 3 negli angoli. */
 function kingFromCentre(fen: string, color: Color): number {
   const chess = new Chess(fen);
@@ -75,8 +81,18 @@ export function orientPosition(fen: string, color: Color): readonly Explanation[
   // La sicurezza del re viene prima di qualunque piano: se e' scoperto, il piano e'
   // metterlo al sicuro. Ma SOLO se dall'altra parte c'e' con cosa attaccarlo: senza
   // questa condizione il consiglio scattava anche in finale, dove e' rovesciato.
-  const attack = attackingMaterial(fen, color === 'w' ? 'b' : 'w');
-  if (mine.kingShield <= 1 && attack >= ATTACK_ENOUGH) {
+  //
+  // E serve la DONNA nemica, e una STRADA verso il Re: una colonna aperta con sopra
+  // una Torre o la Donna avversaria, oppure almeno due case attorno al Re controllate.
+  // Con la sola soglia di materiale il consiglio scattava anche senza Donne, in
+  // posizioni chiuse dove nessuno poteva arrivare al Re: misurato su una partita vera,
+  // 34 volte su 34 mosse, fino alla mossa in cui era chi giocava a dare matto. Con le
+  // due condizioni, 3. Il posto lasciato libero lo prende quello che c'e' davvero da
+  // fare — spesso il pedone passato, o "fai partecipare il pezzo che non gioca".
+  const enemy: Color = color === 'w' ? 'b' : 'w';
+  const attack = attackingMaterial(fen, enemy);
+  const approach = mine.kingOpenFiles >= 1 || mine.kingAttackers >= 2;
+  if (mine.kingShield <= 1 && hasQueen(fen, enemy) && approach) {
     found.push({ key: 'orientKingExposed', params: {}, weight: 10 });
   }
   // Il contrario, e vale nello stesso momento in cui l'altro tace: finito il
