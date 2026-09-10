@@ -2314,7 +2314,11 @@ export function mountApp(root: HTMLElement): void {
       // Tornare alla fine, dopo un ritiro, vuol dire rimettere la mossa dov'era: e'
       // una scelta legittima ("ci ho ripensato, la tengo") e va detta con le sue
       // parole, non con quelle della navigazione.
-      back.textContent = retrying ? t('rewindRedo') : t('rewindBack');
+      // Da qui ha mosso la Nonna: la frase si chiude col punto, e "oppure" non avrebbe
+      // niente a cui contrapporsi — l'unica cosa da fare e' tornare alla fine.
+      back.textContent = retrying
+        ? t('rewindRedo')
+        : t(theirTurn ? 'rewindBackTheirs' : 'rewindBack');
       back.addEventListener('click', () => seek(state.plies.length));
       statusEl.append(back);
       return;
