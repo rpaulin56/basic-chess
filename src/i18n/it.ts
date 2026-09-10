@@ -236,9 +236,8 @@ export const it = {
   opponentHelp: 'Quanto forte vuoi la Nonna',
   opponentHelpTitle: 'Come scegliere',
   opponentHelpLevel: 'Il LIVELLO è quanto lontano vede la Nonna. A un livello basso, i suoi errori vengono da lì: non ha calcolato abbastanza avanti. Per batterla devi calcolare meglio di lei.',
-  opponentHelpCareful:
-    'ATTENTA non regala niente APPOSTA: i suoi errori vengono tutti da quanto lontano riesce a vedere. Ai livelli bassi vede poco, quindi sbaglia anche lei e magari perde anche dei pezzi, ma non per una svista banale.',
-  opponentHelpSloppy: 'DISTRATTA ogni tanto lascia un pezzo in presa. Ti può allenare a riconoscere gli errori di un avversario, ma non è così che puoi pensare di imparare a vincere.',
+  opponentHelpCareful: 'ATTENTA sbaglia come sbaglierebbe un giocatore del suo livello, ma mai per una svista.',
+  opponentHelpSloppy: 'DISTRATTA ogni tanto fa qualche errore in più, magari lascia un pezzo in presa. Ti può allenare a riconoscere gli errori avversari, ma non è così che puoi pensare di imparare a vincere.',
   opponentHelpElo: 'L’Elo accanto al livello è stimato, non esatto: ti dà solo un’idea.',
   resign: 'Abbandona',
   drawOffer: 'Offri la patta',

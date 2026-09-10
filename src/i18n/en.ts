@@ -237,9 +237,8 @@ export const en: Record<keyof typeof it, string> = {
   opponentHelp: 'How strong you want Grandma',
   opponentHelpTitle: 'How to choose',
   opponentHelpLevel: 'The LEVEL is how far ahead Grandma sees. At a low level her mistakes come from there: she did not calculate far enough. To beat her you have to calculate better than she does.',
-  opponentHelpCareful:
-    'FOCUSED gives nothing away ON PURPOSE: every mistake she makes comes from how far ahead she can see. At the low levels she sees little, so she goes wrong too and may well lose pieces, but never through a plain oversight.',
-  opponentHelpSloppy: 'DISTRACTED leaves a piece hanging now and then. It can train you to spot an opponent’s mistakes, but it is not how you learn to win.',
+  opponentHelpCareful: 'FOCUSED makes mistakes the way a player at her level would, but never through an oversight.',
+  opponentHelpSloppy: 'DISTRACTED makes a few more mistakes now and then, and may leave a piece hanging. It can train you to spot an opponent’s mistakes, but it is not how you learn to win.',
   opponentHelpElo: 'The Elo next to the level is an estimate, not an exact figure: it only gives you an idea.',
   resign: 'Resign',
   drawOffer: 'Offer a draw',
