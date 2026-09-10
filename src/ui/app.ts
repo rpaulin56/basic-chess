@@ -590,7 +590,7 @@ export function mountApp(root: HTMLElement): void {
     renderPreviewControls();
     renderTutorPanel(
       tutorEl,
-      review ? { ...review, previewing: preview !== null } : null,
+      review ? { ...review, previewing: preview !== null, orientation, humanColor } : null,
       {
       onTakeBack: () => {
         // Si toglie una sola semi-mossa: il bot non ha ancora risposto, perche' il

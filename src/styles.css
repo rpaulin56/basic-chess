@@ -458,6 +458,14 @@ select {
 .tutor h2 { color: var(--ink); font-size: 14px; text-transform: none; letter-spacing: 0; }
 .tutor p { margin: 0 0 6px; font-size: 14px; }
 .tutor .tutor-best { font-weight: 600; }
+/* Il testo a sinistra, le barrette dell'aspettativa a destra. */
+.tutor-body { display: flex; gap: 12px; align-items: flex-start; }
+.tutor-text { flex: 1 1 auto; min-width: 0; }
+.tutor-bars { flex: none; display: flex; align-items: center; gap: 4px; padding-top: 2px; }
+.tutor-bars-arrow { font-size: 12px; color: var(--ink-soft); }
+/* La barra grande in piccolo: stesse classi, stessi colori, senza animazione. */
+.eval-bar.mini { width: 10px; height: 44px; }
+.eval-bar.mini .eval-fill { transition: none; }
 .tutor .tutor-note { font-size: 13px; color: var(--ink-soft); margin: 0 0 6px; }
 .tutor-blunder { border-left-color: #b23c2e; }
 .tutor-blunder h2 { color: #b23c2e; }

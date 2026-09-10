@@ -1,8 +1,8 @@
-import type { MistakeVerdict } from '../tutor/detect.js';
+import { kindOf, type MistakeVerdict } from '../tutor/detect.js';
 import type { Consequence, LostPiece } from '../tutor/classify.js';
 import type { Explanation } from '../tutor/positional.js';
 import { toFigurine } from '../core/notation.js';
-import { locale, t } from '../i18n/index.js';
+import { t } from '../i18n/index.js';
 
 /**
  * Il pannello del tutor.
@@ -49,6 +49,10 @@ export interface TutorPanelState {
    * importante: allora questo non e' solo un tuo errore, e' un'occasione mancata.
    */
   readonly missedChance: boolean;
+  /** Come e' girata la scacchiera: le barrette si orientano come la barra grande. */
+  readonly orientation: 'white' | 'black';
+  /** Il colore di chi gioca, perche' l'aspettativa del verdetto e' la SUA. */
+  readonly humanColor: 'w' | 'b';
 }
 
 const SEVERITY_LABEL = {
@@ -61,6 +65,13 @@ const CROSSING_LABEL = {
   winToLoss: 'crossWinToLoss',
   winToDraw: 'crossWinToDraw',
   drawToLoss: 'crossDrawToLoss',
+} as const;
+
+/** Quando la mossa non cambia fascia: eri li', e ci resti peggio. */
+const STAY_LABEL = {
+  win: 'stayWin',
+  draw: 'stayDraw',
+  loss: 'stayLoss',
 } as const;
 
 /**
@@ -131,12 +142,15 @@ export function renderTutorPanel(
     lines.push(describe(consequence));
     if (consequence.category === 'strategico') lines.push(t('posNothing'));
   }
-  if (verdict.crossing) lines.push(t(CROSSING_LABEL[verdict.crossing]));
+  // Dove eri e dove finisci, detto a parole e SEMPRE: una sola frase fra sei.
+  //
+  // Prima c'erano due righe — il passaggio di fascia quando c'era, e sempre
+  // "l'aspettativa di vittoria scende dall'80% al 63%" — e la seconda era tecnica e
+  // macchinosa, oltre a costare in italiano un codice apposta per scegliere fra "al",
+  // "allo" e "all'". Il numero non e' sparito: sta nelle barrette qui accanto, che sono
+  // la barra grande in piccolo. La gravita' non si ripete: la dice gia' il titolo.
   lines.push(
-    t('tutorWinChange', {
-      before: Math.round(verdict.winPercentBefore),
-      to: toPercent(Math.round(verdict.winPercentAfter)),
-    }),
+    t(verdict.crossing ? CROSSING_LABEL[verdict.crossing] : STAY_LABEL[kindOf(verdict.winPercentBefore)]),
   );
   // Quante alternative andavano bene orienta la ricerca: se erano cinque, la mossa
   // giusta non era nascosta e vale la pena ripensarci.
@@ -146,11 +160,17 @@ export function renderTutorPanel(
       : t('tutorAlternatives', { count: verdict.betterAlternatives }),
   );
 
+  const body = document.createElement('div');
+  body.className = 'tutor-body';
+  const text = document.createElement('div');
+  text.className = 'tutor-text';
   for (const line of lines) {
     const paragraph = document.createElement('p');
     paragraph.textContent = line;
-    container.append(paragraph);
+    text.append(paragraph);
   }
+  body.append(text, expectancyBars(verdict, state.orientation, state.humanColor));
+  container.append(body);
 
   if (betterSans && betterSans.length > 0) {
     const best = document.createElement('p');
@@ -240,18 +260,43 @@ function action(label: string, onClick: () => void, className = '', title = ''):
 }
 
 /**
- * "al 64%", "allo 0%", "all'8%".
+ * L'aspettativa prima e dopo la mossa, come due barre grandi in piccolo.
  *
- * In italiano l'articolo davanti a un numero dipende da come il numero si PRONUNCIA:
- * "lo zero", "l'uno", "l'otto", "l'undici", "l'ottanta". Scrivere sempre "al" produce
- * "al 0%", che nessuno direbbe. In inglese il problema non esiste e si usa "to"; in
- * francese "a'", con lo spazio stretto che non va a capo prima del simbolo, come vuole
- * la tipografia francese.
+ * Orientate come la barra accanto alla scacchiera — il pieno in basso e' il colore che
+ * sta in basso — perche' chi ha imparato a leggere quella legga queste senza pensarci.
+ * Proposta dell'autore, e l'orientamento e' la parte su cui e' stato piu' netto.
+ *
+ * Il numero esatto resta nel suggerimento: chi lo cerca lo trova, chi gioca non deve
+ * leggerlo.
  */
-function toPercent(value: number): string {
-  if (locale() === 'fr') return `à ${value}\u202F%`;
-  if (locale() !== 'it') return `to ${value}%`;
-  if (value === 0) return `allo ${value}%`;
-  const vowelStart = [1, 8, 11, 18].includes(value) || (value >= 80 && value <= 89);
-  return vowelStart ? `all’${value}%` : `al ${value}%`;
+function expectancyBars(
+  verdict: MistakeVerdict,
+  orientation: 'white' | 'black',
+  humanColor: 'w' | 'b',
+): HTMLElement {
+  const before = Math.round(verdict.winPercentBefore);
+  const after = Math.round(verdict.winPercentAfter);
+  const wrap = document.createElement('div');
+  wrap.className = 'tutor-bars';
+  const label = t('tutorBarsTitle', { before, after });
+  wrap.title = label;
+  wrap.setAttribute('role', 'img');
+  wrap.setAttribute('aria-label', label);
+  // Il verdetto parla per chi ha mosso; la barra per il colore che sta IN BASSO.
+  const mineAtBottom = (orientation === 'white') === (humanColor === 'w');
+  const bar = (percent: number): HTMLElement => {
+    const element = document.createElement('div');
+    element.className = `eval-bar mini ${orientation === 'white' ? 'light' : 'dark'}`;
+    const fill = document.createElement('div');
+    fill.className = 'eval-fill';
+    fill.style.height = `${mineAtBottom ? percent : 100 - percent}%`;
+    element.append(fill);
+    return element;
+  };
+  const arrow = document.createElement('span');
+  arrow.className = 'tutor-bars-arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  arrow.textContent = '→';
+  wrap.append(bar(before), arrow, bar(after));
+  return wrap;
 }

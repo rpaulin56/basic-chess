@@ -92,7 +92,7 @@ export const DEFAULT_OPTIONS: DetectOptions = {
 const WINNING_FROM = 70;
 const LOSING_BELOW = 30;
 
-function kindOf(winPercent: number): 'win' | 'draw' | 'loss' {
+export function kindOf(winPercent: number): 'win' | 'draw' | 'loss' {
   if (winPercent >= WINNING_FROM) return 'win';
   if (winPercent <= LOSING_BELOW) return 'loss';
   return 'draw';
