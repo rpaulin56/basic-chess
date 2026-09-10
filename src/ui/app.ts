@@ -293,13 +293,28 @@ export function mountApp(root: HTMLElement): void {
     missedChance: boolean;
     /** Posizione da cui parte la confutazione: serve a ricostruire il diagramma. */
     fenAfterMistake: string;
+    /** La posizione in cui si e' deciso, e la mossa decisa: il primo fotogramma. */
+    fenBeforeMistake: string;
+    mistakeMove: readonly [string, string];
   } | null = null;
   /**
    * Riproduzione della confutazione sulla scacchiera principale. Non apriamo una
    * seconda scacchiera: la stessa, in sola lettura, con le frecce e uno slider.
    * Rivedere la sequenza mossa per mossa insegna piu' della singola immagine finale.
    */
-  let preview: { consequence: Consequence; index: number; fenAfterMistake: string } | null = null;
+  /**
+   * `index` conta le semi-mosse della confutazione gia' avvenute. Parte da -1, che e'
+   * la posizione PRIMA della mossa sbagliata; 0 e' subito dopo.
+   */
+  let preview: {
+    consequence: Consequence;
+    index: number;
+    fenAfterMistake: string;
+    fenBeforeMistake: string;
+    mistakeMove: readonly [string, string];
+  } | null = null;
+  /** Il passo automatico della riproduzione; null quando e' ferma. */
+  let previewTimer: number | null = null;
   /**
    * La confutazione che il bot deve eseguire davvero.
    *
@@ -521,6 +536,9 @@ export function mountApp(root: HTMLElement): void {
   function refresh(): void {
     generation++;
     saveGame();
+    // Qualunque strada abbia chiuso il diagramma — nuova partita, ritiro, importazione
+    // — la riproduzione non deve continuare a girare su una posizione che non c'e'.
+    if (!preview) stopPreviewAnimation();
     if (preview) renderPreview();
     // A partita chiusa per accordo la scacchiera e' in sola lettura: la posizione
     // permette ancora di muovere, ma la partita no.
@@ -616,17 +634,32 @@ export function mountApp(root: HTMLElement): void {
       },
       onShowConsequence: () => {
         if (!review?.consequence) return;
-        // Si parte dalla FINE: la domanda dell'utente e' "cosa succede", e la
-        // risposta e' la posizione che manifesta il danno. Lo slider serve poi a
-        // tornare indietro e capire COME ci si arriva.
+        /*
+         * Si parte da PRIMA della mossa sbagliata, e la sequenza si gioca da sola.
+         *
+         * Prima si partiva dalla fine: la domanda e' "cosa succede", e la posizione
+         * finale con tutte le frecce e' la risposta. Ma con otto semi-mosse le frecce
+         * sono otto, si incrociano, e chi guarda deve ricostruire a mente l'ordine in
+         * cui sono avvenute — cioe' proprio la cosa che non sa fare, altrimenti non
+         * avrebbe sbagliato. Segnalato giocando.
+         *
+         * Un passo al secondo: abbastanza lento da seguire il pezzo che si muove,
+         * abbastanza svelto da non annoiare su una variante lunga. E si FINISCE sulla
+         * posizione con tutte le frecce, che resta il riassunto giusto — solo che ora
+         * la si guarda dopo aver visto come ci si arriva.
+         */
         preview = {
           consequence: review.consequence,
-          index: review.consequence.manifestAt,
+          index: -1,
           fenAfterMistake: review.fenAfterMistake,
+          fenBeforeMistake: review.fenBeforeMistake,
+          mistakeMove: review.mistakeMove,
         };
+        startPreviewAnimation();
         refresh();
       },
       onClosePreview: () => {
+        stopPreviewAnimation();
         preview = null;
         refresh();
       },
@@ -1442,11 +1475,43 @@ export function mountApp(root: HTMLElement): void {
 
   // --- diagramma della conseguenza ---------------------------------------
 
-  /** Posizione raggiunta dopo `index` semi-mosse della confutazione. */
-  function previewPosition(index: number): { fen: string; lastMove?: [string, string] } {
+  /**
+   * Il passo automatico. Chi ha chiesto al sistema operativo di ridurre le animazioni
+   * vede subito la posizione finale, come prima: una scacchiera che si muove da sola
+   * e' esattamente cio' che ha chiesto di evitare.
+   */
+  function startPreviewAnimation(): void {
+    stopPreviewAnimation();
+    if (!preview) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      preview = { ...preview, index: preview.consequence.manifestAt };
+      return;
+    }
+    previewTimer = window.setInterval(() => {
+      if (!preview || preview.index >= preview.consequence.manifestAt) {
+        stopPreviewAnimation();
+        return;
+      }
+      preview = { ...preview, index: preview.index + 1 };
+      if (preview.index >= preview.consequence.manifestAt) stopPreviewAnimation();
+      refresh();
+    }, 1000);
+  }
+
+  function stopPreviewAnimation(): void {
+    if (previewTimer === null) return;
+    window.clearInterval(previewTimer);
+    previewTimer = null;
+  }
+
+  /** Posizione raggiunta dopo `index` semi-mosse della confutazione (-1: prima dell'errore). */
+  function previewPosition(index: number): { fen: string; lastMove?: readonly [string, string] } {
     if (!preview) return { fen: currentFen(state) };
+    if (index < 0) return { fen: preview.fenBeforeMistake };
     const chess = new Chess(preview.fenAfterMistake);
-    let lastMove: [string, string] | undefined;
+    // Subito dopo l'errore l'ultima mossa evidenziata e' la TUA: e' il fotogramma che
+    // lega la posizione di prima a quello che succede dopo.
+    let lastMove: readonly [string, string] | undefined = preview.mistakeMove;
     for (const uci of preview.consequence.line.slice(0, index)) {
       chess.move({
         from: uci.slice(0, 2),
@@ -1465,7 +1530,9 @@ export function mountApp(root: HTMLElement): void {
     // slider il percorso si costruisce sotto gli occhi invece di comparire tutto
     // insieme alla fine.
     const arrows =
-      preview.index === preview.consequence.manifestAt
+      preview.index < 0
+        ? []
+        : preview.index === preview.consequence.manifestAt
         ? preview.consequence.arrows
         : transportArrows(preview.fenAfterMistake, preview.consequence.line.slice(0, preview.index));
     board.renderPosition(fen, orientation, arrows, lastMove as [never, never] | undefined);
@@ -1481,15 +1548,17 @@ export function mountApp(root: HTMLElement): void {
     const total = preview.consequence.manifestAt;
     const stepPossible = (delta: number): boolean => {
       const next = (preview?.index ?? 0) + delta;
-      return next >= 0 && next <= total;
+      return next >= -1 && next <= total;
     };
 
     const caption = document.createElement('span');
     caption.className = 'preview-caption';
     caption.textContent =
-      preview.index === 0
-        ? t('previewStart')
-        : t('previewCaption', { index: preview.index, total });
+      preview.index < 0
+        ? t('previewBefore')
+        : preview.index === 0
+          ? t('previewStart')
+          : t('previewCaption', { index: preview.index, total });
     const moves = document.createElement('span');
     moves.className = 'preview-moves';
     moves.textContent = preview.consequence.san
@@ -1503,6 +1572,9 @@ export function mountApp(root: HTMLElement): void {
     const step = (delta: number, name: IconName, label: string): HTMLElement =>
       iconButton(name, label, !stepPossible(delta), () => {
         if (!preview) return;
+        // Chi preme una freccia vuole guidare lui: la riproduzione si ferma e non
+        // riparte, altrimenti il passo successivo gli strapperebbe la posizione.
+        stopPreviewAnimation();
         preview = { ...preview, index: preview.index + delta };
         refresh();
       });
@@ -1719,6 +1791,8 @@ export function mountApp(root: HTMLElement): void {
         betterSans: null,
         missedChance: afterOpponentError,
         fenAfterMistake: pending.fenAfter,
+        fenBeforeMistake: pending.fenBefore,
+        mistakeMove: [state.plies[state.plies.length - 1]!.from, state.plies[state.plies.length - 1]!.to],
       };
       // Il richiamo suona QUI, dove la Nonna prende la parola, e non a ogni ridisegno
       // del pannello: il pannello si ridisegna anche quando si cambia lingua o si
