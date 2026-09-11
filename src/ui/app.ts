@@ -1910,10 +1910,15 @@ export function mountApp(root: HTMLElement): void {
       reviewSuspicious = true;
       renderStatus();
     }
+    // L'analisi fatta mentre si pensava puo' essere arrivata DURANTE il controllo
+    // veloce: si guarda quella di adesso, non quella del momento della mossa. Visto
+    // nella diagnostica di un tablet: mossa giocata mentre la ricerca finiva, e
+    // quattordici secondi per rifarla.
+    const ready = deepAnalysis?.fen === pending.fenBefore ? deepAnalysis : pending.before;
     const before = !suspicious
       ? quickBefore
-      : pending.before && pending.before.depth >= REVIEW_DEPTH
-        ? pending.before
+      : ready && ready.depth >= REVIEW_DEPTH
+        ? ready
         : await fullAnalysis(pending.fenBefore);
     if (!before) {
       refresh();

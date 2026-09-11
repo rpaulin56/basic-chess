@@ -117,6 +117,18 @@ const HORIZON = 8;
 /** Sotto questa perdita (in pedoni) non si parla di errore materiale. */
 const MATERIAL_THRESHOLD = 1;
 
+/**
+ * Quanto deve valere un recupero perche' sposti il momento della perdita.
+ *
+ * Un pezzo leggero. Il caso da proteggere e' il Cavallo perso alla prima semi-mossa e
+ * ripagato con un pezzo tre semi-mosse dopo: li' il conto vero e' un pedone, e fermare
+ * il diagramma alla prima cattura direbbe il falso. Un pedone guadagnato di passaggio e
+ * poi riperso su un'altra casa invece non cambia la storia: in una partita vera, dopo
+ * 10.Bxe6? fxe6, un pedone cosi' faceva annunciare "tra quattro mosse perdi l'Alfiere"
+ * per un Alfiere perso alla prima risposta.
+ */
+const RECOVERY_THAT_COUNTS = 3;
+
 
 /**
  * Dove la variante e' "assestata", cioe' dove ha senso contare il materiale.
@@ -158,7 +170,13 @@ function manifestIndex(
     if (balances[i] !== final) continue;
     // Dev'essere il punto in cui la situazione si stabilizza, non un passaggio: da
     // qui in poi il bilancio non deve piu' risalire sopra il valore finale.
-    if (balances.slice(i, settled + 1).every((balance, k) => transient[i + k] === true || balance <= final)) return i;
+    if (
+      balances
+        .slice(i, settled + 1)
+        .every((balance, k) => transient[i + k] === true || balance - final < RECOVERY_THAT_COUNTS)
+    ) {
+      return i;
+    }
   }
   return settled;
 }
@@ -218,7 +236,23 @@ export function classifyConsequence(
   });
 
   const start = balances[0]!;
-  const settledAt = settledIndex(line.length);
+  let settledAt = settledIndex(line.length);
+  // Il conto non si chiude a meta' di un cambio. Se l'ultima semi-mossa contata e' una
+  // cattura e la variante del motore prosegue riprendendo sulla stessa casa, si conta
+  // prima di quella cattura. settledIndex si ferma gia' dopo le catture dell'avversario;
+  // qui si copre il caso opposto, la cattura di chi ha sbagliato con la ripresa appena
+  // oltre l'orizzonte. Visto su 10.Bxe6?: all'ottava semi-mossa Bxf4, alla nona gxf4, e
+  // il saldo risultava pari — "errore strategico" per un Alfiere perso.
+  const lastCounted = played[settledAt - 1];
+  const nextInLine = refutation[settledAt];
+  if (
+    settledAt === line.length &&
+    lastCounted?.captured === true &&
+    nextInLine !== undefined &&
+    nextInLine.slice(2, 4) === lastCounted.to
+  ) {
+    settledAt -= 1;
+  }
   const materialLoss = start - balances[settledAt]!;
 
   // Dove si manifesta: il momento in cui "si capisce", non la fine della variante.
@@ -241,7 +275,12 @@ export function classifyConsequence(
   // arriva invece fino alla posizione assestata, altrimenti una ricattura che avviene
   // una semi-mossa dopo resterebbe fuori e uno scambio sembrerebbe una perdita secca.
   const { arrows } = replay(fenAfterMistake, line.slice(0, manifestAt));
-  const { lost, won } = replay(fenAfterMistake, line.slice(0, Math.max(manifestAt, settledAt)));
+  // Se al momento in cui si vede il danno e' gia' tutto quello finale, si nominano i
+  // pezzi persi fino li': un cambio alla pari piu' avanti non deve far dire "perdi
+  // l'Alfiere in e3" per un Alfiere perso in e6.
+  const countedUpTo =
+    balances[manifestAt] === balances[settledAt] ? manifestAt : Math.max(manifestAt, settledAt);
+  const { lost, won } = replay(fenAfterMistake, line.slice(0, countedUpTo));
   const { kind: lossKind, named } = describeLoss(lost, won, materialLoss);
 
   return {

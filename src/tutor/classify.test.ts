@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Chess } from 'chess.js';
 import { classifyConsequence, transportArrows } from './classify.js';
 
 /**
@@ -216,5 +217,39 @@ describe('un cambio in corso non e\' un recupero', () => {
     const consequence = classifyConsequence(fen, line);
     expect(consequence?.category).toBe('banale');
     expect(consequence?.manifestAt).toBe(1);
+  });
+});
+
+/**
+ * Un Alfiere perso alla prima risposta si vede alla prima risposta.
+ *
+ * Partita vera: 1.d4 d5 2.Nf3 e6 3.c4 h6 4.Bf4 Be7 5.Nc3 dxc4 6.e4 Nd7 7.Bxc4 g5 8.O-O c6
+ * 9.Be3 Ngf6 10.Bxe6? fxe6. Il tutor annunciava "tra quattro mosse perdi l'Alfiere", e in
+ * un'altra variante del motore addirittura "errore strategico".
+ */
+describe('una perdita subita resta subita', () => {
+  const game = new Chess();
+  for (const san of 'd4 d5 Nf3 e6 c4 h6 Bf4 Be7 Nc3 dxc4 e4 Nd7 Bxc4 g5 O-O c6 Be3 Ngf6 Bxe6'.split(' ')) {
+    game.move(san);
+  }
+  const AFTER_BXE6 = game.fen();
+
+  it('non chiude il conto a meta\' di un cambio, oltre l\'orizzonte', () => {
+    // All'ottava semi-mossa Bxf4, e la ripresa gxf4 e' la nona.
+    const result = classifyConsequence(AFTER_BXE6, [
+      'f7e6', 'd1c2', 'f6h5', 'e4e5', 'd7f8', 'a1d1', 'h5f4', 'e3f4', 'g5f4',
+    ]);
+    expect(result!.category).toBe('banale');
+    expect(result!.manifestAt).toBe(1);
+    expect(result!.materialLoss).toBe(3);
+    expect(result!.lost.map((piece) => `${piece.type}${piece.square}`)).toEqual(['be6']);
+  });
+
+  it('un pedone guadagnato di passaggio non sposta il momento della perdita', () => {
+    // Dopo fxe6, Bxg5 prende un pedone e Nxe4 ne riprende un altro su un'altra casa.
+    const result = classifyConsequence(AFTER_BXE6, ['f7e6', 'e3g5', 'f6e4']);
+    expect(result!.category).toBe('banale');
+    expect(result!.manifestAt).toBe(1);
+    expect(result!.materialLoss).toBe(3);
   });
 });
