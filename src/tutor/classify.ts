@@ -91,6 +91,21 @@ export interface Consequence {
    * interessa quale pedone ha perso per strada.
    */
   readonly matesIn: number | null;
+  /**
+   * Il materiale che la mossa migliore avrebbe tenuto e che la mossa giocata ha lasciato
+   * andare, quando lungo la confutazione non si perde niente (vedi `classifyAgainstBest`).
+   * Assente in tutti gli altri casi.
+   */
+  readonly missed?: MissedMaterial;
+}
+
+export interface MissedMaterial {
+  /** Il pezzo che manca alla fine dello scambio; null quando resta solo un saldo. */
+  readonly piece: LostPiece['type'] | null;
+  /** Quanti pedoni in meno rispetto alla mossa migliore. */
+  readonly points: number;
+  /** Vero se alla fine dello scambio si e' davvero sotto di materiale sulla scacchiera. */
+  readonly behind: boolean;
 }
 
 const VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -449,4 +464,106 @@ export function replay(
     arrows.push({ orig: piece.square, dest: piece.square, brush: 'yellow' });
   }
   return { arrows, lost, won };
+}
+
+type PieceType = LostPiece['type'];
+
+/** I pezzi sulla scacchiera, per tipo, di un colore. */
+function pieceCounts(fen: string, color: 'w' | 'b'): Record<PieceType, number> {
+  const counts: Record<PieceType, number> = { p: 0, n: 0, b: 0, r: 0, q: 0 };
+  for (const row of new Chess(fen).board()) {
+    for (const square of row) {
+      if (square && square.color === color && square.type !== 'k') counts[square.type as PieceType]++;
+    }
+  }
+  return counts;
+}
+
+/**
+ * Una variante giocata fino alla posizione "assestata", con le stesse regole di
+ * classifyConsequence: orizzonte, niente conto chiuso a meta' di un cambio.
+ */
+function settleLine(
+  fen: string,
+  line: readonly string[],
+  color: 'w' | 'b',
+): { balance: number; won: PieceType[]; lost: PieceType[]; lastCapture: number } {
+  const chess = new Chess(fen);
+  const balances: number[] = [materialBalance(chess, color)];
+  const captures: { to: string; type: PieceType | null; mine: boolean }[] = [];
+  for (const uci of line.slice(0, HORIZON)) {
+    let move;
+    try {
+      move = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}) });
+    } catch {
+      break;
+    }
+    captures.push({ to: move.to, type: (move.captured as PieceType | undefined) ?? null, mine: move.color === color });
+    balances.push(materialBalance(chess, color));
+  }
+  let settled = settledIndex(captures.length);
+  const last = captures[settled - 1];
+  const next = line[settled];
+  if (settled === captures.length && last?.type && next !== undefined && next.slice(2, 4) === last.to) settled -= 1;
+  const won: PieceType[] = [];
+  const lost: PieceType[] = [];
+  let lastCapture = 0;
+  captures.slice(0, settled).forEach((capture, index) => {
+    if (!capture.type) return;
+    (capture.mine ? won : lost).push(capture.type);
+    lastCapture = index + 1;
+  });
+  return { balance: balances[settled]!, won, lost, lastCapture };
+}
+
+/**
+ * La conseguenza, confrontata anche con la mossa MIGLIORE.
+ *
+ * classifyConsequence conta il materiale perso DOPO la mossa sbagliata. Non vede
+ * l'occasione mancata: in una partita vera un Cavallo era gia' stato preso, 17.Bxa5
+ * prendeva la Donna e lo riprendeva, 17.Qxf7+?? scambiava le Donne e lo lasciava
+ * andare. Lungo la confutazione il conto era pari, e il verdetto diceva "errore
+ * strategico" con ragioni di mobilita' — a posizione pari, per un pezzo lasciato sulla
+ * scacchiera.
+ *
+ * Qui, se la mossa migliore teneva almeno un pedone in piu' e la conseguenza sarebbe
+ * "strategica", l'errore diventa tattico e porta con se' cosa manca alla fine dello
+ * scambio; il diagramma si ferma all'ultima cattura, dove lo scambio finisce.
+ */
+export function classifyAgainstBest(
+  fenBefore: string,
+  bestLine: readonly string[],
+  fenAfterMistake: string,
+  refutation: readonly string[],
+): Consequence | null {
+  const base = classifyConsequence(fenAfterMistake, refutation);
+  if (!base || base.category !== 'strategico' || base.matesIn !== null || bestLine.length === 0) return base;
+  const mover = new Chess(fenBefore).turn();
+  const opponent = mover === 'w' ? 'b' : 'w';
+  const start = materialBalance(new Chess(fenBefore), mover);
+  const best = settleLine(fenBefore, bestLine, mover);
+  const played = settleLine(fenAfterMistake, refutation, mover);
+  const points = best.balance - start - (played.balance - start);
+  if (points < MATERIAL_THRESHOLD) return base;
+
+  // Cosa manca, per tipo: quello che la linea migliore teneva al netto di quella giocata,
+  // contando anche il pezzo preso dalla mossa sbagliata stessa.
+  const net: Record<PieceType, number> = { p: 0, n: 0, b: 0, r: 0, q: 0 };
+  for (const type of best.won) net[type]++;
+  for (const type of best.lost) net[type]--;
+  const beforeCounts = pieceCounts(fenBefore, opponent);
+  const afterCounts = pieceCounts(fenAfterMistake, opponent);
+  for (const type of ['p', 'n', 'b', 'r', 'q'] as const) net[type] -= beforeCounts[type] - afterCounts[type];
+  for (const type of played.won) net[type]--;
+  for (const type of played.lost) net[type]++;
+  // Il pezzo piu' pesante che manca, se quello che resta oltre lui vale meno di un pezzo
+  // leggero: "un Cavallo in meno", anche se per strada si e' preso un pedone.
+  const heaviest = (['q', 'r', 'b', 'n', 'p'] as const).find((type) => net[type] > 0) ?? null;
+  const piece =
+    heaviest !== null && Math.abs(points - (VALUE[heaviest] ?? 0)) < RECOVERY_THAT_COUNTS ? heaviest : null;
+  const missed: MissedMaterial = { piece, points, behind: played.balance < 0 };
+
+  const shown =
+    played.lastCapture > 0 ? (classifyConsequence(fenAfterMistake, refutation.slice(0, played.lastCapture)) ?? base) : base;
+  return { ...shown, category: 'tattico', missed };
 }

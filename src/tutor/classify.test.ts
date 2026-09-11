@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Chess } from 'chess.js';
-import { classifyConsequence, transportArrows } from './classify.js';
+import { classifyConsequence, transportArrows, classifyAgainstBest } from './classify.js';
 
 /**
  * I casi di prova vengono da una partita vera dell'utente (quella con il pedone in
@@ -264,5 +264,27 @@ describe('una perdita piccola dopo quella grossa non sposta il momento', () => {
     expect(result!.category).toBe('banale');
     expect(result!.manifestAt).toBe(1);
     expect(result!.lost.map((piece) => `${piece.type}${piece.square}`)).toEqual(['qf7']);
+  });
+});
+
+/**
+ * L'occasione mancata. Partita vera (Pirc, livello 4 attenta): dopo 16...Nxd5 il Bianco
+ * ha gia' un Cavallo in meno, ma 17.Bxa5 Nxf4 Nxf4 lo riprende. 17.Qxf7+?? Kxf7 Bxa5
+ * scambia le Donne e prende un pedone, e il Cavallo resta perso: prima il tutor diceva
+ * "errore strategico".
+ */
+describe('lo scambio che lascia un pezzo in meno', () => {
+  it('alla fine dello scambio ti trovi con un Cavallo in meno', () => {
+    const game = new Chess();
+    const moves =
+      'd4 d6 e4 Nf6 Bd3 g6 Nc3 Nbd7 Bd2 c6 Qf3 Bg7 Nge2 a6 O-O-O Qc7 Bf4 c5 dxc5 Qxc5 Be3 Qb4 a3 Qa5 Nd5 Ne5 Qf4 b5 Bb6 Nxd3+ Rxd3 Nxd5';
+    for (const san of moves.split(' ')) game.move(san);
+    const before = game.fen();
+    game.move('Qxf7+');
+    const after = game.fen();
+    const result = classifyAgainstBest(before, ['b6a5', 'd5f4', 'e2f4'], after, ['e8f7', 'b6a5', 'd5f6']);
+    expect(result!.category).toBe('tattico');
+    expect(result!.missed).toEqual({ piece: 'n', points: 2, behind: true });
+    expect(result!.manifestAt).toBe(2);
   });
 });

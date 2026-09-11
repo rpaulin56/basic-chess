@@ -212,6 +212,13 @@ function describe(consequence: Consequence): string {
   if (consequence.matesIn !== null) {
     return consequence.matesIn <= 1 ? t('mateNow') : t('mateIn', { moves: consequence.matesIn });
   }
+  // L'occasione mancata: lungo la confutazione non si perde niente, ma alla fine dello
+  // scambio manca quello che la mossa migliore teneva. Frase dell'autore.
+  if (consequence.missed) {
+    const missed = consequence.missed;
+    const what = missed.piece ? t(MISSED_LABEL[missed.piece]) : equivalent(missed.points);
+    return t(missed.behind ? 'catMissedBehind' : 'catMissedLess', { what });
+  }
   const moves = Math.ceil(consequence.manifestAt / 2);
   // "perdi la qualita'" e "perdi il pedone passato in c6" reggono la stessa frase;
   // solo il saldo nudo ("l'equivalente di due pedoni") ha bisogno di una forma sua.
@@ -231,6 +238,15 @@ function describe(consequence: Consequence): string {
       return t('catStrategicoText');
   }
 }
+
+/** Il pezzo che manca alla fine dello scambio, con l'articolo indeterminativo. */
+const MISSED_LABEL = {
+  p: 'missedP',
+  n: 'missedN',
+  b: 'missedB',
+  r: 'missedR',
+  q: 'missedQ',
+} as const;
 
 /** "il pedone passato in c6", "la torre in a8 e il cavallo in f6". */
 function nameLost(lost: readonly LostPiece[]): string {

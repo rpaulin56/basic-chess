@@ -26,7 +26,7 @@ import { chooseBotMove } from '../bot/play.js';
 import { formatScore, winPercentOf } from '../engine/winProb.js';
 import type { Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
-import { classifyConsequence, transportArrows, type Consequence } from '../tutor/classify.js';
+import { transportArrows, type Consequence, classifyAgainstBest } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
 import { obviousMove } from '../tutor/goodMoves.js';
@@ -1998,7 +1998,12 @@ export function mountApp(root: HTMLElement): void {
     if (isImportant(verdict)) {
       // La confutazione e' il seguito previsto dopo la mossa giocata: e' la risposta
       // alla domanda "perche' e' un errore".
-      const consequence = classifyConsequence(pending.fenAfter, after.lines[0]?.pv ?? []);
+      const consequence = classifyAgainstBest(
+        pending.fenBefore,
+        verdict.bestLine,
+        pending.fenAfter,
+        after.lines[0]?.pv ?? [],
+      );
       review = {
         verdict,
         consequence,
