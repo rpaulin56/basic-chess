@@ -106,6 +106,24 @@ const GOOD_MOVE_GAP = 15;
 const REVIEW_DEPTH = 17;
 
 /**
+ * Il controllo veloce che decide se una mossa merita il giudizio pieno.
+ *
+ * Su un tablet di sette-otto anni due ricerche a REVIEW_DEPTH costavano piu' di trenta
+ * secondi a ogni mossa, anche per le mosse giuste, che sono la grande maggioranza.
+ * Adesso prima si guarda a QUICK_DEPTH quanto costa la mossa; solo se costa almeno
+ * QUICK_GATE punti di aspettativa si fa il giudizio a profondita' piena.
+ *
+ * Misurato prima di scriverlo, su partite vere. Sulle dodici mosse sbagliate che erano
+ * state ritirate, il costo a profondita' 12 e' risultato quasi identico a quello a 17
+ * (scarto massimo 1,5 punti), e il piu' piccolo era 16,5: con la soglia a 5 non ne
+ * sarebbe sfuggito nessuno. Sulle 233 mosse delle stesse partite il giudizio pieno
+ * sarebbe servito tra il 4 e il 16% delle volte. La soglia e' la meta' di quella con cui
+ * il tutor parla (10 punti, l'imprecisione): margine voluto, scelto dall'autore.
+ */
+const QUICK_DEPTH = 12;
+const QUICK_GATE = 5;
+
+/**
  * Profondita' e larghezza della ricerca che risponde a "e adesso?".
  *
  * MultiPV alto perche' la domanda e' proprio "quante sono", e con tre linee non si
@@ -1844,27 +1862,48 @@ export function mountApp(root: HTMLElement): void {
     return engine.analyse(fen, { depth: REVIEW_DEPTH, multiPV: ANALYSIS_MULTIPV });
   }
 
+  /** Punti di aspettativa persi con la mossa, dalle due analisi. */
+  function expectedDrop(before: Analysis, after: Analysis): number {
+    const best = before.lines[0];
+    const reply = after.lines[0];
+    return best && reply ? winPercentOf(best) - (100 - winPercentOf(reply)) : 0;
+  }
+
   async function runReview(): Promise<void> {
     const pending = pendingReview;
     pendingReview = null;
     if (!pending) return;
     const mine = generation;
-    // Il "prima" gia' calcolato si riusa solo se c'e' ed e' abbastanza profondo;
-    // altrimenti si rifa'. Costa un'analisi in piu', ma il bot sta comunque fermo.
-    const before =
-      pending.before && pending.before.depth >= REVIEW_DEPTH
+    // Prima il controllo veloce (vedi QUICK_GATE). Il "prima" si riusa se c'e' gia': di
+    // solito c'e', perche' il motore l'ha analizzato mentre si pensava.
+    const terminal = terminalAnalysis(pending.fenAfter);
+    const quickBefore =
+      pending.before && pending.before.depth >= QUICK_DEPTH
         ? pending.before
-        : await fullAnalysis(pending.fenBefore);
+        : await engine.analyse(pending.fenBefore, { depth: QUICK_DEPTH, multiPV: ANALYSIS_MULTIPV });
+    const quickAfter =
+      terminal ?? (await engine.analyse(pending.fenAfter, { depth: QUICK_DEPTH, multiPV: ANALYSIS_MULTIPV }));
     // Se l'analisi fallisce si rinuncia al giudizio ma NON alla partita: si torna a
     // disegnare, cosi' il bot riprende a muovere.
+    if (!quickBefore || !quickAfter) {
+      refresh();
+      return;
+    }
+    if (mine !== generation) return;
+    // Sotto la soglia il controllo veloce E' il giudizio: il costo si registra lo stesso
+    // per la post-analisi, e il tutor tace come avrebbe taciuto a profondita' piena.
+    const suspicious = expectedDrop(quickBefore, quickAfter) >= QUICK_GATE;
+    const before = !suspicious
+      ? quickBefore
+      : pending.before && pending.before.depth >= REVIEW_DEPTH
+        ? pending.before
+        : await fullAnalysis(pending.fenBefore);
     if (!before) {
       refresh();
       return;
     }
     if (mine !== generation) return;
-    const after =
-      terminalAnalysis(pending.fenAfter) ??
-      (await fullAnalysis(pending.fenAfter));
+    const after = !suspicious ? quickAfter : (terminal ?? (await fullAnalysis(pending.fenAfter)));
     if (!after) {
       refresh();
       return;
