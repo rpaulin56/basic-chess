@@ -279,6 +279,20 @@ export function mountApp(root: HTMLElement): void {
   let evaluation: { line: EngineLine; depth: number; sideToMove: Color } | null = null;
   /** L'analisi completa dell'ultima posizione valutata: e' il "prima" per il tutor. */
   let lastAnalysis: Analysis | null = null;
+  /**
+   * La posizione che chi gioca ha davanti, analizzata alla profondita' del TUTOR mentre
+   * pensa.
+   *
+   * Misurato su un tablet di sette-otto anni: dopo ogni mossa due ricerche a profondita'
+   * 17 da 15-19 secondi l'una, prima che la Nonna potesse rispondere. La prima riguardava
+   * la posizione di PRIMA della mossa, che il motore aveva gia' guardato — ma solo fino a
+   * 14, per la barra — e poi era rimasto fermo per il minuto o due in cui si pensava.
+   * Adesso quel tempo lo usa per arrivare a 17, e il tutor trova il "prima" gia' pronto.
+   *
+   * Tenuta a parte dalla valutazione mostrata: aggiornare la barra a meta' riflessione
+   * la farebbe spostare sotto gli occhi senza che niente sia cambiato sulla scacchiera.
+   */
+  let deepAnalysis: Analysis | null = null;
   /** Mossa dell'utente in attesa di giudizio (con l'analisi della posizione di partenza). */
   let pendingReview: { before: Analysis | null; fenBefore: string; fenAfter: string } | null = null;
   /**
@@ -683,6 +697,7 @@ export function mountApp(root: HTMLElement): void {
         };
         startPreviewAnimation();
         refresh();
+        revealBoard();
       },
       onClosePreview: () => {
         stopPreviewAnimation();
@@ -1571,6 +1586,21 @@ export function mountApp(root: HTMLElement): void {
   // --- diagramma della conseguenza ---------------------------------------
 
   /**
+   * Riporta in vista la scacchiera, se la sua parte alta e' uscita dallo schermo.
+   *
+   * Sul telefono il pannello della Nonna sta sotto la scacchiera: per leggerlo si scorre
+   * in giu', e quando si premeva "Mostra le conseguenze" l'animazione partiva con la
+   * scacchiera tagliata in alto. Segnalato giocando. Si scorre solo se serve, e solo
+   * quanto basta: chi ha la scacchiera gia' tutta in vista non deve vedere la pagina
+   * muoversi.
+   */
+  function revealBoard(): void {
+    const top = boardWrap.getBoundingClientRect().top;
+    if (top >= 0) return;
+    window.scrollBy({ top: top - 8, behavior: 'smooth' });
+  }
+
+  /**
    * Il passo automatico. Chi ha chiesto al sistema operativo di ridurre le animazioni
    * vede subito la posizione finale, come prima: una scacchiera che si muove da sola
    * e' esattamente cio' che ha chiesto di evitare.
@@ -1684,6 +1714,7 @@ export function mountApp(root: HTMLElement): void {
       preview = { ...preview, index: -1 };
       startPreviewAnimation(true);
       refresh();
+      revealBoard();
     });
 
     // I pulsanti PRIMA del testo, e non dopo. La didascalia cambia lunghezza a ogni
@@ -1720,6 +1751,7 @@ export function mountApp(root: HTMLElement): void {
     if (reviewing) return;
     if (pendingReview) {
       reviewing = true;
+      renderStatus();
       try {
         await runReview();
       } finally {
@@ -2196,22 +2228,44 @@ export function mountApp(root: HTMLElement): void {
     // trasposizione piena e pota rami diversi. Il risultato era che ogni ridisegno
     // (accendere il tutor, girare la scacchiera) faceva ballare la valutazione di
     // qualche centesimo senza che nulla fosse cambiato sulla scacchiera.
-    if (evaluation && lastAnalysis?.fen === fen && lastAnalysis.depth >= ANALYSIS_DEPTH) return;
-    const analysis = await engine.analyse(fen, {
-      depth: ANALYSIS_DEPTH,
-      multiPV: ANALYSIS_MULTIPV,
-    });
-    if (mine !== generation || !analysis || analysis.lines.length === 0) return;
-    lastAnalysis = analysis;
-    evaluation = {
-      line: analysis.lines[0]!,
-      depth: analysis.depth,
-      sideToMove: fen.split(' ')[1] === 'b' ? 'b' : 'w',
-    };
-    renderEnginePanel();
-    // La proposta di girare la scacchiera dipende da CHI sta vincendo, e si sa solo
-    // adesso: senza questa riga comparirebbe solo alla mossa dopo.
-    updateEndgame();
+    if (!(evaluation && lastAnalysis?.fen === fen && lastAnalysis.depth >= ANALYSIS_DEPTH)) {
+      const analysis = await engine.analyse(fen, {
+        depth: ANALYSIS_DEPTH,
+        multiPV: ANALYSIS_MULTIPV,
+      });
+      if (mine !== generation || !analysis || analysis.lines.length === 0) return;
+      lastAnalysis = analysis;
+      evaluation = {
+        line: analysis.lines[0]!,
+        depth: analysis.depth,
+        sideToMove: fen.split(' ')[1] === 'b' ? 'b' : 'w',
+      };
+      renderEnginePanel();
+      // La proposta di girare la scacchiera dipende da CHI sta vincendo, e si sa solo
+      // adesso: senza questa riga comparirebbe solo alla mossa dopo.
+      updateEndgame();
+    }
+    await deepenForReview(fen);
+  }
+
+  /**
+   * Porta a profondita' del tutor la posizione in cui tocca a chi gioca (vedi
+   * `deepAnalysis`). Solo quando servira' davvero: tutor acceso, ultima posizione della
+   * partita, tratto a chi gioca.
+   *
+   * Se chi gioca muove prima che finisca, il giudizio chiede un'analisi nuova, questa
+   * viene interrotta e scartata perche' piu' corta del dovuto: si torna esattamente a
+   * cio' che succedeva prima, mai a qualcosa di peggio.
+   */
+  async function deepenForReview(fen: string): Promise<void> {
+    if (!tutorEnabled || deepAnalysis?.fen === fen) return;
+    if (state.cursor !== state.plies.length || gameOver(state) !== null) return;
+    if (positionAt(state).turn() !== humanColor) return;
+    const deep = await engine.analyse(fen, { depth: REVIEW_DEPTH, multiPV: ANALYSIS_MULTIPV });
+    // Legata alla posizione e non al ridisegno: e' un dato puro, e un ridisegno a meta'
+    // (girare la scacchiera, aprire un menu) non la rende meno vera.
+    if (!deep || deep.fen !== fen || deep.depth < REVIEW_DEPTH) return;
+    deepAnalysis = deep;
   }
 
   // --- mosse -------------------------------------------------------------
@@ -2312,7 +2366,8 @@ export function mountApp(root: HTMLElement): void {
      * in piu' mentre il bot sarebbe comunque fermo ad aspettare la decisione.
      */
     const judgeable = tutorEnabled && mover === humanColor;
-    const before = lastAnalysis?.fen === fenBefore ? lastAnalysis : null;
+    const before =
+      deepAnalysis?.fen === fenBefore ? deepAnalysis : lastAnalysis?.fen === fenBefore ? lastAnalysis : null;
     state = next;
     pendingReview = judgeable ? { before, fenBefore, fenAfter: currentFen(state) } : null;
     evaluation = null;
@@ -2434,7 +2489,12 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     statusEl.className = 'status';
-    if (botThinking) {
+    // Anche mentre il tutor giudica la mossa, non solo mentre la Nonna sceglie la sua.
+    // Su un tablet lento il giudizio dura decine di secondi e la scelta della Nonna
+    // trenta millisecondi: la scritta compariva solo nel tratto invisibile, e per tutta
+    // l'attesa vera la riga diceva soltanto di chi era il tratto. Segnalato giocando.
+    // Con un verdetto sullo schermo non si pensa piu': si aspetta chi gioca.
+    if (botThinking || (reviewing && !review)) {
       statusEl.textContent = engine.loading() ? t('engineLoading') : t('thinking');
       return;
     }
