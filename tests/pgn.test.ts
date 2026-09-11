@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newGame, playMove } from '../src/core/game.js';
-import { parsePgn, toPgn, type Annotation } from '../src/core/pgn.js';
+import { formatEmt, parsePgn, readEmt, toPgn, type Annotation } from '../src/core/pgn.js';
 import type { GameState } from '../src/core/game.js';
 
 /** Gioca una sequenza in notazione UCI e restituisce lo stato. */
@@ -138,5 +138,30 @@ describe('errore ritirato e rigiocato uguale', () => {
 
   it('e se la partita e stata troncata prima, pure', () => {
     expect(wasCorrected(['e4', 'e5'], 2, 'h6')).toBe(true);
+  });
+});
+
+describe('tempi [%emt]', () => {
+  it('scrive ore, minuti e secondi', () => {
+    expect(formatEmt(4200)).toBe('[%emt 0:00:04]');
+    expect(formatEmt(3_725_000)).toBe('[%emt 1:02:05]');
+  });
+
+  it('rilegge anche i decimali e gli a capo, e ignora gli altri comandi', () => {
+    expect(readEmt('out of book [%emt 0:00:12]')).toBe(12000);
+    expect(readEmt('[%emt\n0:01:02.5]')).toBe(62500);
+    expect(readEmt('[%clk 0:10:00]')).toBeNull();
+  });
+
+  it("un tempo esportato torna uguale all'importazione, anche in un commento spezzato", () => {
+    const state = play(SCHOLAR);
+    const long = `out of book ${formatEmt(41000)} [%bc tactical,31,kept] ${'parola '.repeat(12)}`;
+    const annotations = new Map<number, Annotation>([
+      [0, { comment: formatEmt(12000) }],
+      [4, { comment: long }],
+    ]);
+    const parsed = parsePgn(toPgn(state, {}, annotations));
+    expect(readEmt(parsed.comments.get(0)!)).toBe(12000);
+    expect(readEmt(parsed.comments.get(4)!)).toBe(41000);
   });
 });

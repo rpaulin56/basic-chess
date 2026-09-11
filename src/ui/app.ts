@@ -13,7 +13,7 @@ import {
 } from '../core/game.js';
 import { parseGameInput } from '../core/import.js';
 import { toFigurine } from '../core/notation.js';
-import { ANNOTATION_TAG, SEVERITY_SUFFIX, toPgn, type Annotation } from '../core/pgn.js';
+import { ANNOTATION_TAG, SEVERITY_SUFFIX, formatEmt, readEmt, toPgn, type Annotation } from '../core/pgn.js';
 import {
   BOT_LEVELS,
   DISTRACTIONS,
@@ -31,6 +31,7 @@ import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
 import { obviousMove } from '../tutor/goodMoves.js';
 import { botPauseMs } from '../bot/pace.js';
+import { ThinkClock, type ThinkTime } from '../tutor/thinkClock.js';
 import { buildHint } from '../tutor/hint.js';
 import { orientPosition } from '../tutor/orientation.js';
 import { moveNumberOf } from '../core/game.js';
@@ -225,6 +226,8 @@ interface SavedGame {
   gifts?: Gift[];
   /** Quanto e' costata OGNI mossa giudicata, non solo quelle segnalate. */
   losses?: MoveLoss[];
+  /** Quanto ha pensato chi gioca, per ogni sua mossa (vedi `ThinkClock`). */
+  thinkTimes?: ThinkTime[];
 }
 
 /**
@@ -501,6 +504,14 @@ export function mountApp(root: HTMLElement): void {
   const mistakeLog: MistakeEntry[] = saved?.mistakes ?? [];
   /** Il costo di ogni mossa giudicata: il materiale della post-analisi. */
   const losses: MoveLoss[] = saved?.losses ?? [];
+  /** Quanto ha pensato chi gioca, mossa per mossa. Per ora si registra soltanto. */
+  const thinkTimes: ThinkTime[] = saved?.thinkTimes ?? [];
+  const thinkClock = new ThinkClock();
+  // Una partita ripresa dal salvataggio: il turno in corso era cominciato prima.
+  if (saved) thinkClock.markInterrupted(currentFen(saved.state));
+  document.addEventListener('visibilitychange', () =>
+    thinkClock.show(thinkingPosition(), document.visibilityState === 'visible'),
+  );
   /**
    * A che punto e' la post-analisi: nascosta finche' la partita e' aperta, poi offerta,
    * poi (se accettata) eventualmente in attesa della rianalisi, infine mostrata.
@@ -614,6 +625,7 @@ export function mountApp(root: HTMLElement): void {
 
   function refresh(): void {
     generation++;
+    thinkClock.show(thinkingPosition(), document.visibilityState === 'visible');
     saveGame();
     // Qualunque strada abbia chiuso il diagramma — nuova partita, ritiro, importazione
     // — la riproduzione non deve continuare a girare su una posizione che non c'e'.
@@ -2146,6 +2158,7 @@ export function mountApp(root: HTMLElement): void {
         humanColor,
         mistakes: mistakeLog,
         losses,
+        thinkTimes,
         hints: hintsUsed,
         takeBacks,
         answers: answersSeen,
@@ -2233,6 +2246,33 @@ export function mountApp(root: HTMLElement): void {
     // Un ritorno indietro cancella il futuro: le righe oltre questo punto parlano di
     // mosse che nella partita non ci sono piu'.
     for (let i = losses.length - 1; i >= 0; i--) if (losses[i]!.ply > ply) losses.splice(i, 1);
+  }
+
+  /**
+   * La posizione su cui adesso scorre il tempo di chi gioca, o null.
+   *
+   * Tocca a lui sulla posizione mostrata, anche passata, e la partita e' aperta. Durante
+   * un verdetto o le conseguenze il tempo non e' suo: sta leggendo la Nonna.
+   */
+  function thinkingPosition(): string | null {
+    if (review || preview || outcome || finished()) return null;
+    return positionAt(state).turn() === humanColor ? currentFen(state) : null;
+  }
+
+  /**
+   * Il tempo di una mossa appena giocata. Come per `losses`, una mossa diversa allo
+   * stesso punto sostituisce la vecchia, e il futuro tagliato porta via i suoi tempi.
+   */
+  function recordThinkTime(
+    ply: number,
+    length: number,
+    taken: { ms: number; interrupted: boolean } | null,
+  ): void {
+    for (let i = thinkTimes.length - 1; i >= 0; i--) {
+      const entry = thinkTimes[i]!;
+      if (entry.ply === ply || entry.ply >= length) thinkTimes.splice(i, 1);
+    }
+    if (taken) thinkTimes.push({ ply, ...taken });
   }
 
   /** La mossa UCI tradotta in SAN nella posizione che precede la semi-mossa `ply`. */
@@ -2492,7 +2532,10 @@ export function mountApp(root: HTMLElement): void {
     const before =
       deepAnalysis?.fen === fenBefore ? deepAnalysis : lastAnalysis?.fen === fenBefore ? lastAnalysis : null;
     state = next;
-    if (mover === humanColor) botClockFrom = performance.now();
+    if (mover === humanColor) {
+      botClockFrom = performance.now();
+      recordThinkTime(next.cursor - 1, next.plies.length, thinkClock.take(fenBefore));
+    }
     pendingReview = judgeable ? { before, fenBefore, fenAfter: currentFen(state) } : null;
     evaluation = null;
     // Il ritiro e' concluso: c'e' una mossa nuova al suo posto.
@@ -2531,15 +2574,22 @@ export function mountApp(root: HTMLElement): void {
       state = restored.state;
       humanColor = restored.humanColor;
       orientation = humanColor === 'w' ? 'white' : 'black';
-      mistakeLog.length = 0;
-      mistakeLog.push(...restored.mistakes);
-      losses.length = 0;
-      losses.push(...restored.losses);
-      hintsUsed = restored.hints;
-      outcome = restored.outcome;
       evaluation = null;
       lastWhitePercent = null;
+      // Prima si azzera, POI si ripristina. Era al contrario: `clearTutor` veniva dopo e
+      // cancellava errori, costi delle mosse, consigli ed esito appena rimessi al loro
+      // posto, e ripensamenti, risposte e regali non venivano ripristinati affatto. La
+      // partita recuperata tornava sulla scacchiera, ma il suo riepilogo no.
       clearTutor();
+      mistakeLog.push(...restored.mistakes);
+      losses.push(...restored.losses);
+      thinkTimes.push(...restored.thinkTimes);
+      gifts.push(...restored.gifts);
+      hintsUsed = restored.hints;
+      takeBacks = restored.takeBacks;
+      answersSeen = restored.answers;
+      outcome = restored.outcome;
+      thinkClock.markInterrupted(currentFen(state));
       refresh();
     });
     recoverEl.append(button);
@@ -3144,6 +3194,15 @@ export function mountApp(root: HTMLElement): void {
       put(state.plies.length - 1, outcome.reason === 'resign' ? 'resigned' : 'draw agreed');
     }
 
+    // Quanto ha pensato chi gioca, come `[%emt]` (vedi `formatEmt`). Solo le sue mosse:
+    // la pausa della Nonna e' teatro, e scritta nel PGN passerebbe per vera. Nemmeno i
+    // turni interrotti: `%emt` dice "ho impiegato questo tempo", e una pausa col
+    // telefono bloccato non lo e'.
+    for (const entry of thinkTimes) {
+      if (entry.interrupted || entry.ply >= state.plies.length) continue;
+      put(entry.ply, formatEmt(entry.ms));
+    }
+
     for (const entry of mistakeLog) {
       // Nel marcatore va SOLO cio' che non si puo' ricavare da altro. La gravita' non
       // c'e' perche' e' due volte ridondante: la dice il suffisso sulla mossa, ed e'
@@ -3195,7 +3254,16 @@ export function mountApp(root: HTMLElement): void {
   function readAnnotations(comments: ReadonlyMap<number, string>): void {
     mistakeLog.length = 0;
     losses.length = 0;
+    // I tempi tornano solo se il PGN li porta come `[%emt]`: li scriviamo noi, e qualche
+    // altro programma. Senza, una partita importata non ha tempi: non si e' giocata qui.
+    thinkTimes.length = 0;
+    thinkClock.reset();
     for (const [ply, comment] of [...comments].sort((a, b) => a[0] - b[0])) {
+      // Prima del marcatore del tutor, che se manca fa saltare il resto del giro. Senza
+      // filtro sul colore: qui `humanColor` non e' ancora quello della partita importata,
+      // e nei nostri PGN `%emt` sta comunque solo sulle mosse di chi gioca.
+      const emt = readEmt(comment);
+      if (emt !== null) thinkTimes.push({ ply, ms: emt, interrupted: false });
       // Spazio bianco QUALUNQUE dopo il marcatore, e ripulito anche dentro: andando a
       // capo per stare negli ottanta caratteri, l'export puo' spezzare il marcatore
       // proprio li'. Pretendere uno spazio singolo faceva perdere l'annotazione a un
@@ -3664,6 +3732,8 @@ export function mountApp(root: HTMLElement): void {
     // gli errori di una partita comparivano nel riepilogo di quella successiva.
     mistakeLog.length = 0;
     losses.length = 0;
+    thinkTimes.length = 0;
+    thinkClock.reset();
     // Tutti e tre i contatori, non solo i consigli: `takeBacks` non veniva azzerato e
     // si portava dietro i ripensamenti della partita prima, che finivano nel PGN di
     // quella dopo. Un contatore dimenticato qui non da' nessun errore, dice solo un
@@ -4116,6 +4186,7 @@ interface LoadedGame {
   humanColor: Color;
   mistakes: MistakeEntry[];
   losses: MoveLoss[];
+  thinkTimes: ThinkTime[];
   hints: number;
   takeBacks: number;
   answers: number;
@@ -4151,6 +4222,7 @@ function loadFrom(saved: SavedGame): LoadedGame | null {
       humanColor: saved.humanColor === 'b' ? 'b' : 'w',
       mistakes: Array.isArray(saved.mistakes) ? saved.mistakes : [],
       losses: Array.isArray(saved.losses) ? saved.losses : [],
+      thinkTimes: Array.isArray(saved.thinkTimes) ? saved.thinkTimes : [],
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
       takeBacks: typeof saved.takeBacks === 'number' ? saved.takeBacks : 0,
       answers: typeof saved.answers === 'number' ? saved.answers : 0,

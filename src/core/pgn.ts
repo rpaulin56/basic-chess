@@ -69,6 +69,35 @@ export const SEVERITY_SUFFIX: Record<string, string> = {
   inaccuracy: '?!',
 };
 
+/**
+ * Il tempo impiegato per una mossa, come comando `[%emt h:mm:ss]` dentro un commento.
+ *
+ * `%emt` ("elapsed move time") viene dalla stessa estensione dei commenti che porta
+ * `%clk`, ed e' quella giusta per noi: `%clk` dice quanto tempo RESTA sull'orologio, e
+ * l'orologio non c'e'; noi sappiamo quanto tempo si e' USATO. Secondi interi: per chi
+ * comincia le mosse durano secondi, e i decimali sono la parte meno condivisa della
+ * convenzione.
+ */
+export function formatEmt(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+  const seconds = String(total % 60).padStart(2, '0');
+  return `[%emt ${hours}:${minutes}:${seconds}]`;
+}
+
+/**
+ * Il tempo di un `[%emt ...]` in millisecondi, o null se il commento non ne ha.
+ *
+ * Spazi qualunque, anche un a capo: l'export spezza i commenti lunghi sugli spazi (vedi
+ * `wrap`). E i decimali si accettano, perche' qualche altro programma li scrive.
+ */
+export function readEmt(comment: string): number | null {
+  const match = comment.match(/\[%emt\s+(\d+):(\d{1,2}):(\d{1,2}(?:\.\d+)?)\s*\]/);
+  if (!match) return null;
+  return Math.round((Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3])) * 1000);
+}
+
 export function parsePgn(pgn: string): ParsedPgn {
   const chess = new Chess();
   chess.loadPgn(pgn); // lancia se il PGN e' malformato: lo gestisce il chiamante
