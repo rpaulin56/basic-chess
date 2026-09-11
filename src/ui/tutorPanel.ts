@@ -58,7 +58,8 @@ export interface TutorPanelState {
    * 'last' e' l'ultimo perdono, 'exhausted' vuol dire che la mossa resta.
    */
   readonly forgiveness: 'available' | 'last' | 'exhausted';
-  readonly forgiveLimit: number;
+  /** Il limite di mosse cambiate della partita (vedi TAKEBACK_LIMITS); null e' senza limite. */
+  readonly forgiveLimit: number | null;
 }
 
 const SEVERITY_LABEL = {
@@ -168,7 +169,15 @@ export function renderTutorPanel(
   // Il perdono ha un limite, e la Nonna lo dice: prima che finisca, e quando e' finito.
   // Un pulsante spento senza una frase che spieghi perche' sembrerebbe un guasto.
   if (state.forgiveness === 'last') lines.push(t('tutorForgiveLast'));
-  if (state.forgiveness === 'exhausted') lines.push(t('tutorForgiveNoMore', { count: state.forgiveLimit }));
+  if (state.forgiveness === 'exhausted') {
+    lines.push(
+      state.forgiveLimit === 0
+        ? t('tutorForgiveNone')
+        : state.forgiveLimit === 1
+          ? t('tutorForgiveNoMoreOne')
+          : t('tutorForgiveNoMore', { count: state.forgiveLimit ?? 0 }),
+    );
+  }
 
   const body = document.createElement('div');
   body.className = 'tutor-body';

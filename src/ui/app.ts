@@ -13,7 +13,15 @@ import {
 } from '../core/game.js';
 import { parseGameInput } from '../core/import.js';
 import { toFigurine } from '../core/notation.js';
-import { ANNOTATION_TAG, SEVERITY_SUFFIX, formatEmt, readEmt, toPgn, type Annotation } from '../core/pgn.js';
+import {
+  ANNOTATION_TAG,
+  RETHINK_TAG,
+  SEVERITY_SUFFIX,
+  formatEmt,
+  readEmt,
+  toPgn,
+  type Annotation,
+} from '../core/pgn.js';
 import {
   BOT_LEVELS,
   DISTRACTIONS,
@@ -127,16 +135,40 @@ const QUICK_DEPTH = 12;
 const QUICK_GATE = 5;
 
 /**
- * Quanti errori la Nonna lascia annullare in una partita.
+ * Quante mosse la Nonna lascia cambiare in una partita: la sua severita'.
  *
- * Idea dell'autore: chi sbaglia molto non deve trovare il perdono sempre pronto — "ti ho
- * gia' perdonato due pezzi, se ne lasci un altro in presa imparerai da solo". La
- * SEGNALAZIONE resta sempre: alzare la soglia renderebbe ambiguo il silenzio della Nonna,
- * che vuol dire "non hai sbagliato niente di grave" solo se e' costante. A esaurirsi e'
- * la possibilita' di cambiare mossa. Contano solo gli errori che la Nonna segnala (le
- * sviste e gli errori, non le imprecisioni), e ogni partita riparte da zero.
+ * Ogni ripensamento e' una concessione dell'avversaria, qualunque fosse l'errore — e anche
+ * se l'errore non c'era, o la mossa nuova e' peggiore: davanti a una scacchiera vera
+ * riprendersi una mossa non si fa. Per questo conta ogni mossa diversa giocata al posto di
+ * un'altra, dopo "Cambia mossa" come tornando indietro a mano, con o senza aiuto, barra e
+ * valutazione. Prima contavano solo gli errori segnalati dalla Nonna, e chi teneva la
+ * barra accesa poteva riprendersi ogni mossa che la vedeva scendere.
+ *
+ * La SEGNALAZIONE resta sempre: a esaurirsi e' la possibilita' di cambiare. Rigiocare la
+ * stessa mossa resta gratis (e' guardare, non riprendere), e tornare indietro di piu'
+ * mosse insieme conta una volta sola, perche' la decisione e' una.
+ *
+ * Il limite appartiene alla PARTITA. Finche' chi gioca non ha mosso si puo' cambiare anche
+ * per quella in corso — non c'e' ancora niente da riprendere; dopo, la scelta vale per la
+ * prossima: se si potesse cambiare a partita avviata, basterebbe passare a "senza limite"
+ * nel momento del bisogno.
  */
-const FORGIVE_LIMIT = 3;
+const DEFAULT_TAKEBACK_LIMIT = 3;
+/** Le scelte possibili, nell'ordine del menu; null e' "senza limite". */
+const TAKEBACK_LIMITS: readonly (number | null)[] = [0, 1, 2, 3, 4, 5, null];
+const TAKEBACK_KEY = 'basic-chess:takebacks';
+
+/** Il limite scelto per le prossime partite (in "Quanto forte vuoi la Nonna"). */
+function preferredTakebackLimit(): number | null {
+  try {
+    const saved = localStorage.getItem(TAKEBACK_KEY);
+    if (saved === 'unlimited') return null;
+    const value = Number(saved);
+    return saved !== null && TAKEBACK_LIMITS.includes(value) ? value : DEFAULT_TAKEBACK_LIMIT;
+  } catch {
+    return DEFAULT_TAKEBACK_LIMIT;
+  }
+}
 
 /**
  * Profondita' e larghezza della ricerca che risponde a "e adesso?".
@@ -232,6 +264,32 @@ interface SavedGame {
   /** I finali tipici gia' mostrati e gia' annunciati: la scheda non ricompare al riavvio. */
   endgamesSeen?: string[];
   endgamesAnnounced?: string[];
+  /** Quante mosse si potevano cambiare in questa partita; null e' senza limite. */
+  takebackLimit?: number | null;
+  rethinks?: Rethink[];
+}
+
+/**
+ * Un ripensamento: una mossa giocata al posto di un'altra.
+ *
+ * Costo e tempo della mossa ripresa si copiano NEL MOMENTO del ripensamento: subito dopo
+ * la mossa nuova li sovrascrive, e senza questa copia il riepilogo non saprebbe dire quanto
+ * costava la mossa ripresa, ne' quanto ci si era pensato.
+ */
+interface Rethink {
+  readonly ply: number;
+  readonly number: number;
+  /** La mossa ripresa. */
+  readonly san: string;
+  /** La mossa giocata al suo posto, appena la si conosce. */
+  newSan: string | null;
+  /** Quanto costava la mossa ripresa, se lo si sa. */
+  drop: number | null;
+  /** Quanto ci si era pensato, se il turno non era stato interrotto. */
+  readonly ms: number | null;
+  readonly fenBefore: string;
+  /** La mossa ripresa in UCI: basta a calcolarne il costo a fine partita. */
+  readonly uci: string;
 }
 
 /**
@@ -551,6 +609,10 @@ export function mountApp(root: HTMLElement): void {
    * partita dov'era, e non e' un ripensamento.
    */
   let takeBacks = saved?.takeBacks ?? 0;
+  /** Il limite di questa partita: quello scelto quando e' cominciata (vedi TAKEBACK_LIMITS). */
+  let takebackLimit: number | null = saved ? saved.takebackLimit : preferredTakebackLimit();
+  /** Ogni ripensamento, con la mossa ripresa: il riepilogo li tratta come momenti critici. */
+  const rethinks: Rethink[] = saved?.rethinks ?? [];
   /**
    * Quante volte si e' vista la RISPOSTA, cioe' quali erano le mosse buone.
    *
@@ -698,7 +760,7 @@ export function mountApp(root: HTMLElement): void {
             orientation,
             humanColor,
             forgiveness: forgivenessState(),
-            forgiveLimit: FORGIVE_LIMIT,
+            forgiveLimit: takebackLimit,
           }
         : null,
       {
@@ -828,7 +890,14 @@ export function mountApp(root: HTMLElement): void {
       recapEl.append(text(t('recapAnswers', { count: answersSeen }), 'recap-hints'));
     }
     if (takeBacks > 0) {
-      recapEl.append(text(t('recapTakeBacks', { count: takeBacks }), 'recap-hints'));
+      recapEl.append(
+        text(
+          takebackLimit === null
+            ? t('recapTakeBacks', { count: takeBacks })
+            : t('recapTakeBacksOf', { count: takeBacks, limit: takebackLimit }),
+          'recap-hints',
+        ),
+      );
     }
   }
 
@@ -928,6 +997,7 @@ export function mountApp(root: HTMLElement): void {
        */
       const forgiven = mistakeLog.some((entry) => wasCorrected(entry));
       box.append(text(t(forgiven ? 'whyNothingCorrected' : 'whyNothing'), 'why-note'));
+      appendRethinks(box);
       appendGood(box, good);
       appendGifts(box);
       appendTiming(box);
@@ -962,6 +1032,7 @@ export function mountApp(root: HTMLElement): void {
       list.append(item);
     }
     box.append(list);
+    appendRethinks(box);
     // Che cosa sono quei punti, detto UNA VOLTA e sotto la lista.
     //
     // "Dieci punti persi" non dice niente da solo: chi legge puo' pensare a
@@ -1104,11 +1175,7 @@ export function mountApp(root: HTMLElement): void {
    * non dice niente, invece di un numero fatto con tre mosse.
    */
   function appendTiming(box: HTMLElement): void {
-    const counts = (ply: number): boolean =>
-      turnAfter(ply) === humanColor &&
-      !(gameBookExit !== null && ply < gameBookExit) &&
-      !obvious(ply);
-    const median = usualThinking(thinkTimes, counts);
+    const median = usualThinking(thinkTimes, timingCounts);
     if (median === null) return;
     const candidates = losses.filter(
       (loss) => inPlay(loss) && loss.drop >= MISTAKE_DROP && !obvious(loss.ply),
@@ -1133,6 +1200,52 @@ export function mountApp(root: HTMLElement): void {
         'why-note',
       ),
     );
+  }
+
+  /** Le mosse che entrano nel tempo medio: le tue, fuori dall'apertura, non ovvie. */
+  function timingCounts(ply: number): boolean {
+    return (
+      turnAfter(ply) === humanColor &&
+      !(gameBookExit !== null && ply < gameBookExit) &&
+      !obvious(ply)
+    );
+  }
+
+  /**
+   * I ripensamenti, come momenti critici: la Nonna li tratta tutti, che li avesse segnalati
+   * o no. Chi si e' ripreso una mossa guardando la barra vuole ritrovarla qui — dove,
+   * quanto costava, e se l'aveva giocata di fretta (segnalato giocando: "la mia unica
+   * imprecisione, che mi sono auto-perdonato con il back").
+   */
+  function appendRethinks(box: HTMLElement): void {
+    if (rethinks.length === 0) return;
+    box.append(text(t('whyRethinkTitle'), 'why-good-title'));
+    const median = usualThinking(thinkTimes, timingCounts);
+    const list = document.createElement('ul');
+    for (const rethink of rethinks) {
+      const move = moveLabel(rethink.number, humanColor);
+      const parts = [
+        rethink.newSan
+          ? t('whyRethinkLine', {
+              move,
+              san: toFigurine(rethink.san),
+              newSan: toFigurine(rethink.newSan),
+            })
+          : t('whyRethinkLineOpen', { move, san: toFigurine(rethink.san) }),
+      ];
+      if (rethink.drop !== null) {
+        const drop = Math.round(rethink.drop);
+        parts.push(drop < 1 ? t('whyRethinkFree') : t('whyRethinkCost', { drop }));
+      }
+      if (rethink.ms !== null) {
+        parts.push(t('whyRethinkTime', { time: duration(rethink.ms) }));
+        if (median !== null && rethink.ms * 2 < median) parts.push(t('whyRethinkHasty'));
+      }
+      const item = document.createElement('li');
+      item.textContent = parts.join(' · ');
+      list.append(item);
+    }
+    box.append(list);
   }
 
   /** Un tempo detto a parole: secondi sotto il minuto, poi minuti arrotondati. */
@@ -1280,6 +1393,25 @@ export function mountApp(root: HTMLElement): void {
           (cursor * 100) / state.plies.length,
         )}%`;
       }
+    }
+    // Il costo dei ripensamenti che non si conosce (aiuto spento, o mossa ripresa prima che
+    // la Nonna finisse di giudicarla): una posizione in piu' per ciascuno. Quella di
+    // partenza di solito e' gia' analizzata, perche' sta ancora nella partita.
+    for (const rethink of rethinks) {
+      if (rethink.drop !== null || !rethink.uci || !rethink.fenBefore) continue;
+      const options = { depth: POSTMORTEM_DEPTH, multiPV: 2 };
+      const before =
+        analyses.find((analysis) => analysis.fen === rethink.fenBefore) ??
+        (await engine.analyse(rethink.fenBefore, options));
+      const afterFen = futureFen(rethink.fenBefore, [rethink.uci]);
+      const after = terminalAnalysis(afterFen) ?? (await engine.analyse(afterFen, options));
+      if (mark !== generation) return;
+      if (stopStudy) {
+        postMortem = 'offered';
+        renderPostMortem();
+        return;
+      }
+      if (before && after) rethink.drop = detectMistake(before, after).drop;
     }
     losses.length = 0;
     for (let ply = 0; ply < state.plies.length; ply++) {
@@ -2232,6 +2364,8 @@ export function mountApp(root: HTMLElement): void {
         thinkTimes,
         endgamesSeen: [...endgamesSeen],
         endgamesAnnounced: [...endgamesAnnounced],
+        takebackLimit,
+        rethinks,
         hints: hintsUsed,
         takeBacks,
         answers: answersSeen,
@@ -2535,6 +2669,24 @@ export function mountApp(root: HTMLElement): void {
     // non chiedeva niente a nessuno: chiedere adesso sarebbe una domanda nuova per un
     // gesto vecchio, e la piu' frequente di tutte. Tornare indietro di cinque e
     // rigiocare invece cancella mezza partita, e li' la domanda ci vuole.
+    // A limite finito da qui si guarda soltanto. Il pezzo torna dov'era e la Nonna dice
+    // perche': un pezzo che rimbalza senza una parola sembrerebbe un guasto.
+    const replacing = state.plies[state.cursor];
+    if (
+      replacing &&
+      !(replacing.from === origin && replacing.to === target) &&
+      forgivenessState() === 'exhausted'
+    ) {
+      toast(
+        takebackLimit === 0
+          ? t('takebackRefusedNone')
+          : takebackLimit === 1
+            ? t('takebackRefusedOne')
+            : t('takebackRefused', { count: takebackLimit ?? 0 }),
+      );
+      refresh();
+      return;
+    }
     const discarded = state.plies.length - state.cursor;
     if (discarded > 2) {
       // In MOSSE e non in semi-mosse: adesso si naviga a mosse intere, e chiedere
@@ -2562,7 +2714,22 @@ export function mountApp(root: HTMLElement): void {
        */
       const replaced = state.plies[state.cursor];
       const sameMove = replaced !== undefined && replaced.from === origin && replaced.to === target;
-      if (!sameMove) takeBacks++;
+      if (!sameMove && replaced) {
+        takeBacks++;
+        // Costo e tempo della mossa ripresa, ADESSO: la mossa nuova li sovrascrive.
+        const loss = losses.find((entry) => entry.ply === state.cursor);
+        const time = thinkTimes.find((entry) => entry.ply === state.cursor && !entry.interrupted);
+        rethinks.push({
+          ply: state.cursor,
+          number: moveNumberOf(state, state.cursor),
+          san: replaced.san,
+          newSan: null,
+          drop: loss ? loss.drop : null,
+          ms: time ? time.ms : null,
+          fenBefore: replaced.fenBefore,
+          uci: `${replaced.from}${replaced.to}${replaced.promotion ?? ''}`,
+        });
+      }
       state = truncateHere(state);
     }
 
@@ -2605,6 +2772,12 @@ export function mountApp(root: HTMLElement): void {
     const before =
       deepAnalysis?.fen === fenBefore ? deepAnalysis : lastAnalysis?.fen === fenBefore ? lastAnalysis : null;
     state = next;
+    // La mossa nuova di un ripensamento appena fatto: il riepilogo la mette accanto a
+    // quella ripresa.
+    const lastRethink = rethinks[rethinks.length - 1];
+    if (lastRethink && lastRethink.newSan === null && lastRethink.ply === next.cursor - 1) {
+      lastRethink.newSan = next.plies[lastRethink.ply]?.san ?? null;
+    }
     if (mover === humanColor) {
       botClockFrom = performance.now();
       recordThinkTime(next.cursor - 1, next.plies.length, thinkClock.take(fenBefore));
@@ -2660,6 +2833,10 @@ export function mountApp(root: HTMLElement): void {
       gifts.push(...restored.gifts);
       for (const key of restored.endgamesSeen) endgamesSeen.add(key);
       for (const key of restored.endgamesAnnounced) endgamesAnnounced.add(key);
+      rethinks.push(...restored.rethinks);
+      // Dopo `clearTutor`, che ha preso il limite scelto per le partite nuove: questa non
+      // e' nuova, e vale la regola con cui era cominciata.
+      takebackLimit = restored.takebackLimit;
       hintsUsed = restored.hints;
       takeBacks = restored.takeBacks;
       answersSeen = restored.answers;
@@ -2706,7 +2883,14 @@ export function mountApp(root: HTMLElement): void {
         text(
           retrying
             ? t('rewindRetry')
-            : t(theirTurn ? 'rewindNoticeTheirs' : 'rewindNotice', { number, total }),
+            : t(
+                theirTurn
+                  ? 'rewindNoticeTheirs'
+                  : forgivenessState() === 'exhausted'
+                    ? 'rewindNoticeLocked'
+                    : 'rewindNotice',
+                { number, total },
+              ),
           'rewind-text',
         ),
       );
@@ -2720,7 +2904,10 @@ export function mountApp(root: HTMLElement): void {
       back.className = 'rewind-back';
       // Da qui ha mosso la Nonna: la frase si chiude col punto, e "oppure" non avrebbe
       // niente a cui contrapporsi — l'unica cosa da fare e' tornare alla fine.
-      back.textContent = t(theirTurn ? 'rewindBackTheirs' : 'rewindBack');
+      // Anche a limite finito: "oppure" non ha piu' niente a cui contrapporsi.
+      back.textContent = t(
+        theirTurn || forgivenessState() === 'exhausted' ? 'rewindBackTheirs' : 'rewindBack',
+      );
       back.addEventListener('click', () => seek(state.plies.length));
       statusEl.append(back);
       return;
@@ -3199,7 +3386,13 @@ export function mountApp(root: HTMLElement): void {
     const effort = {
       ...(hintsUsed > 0 ? { Hints: String(hintsUsed) } : {}),
       ...(answersSeen > 0 ? { Answers: String(answersSeen) } : {}),
-      ...(takeBacks > 0 ? { Takebacks: String(takeBacks) } : {}),
+      // Con il limite accanto, cosi' chi rilegge sa con quale regola si e' giocato.
+      ...(takeBacks > 0 || takebackLimit !== DEFAULT_TAKEBACK_LIMIT
+        ? {
+            Takebacks:
+              takebackLimit === null ? String(takeBacks) : `${takeBacks}/${takebackLimit}`,
+          }
+        : {}),
     };
     // ECO e Opening sono tag standard di fatto (li scrivono ChessBase, SCID, Lichess):
     // e' li' che il nome dell'apertura va a vivere quando sparisce dallo schermo, e da
@@ -3297,6 +3490,14 @@ export function mountApp(root: HTMLElement): void {
         wasCorrected(entry) ? undefined : SEVERITY_SUFFIX[entry.severity],
       );
     }
+    // I ripensamenti, sulla mossa giocata al posto di quella ripresa: `[%bcr mossa,costo]`.
+    // Un marcatore suo e non `%bc`: un ripensamento non e' un errore segnalato, e riletto
+    // come tale finirebbe fra gli errori del riepilogo.
+    for (const rethink of rethinks) {
+      if (state.plies[rethink.ply]?.san !== rethink.newSan) continue;
+      const drop = rethink.drop === null ? '' : String(Math.round(rethink.drop));
+      put(rethink.ply, `[${RETHINK_TAG} ${rethink.san},${drop}]`);
+    }
     return map;
   }
 
@@ -3316,9 +3517,10 @@ export function mountApp(root: HTMLElement): void {
    */
   /** Quanti errori sono gia' stati perdonati in questa partita, rispetto al limite. */
   function forgivenessState(): 'available' | 'last' | 'exhausted' {
-    const forgiven = mistakeLog.filter((entry) => wasCorrected(entry)).length;
-    if (forgiven >= FORGIVE_LIMIT) return 'exhausted';
-    return forgiven === FORGIVE_LIMIT - 1 ? 'last' : 'available';
+    // Tutti i ripensamenti, non solo gli errori segnalati: vedi TAKEBACK_LIMITS.
+    if (takebackLimit === null) return 'available';
+    if (takeBacks >= takebackLimit) return 'exhausted';
+    return takeBacks === takebackLimit - 1 ? 'last' : 'available';
   }
 
   function wasCorrected(entry: MistakeEntry): boolean {
@@ -3339,6 +3541,32 @@ export function mountApp(root: HTMLElement): void {
       // e nei nostri PGN `%emt` sta comunque solo sulle mosse di chi gioca.
       const emt = readEmt(comment);
       if (emt !== null) thinkTimes.push({ ply, ms: emt, interrupted: false });
+      const rethink = comment.match(new RegExp(`\\[${RETHINK_TAG}\\s+([^,\\]]+),([^\\]]*)\\]`));
+      if (rethink) {
+        const drop = rethink[2]!.trim();
+        const san = rethink[1]!.trim();
+        const fenBefore = state.plies[ply]?.fenBefore ?? '';
+        // La mossa ripresa in UCI, ricavata dalla posizione: senza, lo studio di fine
+        // partita non potrebbe calcolare un costo che il PGN non porta.
+        let uci = '';
+        try {
+          const move = new Chess(fenBefore).move(san);
+          uci = `${move.from}${move.to}${move.promotion ?? ''}`;
+        } catch {
+          uci = '';
+        }
+        rethinks.push({
+          ply,
+          number: moveNumberOf(state, ply),
+          san,
+          newSan: state.plies[ply]?.san ?? null,
+          drop: drop === '' ? null : Number(drop),
+          ms: null,
+          fenBefore,
+          uci,
+        });
+        takeBacks = rethinks.length;
+      }
       // Spazio bianco QUALUNQUE dopo il marcatore, e ripulito anche dentro: andando a
       // capo per stare negli ottanta caratteri, l'export puo' spezzare il marcatore
       // proprio li'. Pretendere uno spazio singolo faceva perdere l'annotazione a un
@@ -3442,6 +3670,48 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /**
+   * La severita' della Nonna: quante mosse lascia cambiare (vedi TAKEBACK_LIMITS).
+   *
+   * Sta con livello e attenzione perche' decide che avversaria si ha davanti, ma NON finisce
+   * nell'icona, che riassume la forza e basta. La scelta si salva sempre per le partite
+   * nuove; su quella in corso vale solo se chi gioca non ha ancora mosso.
+   */
+  function takebackSelect(onChange: () => void): HTMLElement {
+    const select = document.createElement('select');
+    select.title = t('severityTitle');
+    const preferred = preferredTakebackLimit();
+    for (const limit of TAKEBACK_LIMITS) {
+      const element = document.createElement('option');
+      element.value = limit === null ? 'unlimited' : String(limit);
+      element.textContent =
+        limit === null
+          ? t('takebacksUnlimited')
+          : limit === 0
+            ? t('takebacksNone')
+            : limit === 1
+              ? t('takebacksOne')
+              : t('takebacksMany', { n: limit });
+      element.selected = limit === preferred;
+      select.append(element);
+    }
+    select.addEventListener('change', () => {
+      try {
+        localStorage.setItem(TAKEBACK_KEY, select.value);
+      } catch {
+        // Memoria negata: la scelta vale finche' la pagina resta aperta, cioe' per niente.
+      }
+      // Prima della tua prima mossa la partita non e' ancora cominciata per te: il limite
+      // vale subito. Dopo, resta quello con cui hai cominciato (vedi TAKEBACK_LIMITS).
+      if (!hasPlayed()) {
+        takebackLimit = select.value === 'unlimited' ? null : Number(select.value);
+        saveGame();
+      }
+      onChange();
+    });
+    return select;
+  }
+
+  /**
    * Spiega le due scelte insieme, e dice anche il PREZZO di ciascuna invece di
    * venderle: un'avversaria distratta allena a cogliere l'errore altrui, ma abitua ad
    * aspettarlo, e chi sceglie deve saperlo.
@@ -3473,10 +3743,23 @@ export function mountApp(root: HTMLElement): void {
 
       const choice = document.createElement('div');
       choice.className = 'settings';
-      choice.append(levelSelect(fill), distractionSelect(fill));
+      choice.append(levelSelect(fill), distractionSelect(fill), takebackSelect(fill));
       dialog.append(choice);
+      // Il limite non cambia la partita in corso: se la scelta e' diversa, lo si dice subito
+      // sotto i menu, invece di lasciar credere che adesso valga quello nuovo.
+      if (preferredTakebackLimit() !== takebackLimit) {
+        const note = document.createElement('p');
+        note.className = 'help-line';
+        note.textContent = t('takebacksNextGame');
+        dialog.append(note);
+      }
 
-      for (const key of ['opponentHelpLevel', 'opponentHelpCareful', 'opponentHelpSloppy']) {
+      for (const key of [
+        'opponentHelpLevel',
+        'opponentHelpCareful',
+        'opponentHelpSloppy',
+        'opponentHelpTakebacks',
+      ]) {
         const paragraph = document.createElement('p');
         paragraph.className = 'help-line';
         paragraph.textContent = t(key);
@@ -3816,6 +4099,9 @@ export function mountApp(root: HTMLElement): void {
     hintsUsed = 0;
     answersSeen = 0;
     takeBacks = 0;
+    rethinks.length = 0;
+    // Una partita nuova prende il limite scelto adesso: e' l'unico momento in cui cambia.
+    takebackLimit = preferredTakebackLimit();
     gifts.length = 0;
   }
 
@@ -4264,6 +4550,8 @@ interface LoadedGame {
   thinkTimes: ThinkTime[];
   endgamesSeen: string[];
   endgamesAnnounced: string[];
+  takebackLimit: number | null;
+  rethinks: Rethink[];
   hints: number;
   takeBacks: number;
   answers: number;
@@ -4314,6 +4602,12 @@ function loadFrom(saved: SavedGame): LoadedGame | null {
       // contano come visti, altrimenti al primo riavvio la scheda ricomparirebbe ancora.
       endgamesSeen: Array.isArray(saved.endgamesSeen) ? saved.endgamesSeen : endgamesIn(state),
       endgamesAnnounced: Array.isArray(saved.endgamesAnnounced) ? saved.endgamesAnnounced : [],
+      // Le partite salvate prima valevano con il limite di allora, cioe' tre.
+      takebackLimit:
+        saved.takebackLimit === null || typeof saved.takebackLimit === 'number'
+          ? saved.takebackLimit
+          : DEFAULT_TAKEBACK_LIMIT,
+      rethinks: Array.isArray(saved.rethinks) ? saved.rethinks : [],
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
       takeBacks: typeof saved.takeBacks === 'number' ? saved.takeBacks : 0,
       answers: typeof saved.answers === 'number' ? saved.answers : 0,

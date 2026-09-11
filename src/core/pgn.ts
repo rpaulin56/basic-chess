@@ -53,6 +53,16 @@ export interface ParsedPgn {
 export const ANNOTATION_TAG = '%bc';
 
 /**
+ * Marcatore di un ripensamento, sulla mossa giocata al posto di un'altra:
+ * `[%bcr mossa-ripresa,costo]`, con il costo vuoto se non si conosce.
+ *
+ * Distinto da `%bc` perche' un ripensamento non e' un errore segnalato: letto come tale
+ * finirebbe fra gli errori del riepilogo. E non ne e' un prefisso che confonda i lettori:
+ * `[%bc ` vuole uno spazio dopo `%bc`, e qui dopo c'e' una `r`.
+ */
+export const RETHINK_TAG = '%bcr';
+
+/**
  * Il suffisso da appendere alla mossa, per gravita'.
  *
  * Lo standard PGN li prevede (`!` `?` `!!` `??` `!?` `?!`) come equivalenti dei NAG
