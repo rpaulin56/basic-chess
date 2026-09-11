@@ -30,6 +30,7 @@ import { transportArrows, type Consequence, classifyAgainstBest } from '../tutor
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
 import { obviousMove } from '../tutor/goodMoves.js';
+import { botPauseMs } from '../bot/pace.js';
 import { buildHint } from '../tutor/hint.js';
 import { orientPosition } from '../tutor/orientation.js';
 import { moveNumberOf } from '../core/game.js';
@@ -475,6 +476,11 @@ export function mountApp(root: HTMLElement): void {
   const theoryCache = new Map<string, boolean>();
   let botThinking = false;
   /**
+   * Da quando si conta la pausa della Nonna (vedi `botPauseMs`): la mossa del giocatore,
+   * o il "Continua" dopo un verdetto. Il giudizio della mossa fa gia' parte dell'attesa.
+   */
+  let botClockFrom: number | null = null;
+  /**
    * Contatore di versione dello stato. Ogni analisi lo cattura prima di partire e lo
    * ricontrolla al ritorno: se nel frattempo l'utente ha mosso o navigato, il
    * risultato riguarda una posizione che non e' piu' quella mostrata e va buttato.
@@ -704,6 +710,8 @@ export function mountApp(root: HTMLElement): void {
         if (review && review.refutation.length > 0) {
           forcedLine = { startFen: review.fenAfterMistake, moves: review.refutation };
         }
+        // Chi ha letto il verdetto guardava il pannello, non la scacchiera.
+        botClockFrom = performance.now();
         review = null;
         preview = null;
         refresh();
@@ -2256,6 +2264,8 @@ export function mountApp(root: HTMLElement): void {
 
   async function playBotMove(): Promise<void> {
     const mine = generation;
+    const startedAt = botClockFrom ?? performance.now();
+    botClockFrom = null;
     botThinking = true;
     renderStatus();
     const fen = currentFen(state);
@@ -2273,6 +2283,30 @@ export function mountApp(root: HTMLElement): void {
       renderStatus();
       scheduleRetry();
       return;
+    }
+    // Il tempo minimo prima di muovere (vedi `botPauseMs`). "Sto pensando…" resta acceso,
+    // e `botThinking` impedisce che nel frattempo parta un'altra risposta.
+    const previous = state.plies[state.cursor - 1];
+    const wait = botPauseMs({
+      obvious: obviousMove(
+        fen,
+        chosen.slice(0, 2),
+        chosen.slice(2, 4),
+        previous ? { to: previous.to, san: previous.san } : undefined,
+      ),
+      elapsedMs: performance.now() - startedAt,
+    });
+    if (wait > 0) {
+      botThinking = true;
+      await new Promise((resolve) => window.setTimeout(resolve, wait));
+      botThinking = false;
+      // Durante la pausa si puo' ritirare una mossa o navigare: si riparte dalla
+      // posizione nuova, e non dalla mossa pensata per quella vecchia.
+      if (mine !== generation) {
+        renderStatus();
+        void driveEngine();
+        return;
+      }
     }
     const uci = chosen;
     const next = uci
@@ -2458,6 +2492,7 @@ export function mountApp(root: HTMLElement): void {
     const before =
       deepAnalysis?.fen === fenBefore ? deepAnalysis : lastAnalysis?.fen === fenBefore ? lastAnalysis : null;
     state = next;
+    if (mover === humanColor) botClockFrom = performance.now();
     pendingReview = judgeable ? { before, fenBefore, fenAfter: currentFen(state) } : null;
     evaluation = null;
     // Il ritiro e' concluso: c'e' una mossa nuova al suo posto.
