@@ -36,20 +36,26 @@ export const LOCALE_NAMES: Record<LocaleCode, string> = {
 let current: LocaleCode = detectLocale();
 
 /**
- * La lingua di partenza e' l'INGLESE, e non quella del browser.
+ * La prima volta la lingua e' quella del browser, se c'e'; altrimenti l'INGLESE.
  *
- * Prima si seguiva `navigator.language`, che a un browser italiano dava l'italiano.
- * Sembra piu' gentile, e per un visitatore italiano lo e'; ma il programma sta su un
- * dominio proprio e si chiama GrandmaChess, e la maggioranza di chi lo aprira' non
- * parla italiano. Fra le due scelte, quella che scontenta meno persone e' l'inglese.
+ * Un tempo si partiva sempre in inglese: seguire il browser aveva senso solo per gli
+ * italiani, e la maggioranza di chi apre GrandmaChess non lo e'. Con il ripiego
+ * sull'inglese quel timore non c'e' piu': un tedesco o un giapponese trovano l'inglese
+ * come prima, mentre un italiano o un francese trovano subito la propria lingua.
+ * Si guardano tutte le lingue preferite (`navigator.languages`), nell'ordine: chi ha
+ * "de, fr" trova il francese e non l'inglese.
  *
- * Ed e' una scelta che si paga poco proprio perche' l'abbiamo presa insieme al
- * mappamondo nell'intestazione: cambiare lingua e' un tocco, sempre visibile, e non
- * una voce sepolta in una finestra di impostazioni.
+ * La scelta automatica NON si salva: si salva solo quella fatta dal mappamondo, cosi'
+ * chi cambia la lingua del browser e non ha mai scelto viene seguito.
  */
 function detectLocale(): LocaleCode {
   const saved = localStorage.getItem('basic-chess:locale');
   if (saved === 'it' || saved === 'en' || saved === 'fr') return saved;
+  const preferred = navigator.languages?.length ? navigator.languages : [navigator.language];
+  for (const tag of preferred) {
+    const code = tag?.slice(0, 2).toLowerCase();
+    if (code === 'it' || code === 'en' || code === 'fr') return code;
+  }
   return 'en';
 }
 
