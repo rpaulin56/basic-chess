@@ -164,8 +164,16 @@ export function detectMistake(
   // migliori: era codice morto. La prima linea del motore e' la mossa migliore in
   // assoluto, quindi e' sempre almeno pari a quanto ottenuto giocando — il conteggio
   // poteva valere zero solo quando lo scarto era gia' sotto la soglia minima.
-  if (betterAlternatives <= 1 && before.lines.length >= 3) return quiet('onlyMove');
-  if (betterAlternatives === 0) return quiet('onlyMove');
+  //
+  // Ma non quando l'unica mossa era PRENDERE UN PEZZO. Non e' la mossa nascosta che
+  // questo filtro vuole perdonare: e' la prima che un principiante vede. In una partita
+  // vera, a posizione pari, la Donna nera era rimasta in presa e 17.Qxf7+?? e' costata
+  // trenta punti — e il tutor ha taciuto, perche' "l'unica mossa" era Bxa5. Riesaminate
+  // cinque partite (253 mosse): e' stato l'unico errore vero zittito da questo filtro,
+  // ma il peggiore che potesse zittire.
+  const obvious = capturesPiece(before.fen, base.bestMove);
+  if (!obvious && betterAlternatives <= 1 && before.lines.length >= 3) return quiet('onlyMove');
+  if (!obvious && betterAlternatives === 0) return quiet('onlyMove');
 
   // Un cambio di genere pesa piu' dello scarto nudo: passare da patta a persa e'
   // percepito (giustamente) come un errore grave anche con uno scarto piu' contenuto.
@@ -177,6 +185,34 @@ export function detectMistake(
         : 'inaccuracy';
 
   return { ...base, severity, skipped: null };
+}
+
+/**
+ * Vero se la mossa (in UCI) prende un Cavallo, un Alfiere, una Torre o una Donna.
+ *
+ * Letto dalla disposizione del FEN, senza scacchiera: questo modulo lavora sulle analisi
+ * e non ha bisogno delle regole del gioco per sapere cosa c'e' su una casa.
+ */
+function capturesPiece(fen: string, move: string | null): boolean {
+  if (!move || move.length < 4) return false;
+  const [placement = '', turn = 'w'] = fen.split(' ');
+  const file = 'abcdefgh'.indexOf(move[2]!);
+  const rank = Number(move[3]);
+  const row = placement.split('/')[8 - rank];
+  if (file < 0 || !row) return false;
+  let column = 0;
+  for (const char of row) {
+    if (char >= '1' && char <= '8') {
+      column += Number(char);
+      continue;
+    }
+    if (column === file) {
+      const theirs = turn === 'w' ? char === char.toLowerCase() : char === char.toUpperCase();
+      return theirs && 'nbrq'.includes(char.toLowerCase());
+    }
+    column++;
+  }
+  return false;
 }
 
 /** Vero per i verdetti che meritano di interrompere il gioco. */
