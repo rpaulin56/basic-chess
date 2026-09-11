@@ -118,6 +118,7 @@ export const en: Record<keyof typeof it, string> = {
   engineFailed: 'Chess engine unavailable: {error}',
   engineDiagnostics: 'Copy engine diagnostics',
   thinking: 'I am thinking…',
+  thinkingSuspicious: 'Was that a mistake, or is there something behind it? Let me see…',
   evalDepth: 'depth {depth}',
   analysing: 'analysing…',
   tutorBlunder: 'Serious mistake',

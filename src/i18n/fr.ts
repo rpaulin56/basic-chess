@@ -135,6 +135,7 @@ export const fr: Record<keyof typeof it, string> = {
   engineFailed: `Moteur d’échecs indisponible${NB}: {error}`,
   engineDiagnostics: 'Copier le diagnostic du moteur',
   thinking: 'Je réfléchis…',
+  thinkingSuspicious: `C’est une erreur, ou il y a quelque chose derrière${NB}? Voyons…`,
   evalDepth: 'profondeur {depth}',
   analysing: 'analyse…',
   tutorBlunder: 'Grosse erreur',

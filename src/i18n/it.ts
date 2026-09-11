@@ -117,6 +117,7 @@ export const it = {
   engineFailed: 'Motore scacchistico non disponibile: {error}',
   engineDiagnostics: 'Copia la diagnostica del motore',
   thinking: 'Sto pensando…',
+  thinkingSuspicious: "Hai fatto un errore o c’è sotto qualcosa? Vediamo…",
   evalDepth: 'profondità {depth}',
   analysing: 'analisi…',
   tutorBlunder: 'Errore grave',

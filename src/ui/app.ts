@@ -323,6 +323,12 @@ export function mountApp(root: HTMLElement): void {
    * "errore tattico" invece di "svista", e una volta perfino "errore strategico".
    */
   let reviewing = false;
+  /**
+   * Vero mentre il tutor fa il giudizio PIENO, cioe' quando il controllo veloce ha
+   * trovato la mossa sospetta. E' l'unica attesa lunga sui dispositivi lenti, e merita
+   * una frase sua invece del generico "sto pensando" (proposta dell'autore).
+   */
+  let reviewSuspicious = false;
   /** Verdetto da mostrare; finche' c'e', il bot NON risponde e si aspetta l'utente. */
   let review: {
     verdict: MistakeVerdict;
@@ -1580,7 +1586,13 @@ export function mountApp(root: HTMLElement): void {
     // un attimo dopo 2.exd5, e sullo schermo sembrava che fosse stata la mossa di chi
     // gioca a portare fuori. Scrivere la mossa dice chi e' stato, senza bisogno di dire
     // "sei uscito" — che in italiano avrebbe anche un genere.
-    const out = !inTheory && bookExit !== null;
+    // La notizia vale finche' chi gioca non ha risposto: dopo la sua prima mossa
+    // successiva all'uscita non e' piu' una notizia, e' storia (segnalato giocando).
+    // Tornando indietro nella lista ricompare, perche' li' e' di nuovo il momento.
+    const answeredSince =
+      bookExit !== null &&
+      state.plies.slice(bookExit + 1, state.cursor).some((ply) => ply.color === humanColor);
+    const out = !inTheory && bookExit !== null && !answeredSince;
     openingEl.hidden = !opening || (!inTheory && !out);
     openingEl.classList.toggle('out', out);
     if (!opening || openingEl.hidden) return;
@@ -1774,6 +1786,7 @@ export function mountApp(root: HTMLElement): void {
         await runReview();
       } finally {
         reviewing = false;
+        reviewSuspicious = false;
       }
       // Il ridisegno con cui runReview si chiude trovava `reviewing` ancora acceso, e si
       // fermava li'. Si riparte da qui: senza verdetto la Nonna risponde, con il verdetto
@@ -1893,6 +1906,10 @@ export function mountApp(root: HTMLElement): void {
     // Sotto la soglia il controllo veloce E' il giudizio: il costo si registra lo stesso
     // per la post-analisi, e il tutor tace come avrebbe taciuto a profondita' piena.
     const suspicious = expectedDrop(quickBefore, quickAfter) >= QUICK_GATE;
+    if (suspicious) {
+      reviewSuspicious = true;
+      renderStatus();
+    }
     const before = !suspicious
       ? quickBefore
       : pending.before && pending.before.depth >= REVIEW_DEPTH
@@ -2534,7 +2551,14 @@ export function mountApp(root: HTMLElement): void {
     // l'attesa vera la riga diceva soltanto di chi era il tratto. Segnalato giocando.
     // Con un verdetto sullo schermo non si pensa piu': si aspetta chi gioca.
     if (botThinking || (reviewing && !review)) {
-      statusEl.textContent = engine.loading() ? t('engineLoading') : t('thinking');
+      // "O c'e' sotto qualcosa": il giudizio pieno a volte assolve una mossa che il
+      // controllo veloce aveva trovato sospetta, e la frase non deve promettere un
+      // rimprovero che poi non arriva.
+      statusEl.textContent = engine.loading()
+        ? t('engineLoading')
+        : reviewing && reviewSuspicious
+          ? t('thinkingSuspicious')
+          : t('thinking');
       return;
     }
     statusEl.textContent = positionAt(state).turn() === 'w' ? t('turnWhite') : t('turnBlack');
