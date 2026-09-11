@@ -1105,18 +1105,24 @@ export function mountApp(root: HTMLElement): void {
       !obvious(ply);
     const median = usualThinking(thinkTimes, counts);
     if (median === null) return;
-    box.append(text(t('whyTimeUsual', { time: duration(median) }), 'why-note'));
     const candidates = losses.filter(
       (loss) => inPlay(loss) && loss.drop >= MISTAKE_DROP && !obvious(loss.ply),
     );
     const hasty = hastiest(thinkTimes, candidates, median);
-    if (!hasty) return;
+    // Una frase sola. Con la mossa di fretta il tempo medio sta fra parentesi dentro di
+    // lei: due frasi di fila che dicevano lo stesso numero si leggevano come un elenco.
+    // Senza, la frase sul tempo medio resta da sola, perche' la mossa di fretta e' rara.
+    if (!hasty) {
+      box.append(text(t('whyTimeUsual', { time: duration(median) }), 'why-note'));
+      return;
+    }
     box.append(
       text(
         t('whyTimeHasty', {
           move: moveLabel(hasty.move.number, humanColor),
           san: toFigurine(hasty.move.san),
           time: duration(hasty.ms),
+          usual: duration(median),
           drop: Math.round(hasty.move.drop),
         }),
         'why-note',

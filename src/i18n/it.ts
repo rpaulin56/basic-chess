@@ -59,9 +59,9 @@ export const it = {
   whyUnits:
     'I punti sono di aspettativa di vittoria: su cento partite giocate da quella posizione, quante ne porteresti a casa. Perderne dieci in una mossa sola è tanto.',
   whyBetter: 'meglio {san}',
-  whyTimeUsual: 'Di solito hai pensato circa {time} per mossa.',
+  whyTimeUsual: 'In questa partita hai pensato in media {time} a mossa.',
   whyTimeHasty:
-    '{move} {san} l’hai giocata in {time}, meno della metà del tuo solito, ed è costata {drop} punti. Con me non c’è l’orologio: prenditi pure il tuo tempo.',
+    '{move} {san} l’hai giocata in {time}, meno della metà del solito (circa {usual}), ed è costata {drop} punti. Con me non c’è l’orologio: prenditi pure il tuo tempo.',
   timeOneSecond: 'un secondo',
   timeSeconds: '{n} secondi',
   timeOneMinute: 'un minuto',
