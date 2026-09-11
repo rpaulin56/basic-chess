@@ -229,6 +229,9 @@ interface SavedGame {
   losses?: MoveLoss[];
   /** Quanto ha pensato chi gioca, per ogni sua mossa (vedi `ThinkClock`). */
   thinkTimes?: ThinkTime[];
+  /** I finali tipici gia' mostrati e gia' annunciati: la scheda non ricompare al riavvio. */
+  endgamesSeen?: string[];
+  endgamesAnnounced?: string[];
 }
 
 /**
@@ -582,12 +585,14 @@ export function mountApp(root: HTMLElement): void {
    * che ci si arriva; ricomparire a ogni mossa la trasformerebbe in tappezzeria, e
    * si imparerebbe a non vedere quella zona dello schermo.
    */
-  const endgamesSeen = new Set<string>();
+  // Salvati con la partita: in memoria soltanto, a ogni riavvio la Nonna li dimenticava
+  // e riproponeva la scheda appena chiusa con "Non ora".
+  const endgamesSeen = new Set<string>(saved?.endgamesSeen ?? []);
   /**
    * I finali ANNUNCIATI come raggiungibili, tenuti a parte da quelli raggiunti: averne
    * annunciato uno non deve impedire, quando ci si arriva davvero, di dire che ci si e'.
    */
-  const endgamesAnnounced = new Set<string>();
+  const endgamesAnnounced = new Set<string>(saved?.endgamesAnnounced ?? []);
   /** Il finale da mostrare adesso, se c'e'. */
   let endgame: EndgameView | null = null;
 
@@ -1332,6 +1337,16 @@ export function mountApp(root: HTMLElement): void {
    * ripercorrendo la partita la scheda compare quando si e' arrivati davvero li'.
    */
   function updateEndgame(): void {
+    // Sulla posizione in cui la partita e' finita la scheda non ha piu' niente da dire:
+    // "sei in un finale di Torri" detto sotto lo scacco matto dato con due Torri (visto
+    // giocando). Vale anche per l'abbandono e la patta d'accordo, sull'ultima mossa.
+    const over =
+      positionAt(state).isGameOver() || (outcome !== null && state.cursor === state.plies.length);
+    if (over) {
+      endgame = null;
+      renderEndgamePanel(endgameEl, null, { onClose: () => {}, onSwap: () => {} });
+      return;
+    }
     const found = classifyEndgame(currentFen(state));
     if (found) {
       // Arrivati nel finale, la scheda dice che ci si e' — anche se era stato annunciato
@@ -1341,6 +1356,9 @@ export function mountApp(root: HTMLElement): void {
       if (!endgamesSeen.has(found.key)) {
         endgamesSeen.add(found.key);
         endgame = { endgame: found, entering: false };
+        // Subito: `refresh` ha gia' salvato PRIMA di arrivare qui, e fino alla mossa dopo
+        // il finale visto non sarebbe sul disco. Riavviando in mezzo, la scheda tornava.
+        saveGame();
       }
     } else {
       const ahead = endgamesAhead();
@@ -1357,6 +1375,7 @@ export function mountApp(root: HTMLElement): void {
         if (next) {
           endgamesAnnounced.add(next.key);
           endgame = { endgame: next, entering: true };
+          saveGame();
         }
       }
     }
@@ -2211,6 +2230,8 @@ export function mountApp(root: HTMLElement): void {
         mistakes: mistakeLog,
         losses,
         thinkTimes,
+        endgamesSeen: [...endgamesSeen],
+        endgamesAnnounced: [...endgamesAnnounced],
         hints: hintsUsed,
         takeBacks,
         answers: answersSeen,
@@ -2637,6 +2658,8 @@ export function mountApp(root: HTMLElement): void {
       losses.push(...restored.losses);
       thinkTimes.push(...restored.thinkTimes);
       gifts.push(...restored.gifts);
+      for (const key of restored.endgamesSeen) endgamesSeen.add(key);
+      for (const key of restored.endgamesAnnounced) endgamesAnnounced.add(key);
       hintsUsed = restored.hints;
       takeBacks = restored.takeBacks;
       answersSeen = restored.answers;
@@ -4239,11 +4262,23 @@ interface LoadedGame {
   mistakes: MistakeEntry[];
   losses: MoveLoss[];
   thinkTimes: ThinkTime[];
+  endgamesSeen: string[];
+  endgamesAnnounced: string[];
   hints: number;
   takeBacks: number;
   answers: number;
   gifts: Gift[];
   outcome: Outcome | null;
+}
+
+/** I finali tipici attraversati da una partita, dalla prima mossa all'ultima. */
+function endgamesIn(state: GameState): string[] {
+  const keys = new Set<string>();
+  for (const ply of state.plies) {
+    const found = classifyEndgame(ply.fenAfter);
+    if (found) keys.add(found.key);
+  }
+  return [...keys];
 }
 
 function loadGame(): LoadedGame | null {
@@ -4275,6 +4310,10 @@ function loadFrom(saved: SavedGame): LoadedGame | null {
       mistakes: Array.isArray(saved.mistakes) ? saved.mistakes : [],
       losses: Array.isArray(saved.losses) ? saved.losses : [],
       thinkTimes: Array.isArray(saved.thinkTimes) ? saved.thinkTimes : [],
+      // Le partite salvate prima che i finali si ricordassero: quelli gia' attraversati
+      // contano come visti, altrimenti al primo riavvio la scheda ricomparirebbe ancora.
+      endgamesSeen: Array.isArray(saved.endgamesSeen) ? saved.endgamesSeen : endgamesIn(state),
+      endgamesAnnounced: Array.isArray(saved.endgamesAnnounced) ? saved.endgamesAnnounced : [],
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
       takeBacks: typeof saved.takeBacks === 'number' ? saved.takeBacks : 0,
       answers: typeof saved.answers === 'number' ? saved.answers : 0,
