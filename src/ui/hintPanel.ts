@@ -64,7 +64,10 @@ export function renderHintPanel(
     container.append(paragraph(shapeText(view.hint)));
     for (const reason of view.orientation) container.append(paragraph(t(reason.key, reason.params)));
     if (view.revealed) {
-      container.append(moveList(view.hint.moves), note(t('hintUnordered')));
+      container.append(moveList(view.hint.moves));
+      // "Nessuna di queste e' la migliore" ha senso solo se "queste" sono piu' d'una: con
+      // una mossa obbligata la nota contraddiceva l'elenco (segnalato giocando).
+      if (view.hint.moves.length > 1) container.append(note(t('hintUnordered')));
     }
   } else {
     container.append(paragraph(t('hintNothing')));
