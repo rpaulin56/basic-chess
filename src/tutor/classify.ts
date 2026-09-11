@@ -167,7 +167,15 @@ function manifestIndex(
   transient: readonly boolean[],
 ): number {
   for (let i = 1; i <= settled; i++) {
-    if (balances[i] !== final) continue;
+    // Il danno qui deve essere gia' quello finale, o quasi: puo' mancare ancora qualcosa
+    // che valga MENO di un pezzo leggero e meno di quanto si e' gia' perso. Una Donna
+    // mandata a prendere un pedone e presa subito si vede subito, anche se la variante
+    // del motore perde un altro pedone quattro mosse dopo: quel pedone confonde chi
+    // comincia e non cambia la storia (segnalato giocando). Un pezzo intero in piu',
+    // invece, la storia la cambia.
+    const excess = balances[i]! - final;
+    const lossHere = balances[0]! - balances[i]!;
+    if (excess < 0 || excess >= RECOVERY_THAT_COUNTS || excess >= lossHere) continue;
     // Dev'essere il punto in cui la situazione si stabilizza, non un passaggio: da
     // qui in poi il bilancio non deve piu' risalire sopra il valore finale.
     if (
@@ -278,17 +286,21 @@ export function classifyConsequence(
   // Se al momento in cui si vede il danno e' gia' tutto quello finale, si nominano i
   // pezzi persi fino li': un cambio alla pari piu' avanti non deve far dire "perdi
   // l'Alfiere in e3" per un Alfiere perso in e6.
+  const excessAtManifest = (balances[manifestAt] ?? 0) - (balances[settledAt] ?? 0);
   const countedUpTo =
-    balances[manifestAt] === balances[settledAt] ? manifestAt : Math.max(manifestAt, settledAt);
+    excessAtManifest >= 0 && excessAtManifest < RECOVERY_THAT_COUNTS ? manifestAt : Math.max(manifestAt, settledAt);
+  // Il materiale DETTO e' quello del momento mostrato: "perdi subito la Donna" non deve
+  // portarsi dietro il pedone che la variante perde dopo.
+  const shownLoss = countedUpTo < balances.length ? start - balances[countedUpTo]! : materialLoss;
   const { lost, won } = replay(fenAfterMistake, line.slice(0, countedUpTo));
-  const { kind: lossKind, named } = describeLoss(lost, won, materialLoss);
+  const { kind: lossKind, named } = describeLoss(lost, won, shownLoss);
 
   return {
     category,
     line: line.slice(0, manifestAt),
     san: san.slice(0, manifestAt),
     manifestAt,
-    materialLoss: Math.max(0, materialLoss),
+    materialLoss: Math.max(0, shownLoss),
     arrows,
     lost: named,
     lossKind,

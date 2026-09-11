@@ -253,3 +253,16 @@ describe('una perdita subita resta subita', () => {
     expect(result!.materialLoss).toBe(3);
   });
 });
+
+describe('una perdita piccola dopo quella grossa non sposta il momento', () => {
+  it('la Donna persa subito resta "subito" anche se dopo si perde un pedone', () => {
+    // 1.e4 e5 2.Qh5 Nc6 3.Qxf7+?? Kxf7 4.d4 Nxd4: la variante perde anche il pedone d4.
+    // Prima: "tra due mosse perdi la Donna e il pedone".
+    const game = new Chess();
+    for (const san of 'e4 e5 Qh5 Nc6 Qxf7+'.split(' ')) game.move(san);
+    const result = classifyConsequence(game.fen(), ['e8f7', 'd2d4', 'c6d4']);
+    expect(result!.category).toBe('banale');
+    expect(result!.manifestAt).toBe(1);
+    expect(result!.lost.map((piece) => `${piece.type}${piece.square}`)).toEqual(['qf7']);
+  });
+});
