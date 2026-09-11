@@ -61,6 +61,13 @@ export const en: Record<keyof typeof it, string> = {
   whyUnits:
     'The points are win expectancy: out of a hundred games from that position, how many you would come away with. Losing ten in a single move is a lot.',
   whyBetter: 'better {san}',
+  whyTimeUsual: 'You usually thought for about {time} per move.',
+  whyTimeHasty:
+    'You played {move} {san} in {time}, less than half your usual time, and it cost {drop} points. There is no clock with me: take your time.',
+  timeOneSecond: 'one second',
+  timeSeconds: '{n} seconds',
+  timeOneMinute: 'one minute',
+  timeMinutes: '{n} minutes',
   whyGoodTitle: 'And something good',
   giftsTitle: 'And where I went wrong',
   giftLineSeen: '{move} {san} — I went wrong here, and you saw it.',

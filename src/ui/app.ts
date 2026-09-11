@@ -32,6 +32,7 @@ import { findContinuations, findOpening, type Opening } from '../openings/openin
 import { obviousMove } from '../tutor/goodMoves.js';
 import { botPauseMs } from '../bot/pace.js';
 import { ThinkClock, type ThinkTime } from '../tutor/thinkClock.js';
+import { hastiest, usualThinking } from '../tutor/timing.js';
 import { buildHint } from '../tutor/hint.js';
 import { orientPosition } from '../tutor/orientation.js';
 import { moveNumberOf } from '../core/game.js';
@@ -924,6 +925,7 @@ export function mountApp(root: HTMLElement): void {
       box.append(text(t(forgiven ? 'whyNothingCorrected' : 'whyNothing'), 'why-note'));
       appendGood(box, good);
       appendGifts(box);
+      appendTiming(box);
       appendAdvice(box);
       whyEl.append(box);
       return;
@@ -967,6 +969,7 @@ export function mountApp(root: HTMLElement): void {
     // ha capito la trova dove ha finito di leggere e si e' fatto la domanda.
     appendGood(box, good);
     appendGifts(box);
+    appendTiming(box);
     box.append(text(t('whyUnits'), 'why-units'));
     appendAdvice(box);
     whyEl.append(box);
@@ -1084,6 +1087,49 @@ export function mountApp(root: HTMLElement): void {
       list.append(item);
     }
     box.append(list);
+  }
+
+  /**
+   * Quanto hai pensato: il tuo solito, e al massimo una mossa giocata di fretta che e'
+   * costata cara (vedi tutor/timing.ts).
+   *
+   * Nel "solito" non entrano le mosse d'apertura giocate a memoria ne' quelle ovvie:
+   * abbasserebbero il numero senza dire niente di come si pensa. Se i tempi non bastano
+   * (una partita importata senza `%emt`, o giocata prima che si registrassero) la Nonna
+   * non dice niente, invece di un numero fatto con tre mosse.
+   */
+  function appendTiming(box: HTMLElement): void {
+    const counts = (ply: number): boolean =>
+      turnAfter(ply) === humanColor &&
+      !(gameBookExit !== null && ply < gameBookExit) &&
+      !obvious(ply);
+    const median = usualThinking(thinkTimes, counts);
+    if (median === null) return;
+    box.append(text(t('whyTimeUsual', { time: duration(median) }), 'why-note'));
+    const candidates = losses.filter(
+      (loss) => inPlay(loss) && loss.drop >= MISTAKE_DROP && !obvious(loss.ply),
+    );
+    const hasty = hastiest(thinkTimes, candidates, median);
+    if (!hasty) return;
+    box.append(
+      text(
+        t('whyTimeHasty', {
+          move: moveLabel(hasty.move.number, humanColor),
+          san: toFigurine(hasty.move.san),
+          time: duration(hasty.ms),
+          drop: Math.round(hasty.move.drop),
+        }),
+        'why-note',
+      ),
+    );
+  }
+
+  /** Un tempo detto a parole: secondi sotto il minuto, poi minuti arrotondati. */
+  function duration(ms: number): string {
+    const seconds = Math.max(1, Math.round(ms / 1000));
+    if (seconds < 60) return seconds === 1 ? t('timeOneSecond') : t('timeSeconds', { n: seconds });
+    const minutes = Math.round(seconds / 60);
+    return minutes === 1 ? t('timeOneMinute') : t('timeMinutes', { n: minutes });
   }
 
   function inPlay(loss: MoveLoss): boolean {
