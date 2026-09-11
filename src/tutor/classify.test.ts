@@ -288,3 +288,17 @@ describe('lo scambio che lascia un pezzo in meno', () => {
     expect(result!.manifestAt).toBe(2);
   });
 });
+
+describe('un recupero piccolo dopo una perdita grossa non sposta il momento', () => {
+  it('la Regina presa subito resta "subito" anche se dopo si riprendono due pedoni', () => {
+    // La Regina prende in d5 un pedone difeso dalla Torre, la Torre la prende, e piu' avanti
+    // il Bianco prende due pedoni. Prima: "tra due mosse, l'equivalente di sette pedoni".
+    const game = new Chess('3r2k1/p5pp/8/p2p4/8/8/1P3PPP/R2Q2K1 w - - 0 1');
+    game.move('Qxd5+');
+    const result = classifyConsequence(game.fen(), ['d8d5', 'a1a5', 'g8f8', 'a5a7']);
+    expect(result!.category).toBe('banale');
+    expect(result!.manifestAt).toBe(1);
+    expect(result!.lossKind).toBe('named');
+    expect(result!.lost.map((piece) => `${piece.type}${piece.square}`)).toEqual(['qd5']);
+  });
+});

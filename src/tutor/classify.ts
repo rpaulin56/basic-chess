@@ -168,6 +168,28 @@ function settledIndex(plies: number): number {
  * tutto normale a scacchi, e una regola che pretende la ricattura immediata sbaglia
  * ogni volta che c'e' di mezzo una mossa intermedia.
  */
+/**
+ * Il danno visto a una semi-mossa e' gia', in sostanza, quello della fine della variante?
+ *
+ * `excess` e' quanto il bilancio a quella semi-mossa sta SOPRA il finale (positivo: dopo
+ * si perde ancora qualcosa) o SOTTO (negativo: dopo si recupera qualcosa). `lossHere` e'
+ * quanto si e' perso fino a li'.
+ *
+ * - Quello che si perde dopo conta solo se vale almeno un pezzo leggero, o se non e' piu'
+ *   piccolo di quanto si e' gia' perso (la Donna presa subito e un pedone piu' tardi:
+ *   la storia e' la Donna).
+ * - Quello che si recupera dopo conta se vale un pezzo leggero, oppure se restituisce
+ *   almeno META' del danno. Una Regina presa e due pedoni ripresi quattro mosse dopo
+ *   facevano dire "tra quattro mosse, l'equivalente di sette pedoni" (segnalato
+ *   giocando); il Cavallo perso e ripagato con un pezzo, dove il conto vero e' un
+ *   pedone, recupera due punti su tre e continua a spostare il momento, com'e' giusto.
+ */
+function essentiallyFinal(excess: number, lossHere: number): boolean {
+  if (excess >= 0) return excess < RECOVERY_THAT_COUNTS && excess < lossHere;
+  const recovery = -excess;
+  return recovery < RECOVERY_THAT_COUNTS && recovery * 2 < lossHere;
+}
+
 function manifestIndex(
   balances: readonly number[],
   settled: number,
@@ -190,7 +212,7 @@ function manifestIndex(
     // invece, la storia la cambia.
     const excess = balances[i]! - final;
     const lossHere = balances[0]! - balances[i]!;
-    if (excess < 0 || excess >= RECOVERY_THAT_COUNTS || excess >= lossHere) continue;
+    if (!essentiallyFinal(excess, lossHere)) continue;
     // Dev'essere il punto in cui la situazione si stabilizza, non un passaggio: da
     // qui in poi il bilancio non deve piu' risalire sopra il valore finale.
     if (
@@ -302,8 +324,10 @@ export function classifyConsequence(
   // pezzi persi fino li': un cambio alla pari piu' avanti non deve far dire "perdi
   // l'Alfiere in e3" per un Alfiere perso in e6.
   const excessAtManifest = (balances[manifestAt] ?? 0) - (balances[settledAt] ?? 0);
-  const countedUpTo =
-    excessAtManifest >= 0 && excessAtManifest < RECOVERY_THAT_COUNTS ? manifestAt : Math.max(manifestAt, settledAt);
+  const lossAtManifest = start - (balances[manifestAt] ?? start);
+  const countedUpTo = essentiallyFinal(excessAtManifest, lossAtManifest)
+    ? manifestAt
+    : Math.max(manifestAt, settledAt);
   // Il materiale DETTO e' quello del momento mostrato: "perdi subito la Donna" non deve
   // portarsi dietro il pedone che la variante perde dopo.
   const shownLoss = countedUpTo < balances.length ? start - balances[countedUpTo]! : materialLoss;
