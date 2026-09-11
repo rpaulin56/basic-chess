@@ -471,7 +471,14 @@ select {
 .tutor-blunder h2 { color: #b23c2e; }
 .tutor-mistake { border-left-color: #c07a1e; }
 .tutor-mistake h2 { color: #c07a1e; }
-.tutor-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+/* Caselle della stessa larghezza, quattro in fila se ci stanno e due per riga sul
+   telefono: prima andavano a capo dove capitava, secondo la lunghezza delle etichette. */
+.tutor-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
 .tutor-actions button {
   font: inherit;
   font-size: 13px;
@@ -482,7 +489,8 @@ select {
   cursor: pointer;
 }
 .tutor-actions button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.tutor-actions button:hover { border-color: var(--accent); }
+.tutor-actions button:hover:not(:disabled) { border-color: var(--accent); }
+.tutor-actions button:disabled { opacity: 0.45; cursor: default; }
 
 /* --- barra della conseguenza (sotto la scacchiera) --- */
 .preview-bar {

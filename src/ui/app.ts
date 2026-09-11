@@ -124,6 +124,18 @@ const QUICK_DEPTH = 12;
 const QUICK_GATE = 5;
 
 /**
+ * Quanti errori la Nonna lascia annullare in una partita.
+ *
+ * Idea dell'autore: chi sbaglia molto non deve trovare il perdono sempre pronto — "ti ho
+ * gia' perdonato due pezzi, se ne lasci un altro in presa imparerai da solo". La
+ * SEGNALAZIONE resta sempre: alzare la soglia renderebbe ambiguo il silenzio della Nonna,
+ * che vuol dire "non hai sbagliato niente di grave" solo se e' costante. A esaurirsi e'
+ * la possibilita' di cambiare mossa. Contano solo gli errori che la Nonna segnala (le
+ * sviste e gli errori, non le imprecisioni), e ogni partita riparte da zero.
+ */
+const FORGIVE_LIMIT = 3;
+
+/**
  * Profondita' e larghezza della ricerca che risponde a "e adesso?".
  *
  * MultiPV alto perche' la domanda e' proprio "quante sono", e con tre linee non si
@@ -655,9 +667,20 @@ export function mountApp(root: HTMLElement): void {
     renderPreviewControls();
     renderTutorPanel(
       tutorEl,
-      review ? { ...review, previewing: preview !== null, orientation, humanColor } : null,
+      review
+        ? {
+            ...review,
+            previewing: preview !== null,
+            orientation,
+            humanColor,
+            forgiveness: forgivenessState(),
+            forgiveLimit: FORGIVE_LIMIT,
+          }
+        : null,
       {
       onTakeBack: () => {
+        // Anche qui e non solo nel pulsante spento: il limite non dipende dall'interfaccia.
+        if (forgivenessState() === 'exhausted') return;
         // Si toglie una sola semi-mossa: il bot non ha ancora risposto, perche' il
         // tutor lo tiene fermo finche' l'utente non decide.
         //
@@ -3122,6 +3145,13 @@ export function mountApp(root: HTMLElement): void {
    * posti diversi, e questo e' esattamente il genere di cosa che si dimentica.
    * Ricavarlo dalla posizione toglie di mezzo la domanda.
    */
+  /** Quanti errori sono gia' stati perdonati in questa partita, rispetto al limite. */
+  function forgivenessState(): 'available' | 'last' | 'exhausted' {
+    const forgiven = mistakeLog.filter((entry) => wasCorrected(entry)).length;
+    if (forgiven >= FORGIVE_LIMIT) return 'exhausted';
+    return forgiven === FORGIVE_LIMIT - 1 ? 'last' : 'available';
+  }
+
   function wasCorrected(entry: MistakeEntry): boolean {
     return state.plies[entry.ply]?.san !== entry.san;
   }

@@ -53,6 +53,12 @@ export interface TutorPanelState {
   readonly orientation: 'white' | 'black';
   /** Il colore di chi gioca, perche' l'aspettativa del verdetto e' la SUA. */
   readonly humanColor: 'w' | 'b';
+  /**
+   * Quanto la Nonna e' ancora disposta a perdonare (vedi FORGIVE_LIMIT in app.ts):
+   * 'last' e' l'ultimo perdono, 'exhausted' vuol dire che la mossa resta.
+   */
+  readonly forgiveness: 'available' | 'last' | 'exhausted';
+  readonly forgiveLimit: number;
 }
 
 const SEVERITY_LABEL = {
@@ -159,6 +165,10 @@ export function renderTutorPanel(
       ? t('tutorAlternativeOne')
       : t('tutorAlternatives', { count: verdict.betterAlternatives }),
   );
+  // Il perdono ha un limite, e la Nonna lo dice: prima che finisca, e quando e' finito.
+  // Un pulsante spento senza una frase che spieghi perche' sembrerebbe un guasto.
+  if (state.forgiveness === 'last') lines.push(t('tutorForgiveLast'));
+  if (state.forgiveness === 'exhausted') lines.push(t('tutorForgiveNoMore', { count: state.forgiveLimit }));
 
   const body = document.createElement('div');
   body.className = 'tutor-body';
@@ -188,19 +198,16 @@ export function renderTutorPanel(
   if (previewing) {
     buttons.append(action(t('previewClose'), actions.onClosePreview, 'primary'));
   } else {
-    buttons.append(
-      action(t('tutorTakeBack'), actions.onTakeBack, 'primary'),
-      action(t('tutorContinue'), actions.onContinue),
-    );
-    // "Se la tieni, ti faccio vedere" stava nel suggerimento di quel pulsante, cioe'
-    // in nessun posto su telefono. Dice cosa succede DOPO aver scelto, ed e' proprio
-    // l'informazione che serve prima di scegliere: adesso e' una riga di testo.
-    const note = document.createElement('p');
-    note.className = 'tutor-note';
-    note.textContent = t('tutorContinueTitle');
-    container.append(note);
-    if (consequence) buttons.append(action(t('tutorShowConsequence'), actions.onShowConsequence));
+    // Prima capire, poi decidere: nell'ordine in cui si usano, e colorato solo "Mostra
+    // conseguenze". Era colorato "Annulla", quando il tutor serviva soprattutto a far
+    // rifare la mossa; con il perdono che si esaurisce, spingere verso quello non ha piu'
+    // senso, e spingere verso "Continua" farebbe premere senza leggere. La cosa da fare
+    // adesso e' capire l'errore; le due decisioni restano alla pari.
+    if (consequence) buttons.append(action(t('tutorShowConsequence'), actions.onShowConsequence, 'primary'));
     if (!betterSans) buttons.append(action(t('tutorShowBest'), actions.onReveal));
+    const change = action(t('tutorTakeBack'), actions.onTakeBack) as HTMLButtonElement;
+    change.disabled = state.forgiveness === 'exhausted';
+    buttons.append(change, action(t('tutorContinue'), actions.onContinue));
   }
   container.append(buttons);
 }
