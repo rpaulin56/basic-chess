@@ -42,13 +42,27 @@ export function parseInfoLine(line: string): EngineLine | (EngineLine & { depth:
 }
 
 /** Quanto si aspetta l'avvio del motore prima di dichiararlo morto. */
-const HANDSHAKE_TIMEOUT_MS = 30_000;
+// Novanta secondi e non trenta: il primo caricamento su un telefono lento deve
+// scaricare e compilare 7 MB, e qui non c'e' modo di chiedere "ci sei?" finche' il
+// motore non e' partito.
+const HANDSHAKE_TIMEOUT_MS = 90_000;
 /**
- * Quanto si aspetta una singola ricerca. Le nostre profondita' si risolvono in meno
- * di un secondo: trenta secondi non e' una soglia di pazienza, e' un rilevatore di
- * guasti.
+ * Il motore e' VIVO finche' risponde: nessuna scadenza fissa per le ricerche.
+ *
+ * C'erano trenta secondi per ogni ricerca, poi il motore veniva buttato via e
+ * ricaricato. Su un computer una ricerca del tutor dura un secondo e la scadenza non
+ * scattava mai; su un telefono lento poteva scattare su un motore SANO, e il riavvio
+ * costava altri secondi di caricamento — e' la spiegazione piu' probabile di una
+ * risposta arrivata dopo trenta-sessanta secondi.
+ *
+ * Adesso durante la ricerca, dopo qualche secondo senza notizie, gli si chiede "ci
+ * sei?" (`isready`), a cui il protocollo impone di rispondere subito anche mentre
+ * cerca: misurato, 8 ms nel browser a ricerca in corso. Si rinuncia solo se per
+ * DEAD_AFTER_MS non arriva nessuna riga, di nessun tipo.
  */
-const SEARCH_TIMEOUT_MS = 30_000;
+const PING_AFTER_MS = 3_000;
+const PING_EVERY_MS = 1_000;
+const DEAD_AFTER_MS = 15_000;
 
 /**
  * Crea un motore sopra un canale qualsiasi.
@@ -105,6 +119,36 @@ export async function createEngine(
     });
   }
 
+  /**
+   * Come `collectUntil`, ma senza scadenza fissa: si rinuncia solo se il motore smette di
+   * rispondere (vedi DEAD_AFTER_MS). Ogni riga ricevuta, `readyok` compreso, conta come
+   * segno di vita.
+   */
+  function collectWhileAlive(done: (line: string) => boolean, onEach: (line: string) => void): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let lastLine = Date.now();
+      const watch = setInterval(() => {
+        const silent = Date.now() - lastLine;
+        if (silent >= DEAD_AFTER_MS) {
+          clearInterval(watch);
+          onLineHandler = null;
+          reject(new Error('il motore non risponde'));
+        } else if (silent >= PING_AFTER_MS) {
+          transport.send('isready');
+        }
+      }, PING_EVERY_MS);
+      onLineHandler = (line) => {
+        lastLine = Date.now();
+        onEach(line);
+        if (done(line)) {
+          clearInterval(watch);
+          onLineHandler = null;
+          resolve();
+        }
+      };
+    });
+  }
+
   transport.send('uci');
   await collectUntil((line) => line.startsWith('uciok'), undefined, HANDSHAKE_TIMEOUT_MS);
 
@@ -151,7 +195,7 @@ export async function createEngine(
     let depth = 0;
 
     transport.send(`go depth ${request.depth}`);
-    await collectUntil(
+    await collectWhileAlive(
       (line) => line.startsWith('bestmove'),
       (line) => {
         if (line.startsWith('bestmove')) {
@@ -166,7 +210,6 @@ export async function createEngine(
         if (!previous || withDepth.depth >= previous.depth) best.set(withDepth.multipv, withDepth);
         if (withDepth.depth > depth) depth = withDepth.depth;
       },
-      SEARCH_TIMEOUT_MS,
     );
 
     const lines = [...best.values()].sort((a, b) => a.multipv - b.multipv);

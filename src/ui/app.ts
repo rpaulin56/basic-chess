@@ -38,6 +38,7 @@ import { createBoardView, type BoardView } from './boardView.js';
 import { createIcon, type IconName, createStrengthIcon } from './icons.js';
 import { createCredits } from './credits.js';
 import { createEngineSession } from './engineSession.js';
+import { engineReport } from '../engine/diagnostics.js';
 import { renderMoveList } from './moveList.js';
 import { renderTutorPanel } from './tutorPanel.js';
 import { renderHintPanel, type HintView } from './hintPanel.js';
@@ -548,7 +549,12 @@ export function mountApp(root: HTMLElement): void {
     creditsEl,
   } = buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
-  const engine = createEngineSession(() => renderEnginePanel());
+  // Anche la riga di stato, non solo il pannello della valutazione: quello di default e'
+  // spento, e "Carico il motore…" lo vedeva solo chi l'aveva acceso.
+  const engine = createEngineSession(() => {
+    renderEnginePanel();
+    renderStatus();
+  });
 
   function refresh(): void {
     generation++;
@@ -1102,12 +1108,14 @@ export function mountApp(root: HTMLElement): void {
     const analyses: Analysis[] = [];
     for (let cursor = 0; cursor <= state.plies.length; cursor++) {
       const fen = currentFen(goTo(state, cursor));
+      // Un tentativo in piu' prima di arrendersi: se il motore e' stato riavviato, la
+      // seconda richiesta lo trova nuovo. Prima al primo intoppo si tornava in silenzio
+      // all'offerta, e sembrava che l'analisi si fosse bloccata.
+      const options = { depth: POSTMORTEM_DEPTH, multiPV: 2 };
       const analysis =
         terminalAnalysis(fen) ??
-        (await engine.analyse(fen, {
-          depth: POSTMORTEM_DEPTH,
-          multiPV: 2,
-        }));
+        (await engine.analyse(fen, options)) ??
+        (await engine.analyse(fen, options));
       // La partita e' cambiata sotto (nuova partita, importazione): l'analisi in corso
       // parla di una partita che non c'e' piu'.
       if (mark !== generation) return;
@@ -2427,7 +2435,7 @@ export function mountApp(root: HTMLElement): void {
     }
     statusEl.className = 'status';
     if (botThinking) {
-      statusEl.textContent = t('thinking');
+      statusEl.textContent = engine.loading() ? t('engineLoading') : t('thinking');
       return;
     }
     statusEl.textContent = positionAt(state).turn() === 'w' ? t('turnWhite') : t('turnBlack');
@@ -2613,7 +2621,11 @@ export function mountApp(root: HTMLElement): void {
         iconButton(
           'hint',
           t('hint'),
-          hint !== null || review !== null || state.cursor !== state.plies.length || gameOver(state) !== null,
+          // In QUALUNQUE posizione in cui tocca a te, non solo nell'ultima: il dubbio viene
+          // proprio tornando indietro ("qui cosa avrei potuto giocare?"), e il consiglio e'
+          // cio' che aiuta a decidere se rigiocare da li'. Spento dove tocca alla Nonna,
+          // a partita finita e mentre c'e' un verdetto. Segnalato giocando.
+          hint !== null || review !== null || positionAt(state).turn() !== humanColor || gameOver(state) !== null,
           () => void askHint(),
         ),
       ),
@@ -3366,6 +3378,14 @@ export function mountApp(root: HTMLElement): void {
       localStorage.setItem('basic-chess:depth', on ? 'on' : 'off');
     });
 
+    // La diagnostica del motore: gli ultimi eventi (caricamento, ricerche, guasti) da
+    // copiare e mandare quando qualcosa si blocca su un dispositivo che non abbiamo.
+    const diagnostics = document.createElement('button');
+    diagnostics.type = 'button';
+    diagnostics.className = 'settings-diagnostics';
+    diagnostics.textContent = t('engineDiagnostics');
+    diagnostics.addEventListener('click', () => void copy(engineReport()));
+
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'settings-close';
@@ -3378,6 +3398,7 @@ export function mountApp(root: HTMLElement): void {
       barRow,
       evalRow,
       depthRow,
+      diagnostics,
       close,
     );
     // Il cambio di lingua deve ridisegnare tutto, e finche' la finestra e' aperta
@@ -3530,6 +3551,9 @@ export function mountApp(root: HTMLElement): void {
     event.preventDefault();
   });
 
+  // Una partita ripresa dopo aver ricaricato la pagina avra' bisogno del motore fra un
+  // attimo: lo si fa partire subito, invece di sommare il caricamento alla prima attesa.
+  if (state.plies.length > 0) engine.warmUp();
   refresh();
 }
 
