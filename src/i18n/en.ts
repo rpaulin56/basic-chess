@@ -244,9 +244,9 @@ export const en: Record<keyof typeof it, string> = {
   sectionElo: 'Estimated strength',
   opponentHelpEloTakebacks:
     'The numbers are for games where mistakes are not forgiven: if you let yourself be forgiven, your real level is lower!',
-  takebacksNone: 'None',
-  takebacksOne: 'One move',
-  takebacksMany: '{n} moves',
+  takebacksNone: 'Never',
+  takebacksOne: 'Max 1 time',
+  takebacksMany: 'Max {n} times',
   takebacksUnlimited: 'No limit',
   takebacksNextGame: 'Applies from the next game.',
   opponentHelpTakebacks:

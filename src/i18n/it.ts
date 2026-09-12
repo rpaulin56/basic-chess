@@ -243,9 +243,9 @@ export const it = {
   sectionElo: 'Forza stimata',
   opponentHelpEloTakebacks:
     'I numeri valgono per partite in cui gli errori non si perdonano: se ti lasci perdonare, il tuo livello reale è più basso!',
-  takebacksNone: 'Nessuna',
-  takebacksOne: 'Una mossa',
-  takebacksMany: '{n} mosse',
+  takebacksNone: 'Mai',
+  takebacksOne: 'Max 1 volta',
+  takebacksMany: 'Max {n} volte',
   takebacksUnlimited: 'Senza limite',
   takebacksNextGame: 'Vale dalla prossima partita.',
   opponentHelpTakebacks:
