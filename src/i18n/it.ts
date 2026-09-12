@@ -61,7 +61,10 @@ export const it = {
   whyBetter: 'meglio {san}',
   whyTimeUsual: 'In questa partita hai pensato in media {time} a mossa.',
   whyTimeHasty:
-    '{move} {san} l’hai giocata in {time}, meno della metà del solito (circa {usual}), ed è costata {drop} punti. Con me non c’è l’orologio: prenditi pure il tuo tempo.',
+    '{move} {san} ti è costata {drop} punti. La fretta ti ha tradito: l’hai giocata in {time}, contro una media di {usual} a mossa in questa partita.',
+  whyTimeDelicate:
+    '{move} {san} — qui la partita era ancora tutta da giocare e hai deciso troppo in fretta: {time}, contro una media di {usual} a mossa in questa partita.',
+  whyTimeDelicateBest: 'Era meglio {best}.',
   timeOneSecond: 'un secondo',
   timeSeconds: '{n} secondi',
   timeOneMinute: 'un minuto',

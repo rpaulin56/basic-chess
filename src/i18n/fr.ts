@@ -83,8 +83,9 @@ export const fr: Record<keyof typeof it, string> = {
   whyUnits: `Les points sont une espérance de gain${NB}: sur cent parties jouées depuis cette position, combien tu en ramènerais. En perdre dix en un seul coup, c’est beaucoup.`,
   whyBetter: `mieux${NB}: {san}`,
   whyTimeUsual: 'Dans cette partie, tu as réfléchi en moyenne {time} par coup.',
-  whyTimeHasty:
-    'Tu as joué {move} {san} en {time}, moins de la moitié de ton temps habituel (environ {usual}), et ce coup a coûté {drop} points. Avec moi, il n’y a pas d’horloge, alors prends ton temps.',
+  whyTimeHasty: `{move} {san} t’a coûté {drop} points. La précipitation t’a trahi${NB}: tu l’as joué en {time}, contre une moyenne de {usual} par coup dans cette partie.`,
+  whyTimeDelicate: `{move} {san} — ici, tout restait à jouer et tu as décidé trop vite${NB}: {time}, contre une moyenne de {usual} par coup dans cette partie.`,
+  whyTimeDelicateBest: `{best} était meilleur.`,
   timeOneSecond: 'une seconde',
   timeSeconds: '{n} secondes',
   timeOneMinute: 'une minute',

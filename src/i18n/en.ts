@@ -63,7 +63,10 @@ export const en: Record<keyof typeof it, string> = {
   whyBetter: 'better {san}',
   whyTimeUsual: 'In this game you typically took {time} per move.',
   whyTimeHasty:
-    'You played {move} {san} in {time}, less than half your typical time (about {usual}), and it cost {drop} points. There is no clock with me: take your time.',
+    '{move} {san} cost you {drop} points. Haste let you down: you played it in {time}, against an average of {usual} per move in this game.',
+  whyTimeDelicate:
+    '{move} {san} — the game was still wide open here and you decided too quickly: {time}, against an average of {usual} per move in this game.',
+  whyTimeDelicateBest: '{best} was better.',
   timeOneSecond: 'one second',
   timeSeconds: '{n} seconds',
   timeOneMinute: 'one minute',

@@ -103,6 +103,20 @@ const INACCURACY_DROP = 10;
 const GOOD_MOVE_GAP = 15;
 
 /**
+ * La fascia in cui la partita e' ancora tutta da giocare: l'aspettativa sta in mezzo,
+ * lontano dalle due fasce in cui e' ormai decisa.
+ *
+ * Serve alla frase sulla fretta nelle imprecisioni. All'inizio quella frase guardava il
+ * GAP, cioe' quanto la mossa migliore batteva la seconda, ma gap e costo sono legati: chi
+ * manca la mossa in una posizione stretta perde all'incirca il gap, quindi "gap alto ma
+ * costo sotto l'errore" era una fessura quasi vuota. Misurato su tre partite: l'unica
+ * posizione con gap alto era una mossa TROVATA, che sta fra le lodi. L'equilibrio invece
+ * e' indipendente dal costo, e dice la cosa che serve: la partita era ancora aperta.
+ */
+const OPEN_GAME_LOW = 35;
+const OPEN_GAME_HIGH = 65;
+
+/**
  * Profondita' del GIUDIZIO, piu' alta di quella della valutazione mostrata.
  *
  * Misurato su una partita reale: la stessa posizione valutata a profondita' 14 dava
@@ -1177,29 +1191,68 @@ export function mountApp(root: HTMLElement): void {
   function appendTiming(box: HTMLElement): void {
     const median = usualThinking(thinkTimes, timingCounts);
     if (median === null) return;
-    const candidates = losses.filter(
-      (loss) => inPlay(loss) && loss.drop >= MISTAKE_DROP && !obvious(loss.ply),
+    // Le stesse mosse che fanno il tempo medio: le tue, fuori dall'apertura, non ovvie.
+    // Le mosse di libro restano fuori anche da qui: rimproverare la fretta su una mossa
+    // giocata a memoria sarebbe un rimprovero a chi la sapeva.
+    const mine = (loss: MoveLoss): boolean => inPlay(loss) && timingCounts(loss.ply);
+    // Una frase sola, e sempre su una mossa che il tempo ha fatto pagare: del tempo in se'
+    // la Nonna non parla mai. Prima l'errore vero giocato di fretta; se non c'e',
+    // l'imprecisione giocata di fretta dove la strada era stretta (gap alto), che durante
+    // la partita non viene mai segnalata. Mai su una mossa riuscita: quella sta fra le
+    // lodi ("c'era una sola mossa buona, e tu l'hai trovata"), e rimproverare la fretta
+    // li' sarebbe contraddirsi nello stesso riepilogo.
+    const hasty = hastiest(
+      thinkTimes,
+      losses.filter((loss) => mine(loss) && loss.drop >= MISTAKE_DROP),
+      median,
     );
-    const hasty = hastiest(thinkTimes, candidates, median);
-    // Una frase sola. Con la mossa di fretta il tempo medio sta fra parentesi dentro di
-    // lei: due frasi di fila che dicevano lo stesso numero si leggevano come un elenco.
-    // Senza, la frase sul tempo medio resta da sola, perche' la mossa di fretta e' rara.
-    if (!hasty) {
-      box.append(text(t('whyTimeUsual', { time: duration(median) }), 'why-note'));
+    if (hasty) {
+      box.append(
+        text(
+          t('whyTimeHasty', {
+            move: moveLabel(hasty.move.number, humanColor),
+            san: toFigurine(hasty.move.san),
+            time: duration(hasty.ms),
+            usual: duration(median),
+            drop: Math.round(hasty.move.drop),
+          }),
+          'why-note',
+        ),
+      );
       return;
     }
-    box.append(
-      text(
-        t('whyTimeHasty', {
-          move: moveLabel(hasty.move.number, humanColor),
-          san: toFigurine(hasty.move.san),
-          time: duration(hasty.ms),
-          usual: duration(median),
-          drop: Math.round(hasty.move.drop),
-        }),
-        'why-note',
+    const delicate = hastiest(
+      thinkTimes,
+      losses.filter(
+        (loss) =>
+          mine(loss) &&
+          loss.drop >= INACCURACY_DROP &&
+          loss.drop < MISTAKE_DROP &&
+          loss.before >= OPEN_GAME_LOW &&
+          loss.before <= OPEN_GAME_HIGH,
       ),
+      median,
     );
+    if (delicate) {
+      // La mossa giusta si dice QUI: la lista sopra ne mostra al massimo tre, e
+      // un'imprecisione puo' restarne fuori, portandosi via anche il "meglio".
+      const best = delicate.move.best
+        ? ` ${t('whyTimeDelicateBest', { best: toFigurine(delicate.move.best) })}`
+        : '';
+      box.append(
+        text(
+          t('whyTimeDelicate', {
+            move: moveLabel(delicate.move.number, humanColor),
+            san: toFigurine(delicate.move.san),
+            time: duration(delicate.ms),
+            usual: duration(median),
+          }) + best,
+          'why-note',
+        ),
+      );
+      return;
+    }
+    box.append(text(t('whyTimeUsual', { time: duration(median) }), 'why-note'));
   }
 
   /** Le mosse che entrano nel tempo medio: le tue, fuori dall'apertura, non ovvie. */
@@ -4107,6 +4160,12 @@ export function mountApp(root: HTMLElement): void {
     losses.length = 0;
     thinkTimes.length = 0;
     thinkClock.reset();
+    // Anche il riquadro della post-analisi: per una partita gia' finita `refresh` non lo
+    // riporta indietro da solo, e importandone una subito dopo averne analizzata un'altra
+    // restava aperta l'analisi di prima — con i dati azzerati, quindi "non hai fatto
+    // errori" su una partita mai studiata, e senza piu' l'offerta di studiarla.
+    postMortem = 'hidden';
+    stopStudy = false;
     // Tutti e tre i contatori, non solo i consigli: `takeBacks` non veniva azzerato e
     // si portava dietro i ripensamenti della partita prima, che finivano nel PGN di
     // quella dopo. Un contatore dimenticato qui non da' nessun errore, dice solo un
