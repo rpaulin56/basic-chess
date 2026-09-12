@@ -254,6 +254,12 @@ export const en: Record<keyof typeof it, string> = {
   takebacksNextGame: 'Applies from the next game.',
   opponentHelpTakebacks:
     'Every move you change is a concession from Grandma: the rules would not allow it. It is fair to put a limit on changes made after a warning or on your own initiative.',
+  sectionStudy: 'Study openings',
+  studyToggle: 'Show the theory moves on the board',
+  opponentHelpStudy:
+    'The arrows show the moves that are really played in that position, thicker the more they are played. They belong to whoever is to move, so stepping back onto Grandma’s move shows her alternatives. When the game leaves theory, study mode switches itself off.',
+  studyOver: 'Theory ends here: back to watching you play.',
+  recapStudy: 'In this game you studied the opening.',
   whyRethinkTitle: 'Where you changed your mind',
   whyRethinkLine: '{move} {san}, changed to {newSan}',
   whyRethinkLineOpen: '{move} {san}, then changed',

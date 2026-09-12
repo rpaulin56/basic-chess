@@ -253,6 +253,12 @@ export const it = {
   takebacksNextGame: 'Vale dalla prossima partita.',
   opponentHelpTakebacks:
     'Ogni mossa cambiata è una concessione della Nonna: le regole non lo permetterebbero. È giusto mettere un limite ai cambi fatti dopo un avviso o di tua iniziativa.',
+  sectionStudy: 'Studia aperture',
+  studyToggle: 'Mostra sulla scacchiera le mosse di teoria',
+  opponentHelpStudy:
+    'Le frecce mostrano le mosse che in quella posizione si giocano davvero, più spesse quanto più sono giocate. Sono di chi ha il tratto, quindi tornando indietro sulla mossa della Nonna vedi le sue alternative. Quando la partita esce dalla teoria lo studio si spegne da solo.',
+  studyOver: 'Qui finisce la teoria: torno a guardarti giocare.',
+  recapStudy: 'In questa partita hai studiato l’apertura.',
   whyRethinkTitle: 'Dove hai cambiato idea',
   whyRethinkLine: '{move} {san}, cambiata in {newSan}',
   whyRethinkLineOpen: '{move} {san}, poi cambiata',

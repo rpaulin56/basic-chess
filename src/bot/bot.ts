@@ -67,6 +67,20 @@ export interface BotLevel {
 }
 
 /**
+ * Quanto le mosse di teoria tirano la scelta, in partita normale.
+ *
+ * NON e' un libro: la Nonna continua a scegliere fra le mosse del motore come sempre, e
+ * quelle che si giocano davvero pesano un po' di piu'. Il moltiplicatore va con la RADICE
+ * della quota, cosi' la differenza fra il 64% e il 23% si sente ma non schiaccia: alla
+ * prima mossa 1.e4 pesa circa due volte e mezzo una mossa qualunque, 1.d4 circa due, e
+ * 1.a3 resta possibile — raro, come dev'essere.
+ *
+ * Seguire il libro alla lettera, con le proporzioni di Lichess, la Nonna lo fa soltanto in
+ * modalita' "studia aperture": li' si vuole la teoria, non un'avversaria.
+ */
+const BOOK_PULL = 2;
+
+/**
  * I CINQUE livelli, con l'Elo misurato contro Stockfish limitato a un Elo noto.
  *
  * Erano sette, e i sette erano una bugia gentile: misurando i livelli UNO CONTRO
@@ -313,6 +327,11 @@ export function selectBotMove(
   level: BotLevel,
   distraction: Distraction,
   rng: Rng = Math.random,
+  /**
+   * Quanto e' giocata una mossa (0-100), per dare una spinta alla teoria. Vedi BOOK_PULL.
+   * Senza, si sceglie come si e' sempre scelto.
+   */
+  bookShare: (uci: string) => number = () => 0,
 ): string | null {
   const all = analysis.lines.filter((line) => line.pv.length > 0);
   if (all.length === 0) return analysis.bestMove;
@@ -356,7 +375,11 @@ export function selectBotMove(
     return all[all.length - 1]!.pv[0]!;
   }
 
-  const weights = lines.map((line) => Math.exp(-moveCost(best, line) / temperature));
+  const weights = lines.map((line) => {
+    const chance = Math.exp(-moveCost(best, line) / temperature);
+    const share = Math.max(0, Math.min(100, bookShare(line.pv[0]!)));
+    return chance * (1 + BOOK_PULL * Math.sqrt(share / 100));
+  });
   const total = weights.reduce((sum, weight) => sum + weight, 0);
 
   let threshold = rng() * total;

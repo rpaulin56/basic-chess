@@ -30,14 +30,16 @@ export async function chooseBotMove(
   level: BotLevel,
   distraction: Distraction,
   rng?: Rng,
+  /** Quanto e' giocata una mossa (0-100): la spinta della teoria, vedi BOOK_PULL. */
+  bookShare?: (uci: string) => number,
 ): Promise<string | null> {
   const first = await analyse({ depth: level.depth, multiPV: level.multiPV });
   if (!first) return null;
-  if (!isDecided(first, level)) return selectBotMove(first, level, distraction, rng);
+  if (!isDecided(first, level)) return selectBotMove(first, level, distraction, rng, bookShare);
 
   const deeper = await analyse({
     depth: level.depth + DECIDED_EXTRA_DEPTH,
     multiPV: level.multiPV,
   });
-  return selectBotMove(deeper ?? first, level, distraction, rng);
+  return selectBotMove(deeper ?? first, level, distraction, rng, bookShare);
 }

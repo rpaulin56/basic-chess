@@ -32,7 +32,8 @@ export type IconName =
   | 'newGame'
   | 'world'
   | 'replay'
-  | 'eye';
+  | 'eye'
+  | 'book';
 
 /**
  * Ogni icona e' il contenuto di un viewBox 24x24. Tratto e riempimento sono decisi
@@ -176,6 +177,15 @@ const PATHS: Record<IconName, string> = {
   eye:
     '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />' +
     '<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />',
+  // Il librone aperto della modalita' studio: due pagine e la costola in mezzo.
+  //
+  // Serve come INDICATORE oltre che come comando: acceso lo studio, la Nonna tace e i
+  // ripensamenti non contano, e chi non se lo ricorda deve poterlo vedere sullo schermo
+  // senza riaprire il riquadro.
+  book:
+    '<path d="M12 6.5c-1.8-1.3-4-2-6.5-2H3v13h2.5c2.5 0 4.7.7 6.5 2" />' +
+    '<path d="M12 6.5c1.8-1.3 4-2 6.5-2H21v13h-2.5c-2.5 0-4.7.7-6.5 2" />' +
+    '<path d="M12 6.5v13" />',
   // Posizione: un foglio di testo.
   //
   // E' la terza versione di questa icona, e le prime due sbagliavano per motivi

@@ -616,6 +616,18 @@ select {
 /* Le tre sezioni del riquadro della Nonna (livello, attenzione, perdono): ognuna col
    suo titolo sopra il menu, perche' un menu senza titolo non dice di che cosa parla. */
 .settings-dialog .section-title { font-size: 13px; font-weight: 600; margin: 0 0 8px; }
+
+/* Il librone della modalita' studio, nella riga di stato: piccolo, accanto al testo, e
+   cliccabile per uscire. */
+.study-badge {
+  border: 0;
+  background: none;
+  padding: 0 6px 0 0;
+  color: var(--accent);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.study-badge svg { width: 18px; height: 18px; vertical-align: middle; }
 .settings-dialog .section + .section { margin-top: 18px; }
 .settings-dialog .section .settings { margin-bottom: 10px; }
 

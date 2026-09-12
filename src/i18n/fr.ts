@@ -266,6 +266,12 @@ export const fr: Record<keyof typeof it, string> = {
   takebacksUnlimited: 'Sans limite',
   takebacksNextGame: 'S’applique à partir de la prochaine partie.',
   opponentHelpTakebacks: `Chaque coup changé est une concession de Mamie${NB}: les règles ne le permettraient pas. Il est juste de limiter les changements faits après un avertissement ou de ta propre initiative.`,
+  sectionStudy: 'Étudier les ouvertures',
+  studyToggle: 'Montrer les coups de théorie sur l’échiquier',
+  opponentHelpStudy:
+    'Les flèches montrent les coups que l’on joue vraiment dans cette position, d’autant plus épaisses qu’ils sont joués souvent. Elles sont à qui a le trait, donc en revenant sur le coup de Mamie tu vois ses alternatives. Quand la partie sort de la théorie, l’étude s’arrête d’elle-même.',
+  studyOver: `Ici finit la théorie${NB}: je retourne te regarder jouer.`,
+  recapStudy: 'Dans cette partie, tu as étudié l’ouverture.',
   whyRethinkTitle: 'Là où tu as changé d’avis',
   whyRethinkLine: '{move} {san}, remplacé par {newSan}',
   whyRethinkLineOpen: '{move} {san}, puis remplacé',

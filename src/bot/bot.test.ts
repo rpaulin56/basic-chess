@@ -76,3 +76,31 @@ describe('selectBotMove', () => {
     expect(chosen.size).toBeGreaterThan(1);
   });
 });
+
+describe('la spinta della teoria', () => {
+  // Due mosse che al motore costano uguale: senza spinta pesano uguale, con la spinta la
+  // mossa di teoria pesa di piu' — ma l'altra resta possibile.
+  const lines = [
+    { multipv: 1, scoreCp: 20, mateIn: null, pv: ['e2e4'] },
+    { multipv: 2, scoreCp: 20, mateIn: null, pv: ['a2a3'] },
+  ];
+  const analysis = { fen: '', depth: 8, bestMove: 'e2e4', lines };
+  const level = levelById('l3');
+  const careful = distractionById('attento');
+
+  it('senza spinta le due mosse pesano uguale', () => {
+    // Con due pesi uguali il sorteggio a 0,6 cade sulla seconda meta'.
+    expect(selectBotMove(analysis, level, careful, () => 0.6)).toBe('a2a3');
+  });
+
+  it('con la spinta la mossa di teoria prende il posto', () => {
+    // Stesso sorteggio, ma 1.e4 ora pesa due volte e mezzo: la soglia non la supera piu'.
+    const share = (uci: string) => (uci === 'e2e4' ? 64 : 0);
+    expect(selectBotMove(analysis, level, careful, () => 0.6, share)).toBe('e2e4');
+  });
+
+  it('la mossa fuori libro resta possibile', () => {
+    const share = (uci: string) => (uci === 'e2e4' ? 64 : 0);
+    expect(selectBotMove(analysis, level, careful, () => 0.95, share)).toBe('a2a3');
+  });
+});
