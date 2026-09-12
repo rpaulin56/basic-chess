@@ -3741,30 +3741,34 @@ export function mountApp(root: HTMLElement): void {
       title.textContent = t('opponentHelpTitle');
       dialog.append(title);
 
-      const choice = document.createElement('div');
-      choice.className = 'settings';
-      choice.append(levelSelect(fill), distractionSelect(fill), takebackSelect(fill));
-      dialog.append(choice);
-      // Il limite non cambia la partita in corso: se la scelta e' diversa, lo si dice subito
-      // sotto i menu, invece di lasciar credere che adesso valga quello nuovo.
-      if (preferredTakebackLimit() !== takebackLimit) {
-        const note = document.createElement('p');
-        note.className = 'help-line';
-        note.textContent = t('takebacksNextGame');
-        dialog.append(note);
-      }
-
-      for (const key of [
-        'opponentHelpLevel',
-        'opponentHelpCareful',
-        'opponentHelpSloppy',
-        'opponentHelpTakebacks',
-      ]) {
+      // Tre sezioni, ognuna col suo titolo: il menu, la spiegazione che lo riguarda e —
+      // per il livello — la tabella. Prima i tre menu stavano in fila con le spiegazioni
+      // tutte in fondo, e il titolo esisteva solo come suggerimento del mouse, che su
+      // telefono non esiste: "3 mosse" non diceva di che cosa parlasse (segnalato usandolo).
+      const help = (key: string): HTMLElement => {
         const paragraph = document.createElement('p');
         paragraph.className = 'help-line';
         paragraph.textContent = t(key);
-        dialog.append(paragraph);
-      }
+        return paragraph;
+      };
+      const section = (titleKey: string, choice: HTMLElement | null, ...lines: HTMLElement[]): void => {
+        const block = document.createElement('div');
+        block.className = 'section';
+        const heading = document.createElement('h3');
+        heading.className = 'section-title';
+        heading.textContent = t(titleKey);
+        block.append(heading);
+        // Una sezione puo' non avere menu: la tabella degli Elo non e' una scelta, e' cio'
+        // che serve per farne due.
+        if (choice) {
+          const row = document.createElement('div');
+          row.className = 'settings';
+          row.append(choice);
+          block.append(row);
+        }
+        block.append(...lines);
+        dialog.append(block);
+      };
 
       // La tabella di tutti i livelli, con le due colonne dell'attenzione accanto:
       // e' la sola forma in cui l'Elo aiuta a scegliere, perche' mostra le DISTANZE.
@@ -3791,12 +3795,23 @@ export function mountApp(root: HTMLElement): void {
         }
         table.append(row);
       }
-      dialog.append(table);
 
-      const note = document.createElement('p');
-      note.className = 'help-line';
-      note.textContent = t('opponentHelpElo');
-      dialog.append(note);
+      section('sectionLevel', levelSelect(fill), help('opponentHelpLevel'));
+      section(
+        'sectionAttention',
+        distractionSelect(fill),
+        help('opponentHelpCareful'),
+        help('opponentHelpSloppy'),
+      );
+      // Il limite non cambia la partita gia' cominciata: se la scelta e' diversa da quella
+      // con cui si gioca, lo si dice qui, invece di lasciar credere che valga adesso.
+      const forgiveness = [help('opponentHelpTakebacks')];
+      if (preferredTakebackLimit() !== takebackLimit) forgiveness.push(help('takebacksNextGame'));
+      section('sectionForgiveness', takebackSelect(fill), ...forgiveness);
+      // In FONDO, e non nella sezione del livello: la tabella incrocia livello e attenzione,
+      // quindi non appartiene a nessuna delle due, ed e' la cosa piu' lunga del riquadro.
+      // Riguarda anche la terza scelta, perche' un Elo vale per chi non riprende le mosse.
+      section('sectionElo', null, table, help('opponentHelpElo'), help('opponentHelpEloTakebacks'));
 
       const close = document.createElement('button');
       close.type = 'button';

@@ -238,6 +238,12 @@ export const en: Record<keyof typeof it, string> = {
   rewindNoticeLocked:
     'You are looking at move {number} of {total}: from here you can only look, because you cannot change any more moves in this game.',
   severityTitle: 'How many moves she lets you change',
+  sectionLevel: 'Level',
+  sectionAttention: 'Attention',
+  sectionForgiveness: 'Forgiveness',
+  sectionElo: 'Estimated strength',
+  opponentHelpEloTakebacks:
+    'They assume a game with no moves taken back: every move Grandma lets you change moves her real strength a little further down.',
   takebacksNone: 'None',
   takebacksOne: 'One move',
   takebacksMany: '{n} moves',

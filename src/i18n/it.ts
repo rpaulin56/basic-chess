@@ -237,6 +237,12 @@ export const it = {
   rewindNoticeLocked:
     'Stai guardando la mossa {number} di {total}: da qui puoi solo guardare, perché in questa partita non puoi cambiare altre mosse.',
   severityTitle: 'Quante mosse ti lascia cambiare',
+  sectionLevel: 'Livello',
+  sectionAttention: 'Attenzione',
+  sectionForgiveness: 'Perdono',
+  sectionElo: 'Forza stimata',
+  opponentHelpEloTakebacks:
+    'Valgono per una partita senza ripensamenti: ogni mossa che la Nonna ti lascia cambiare sposta la sua forza vera un po’ più in basso.',
   takebacksNone: 'Nessuna',
   takebacksOne: 'Una mossa',
   takebacksMany: '{n} mosse',

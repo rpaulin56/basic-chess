@@ -613,6 +613,12 @@ select {
    nome della cosa di cui i tre parlano. */
 .settings-dialog .check-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
 
+/* Le tre sezioni del riquadro della Nonna (livello, attenzione, perdono): ognuna col
+   suo titolo sopra il menu, perche' un menu senza titolo non dice di che cosa parla. */
+.settings-dialog .section-title { font-size: 13px; font-weight: 600; margin: 0 0 8px; }
+.settings-dialog .section + .section { margin-top: 18px; }
+.settings-dialog .section .settings { margin-bottom: 10px; }
+
 /* La tabella dei livelli nel dialogo del "?": il posto in cui l'Elo serve, perche'
    li' si vedono le distanze fra i livelli invece di un numero isolato. */
 .level-table { border-collapse: collapse; margin: 4px 0 12px; font-size: 13px; }
