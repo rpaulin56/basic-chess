@@ -3811,7 +3811,7 @@ export function mountApp(root: HTMLElement): void {
       // In FONDO, e non nella sezione del livello: la tabella incrocia livello e attenzione,
       // quindi non appartiene a nessuna delle due, ed e' la cosa piu' lunga del riquadro.
       // Riguarda anche la terza scelta, perche' un Elo vale per chi non riprende le mosse.
-      section('sectionElo', null, table, help('opponentHelpElo'), help('opponentHelpEloTakebacks'));
+      section('sectionElo', null, table, help('opponentHelpEloTakebacks'));
 
       const close = document.createElement('button');
       close.type = 'button';
