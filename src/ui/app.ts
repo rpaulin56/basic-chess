@@ -38,6 +38,7 @@ import { transportArrows, type Consequence, classifyAgainstBest } from '../tutor
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
 import { arrowMoves, bookLoaded, bookMoves, brushFor } from '../openings/book.js';
+import { localizeOpening } from '../openings/familyNames.js';
 import { obviousMove } from '../tutor/goodMoves.js';
 import { botPauseMs } from '../bot/pace.js';
 import { ThinkClock, type ThinkTime } from '../tutor/thinkClock.js';
@@ -695,6 +696,14 @@ export function mountApp(root: HTMLElement): void {
   let hintArrows: readonly { from: Key; to: Key; brush: string }[] = [];
   /** Le mosse di teoria nella posizione mostrata, in UCI. Vuoto = qui il libro tace. */
   let theoryMoves = new Set<string>();
+  /**
+   * La legenda delle frecce: dove porta ognuna, quando ha un nome nuovo.
+   *
+   * Sta sotto la scacchiera e non appesa alle frecce: agganciare il puntatore a una
+   * freccia disegnata e' fragile, e sul telefono il puntatore non c'e' proprio. Cosi'
+   * invece si legge dappertutto, e dice la cosa che serve — "e6 porta alla Francese".
+   */
+  let studyLines: { readonly san: string; readonly name: string }[] = [];
   /** Le case verso cui si puo' muovere AL POSTO della Nonna, in studio: quelle delle frecce. */
   let studyDests: Map<Key, Key[]> | undefined;
 
@@ -710,6 +719,7 @@ export function mountApp(root: HTMLElement): void {
     tutorEl,
     previewEl,
     openingEl,
+    theoryEl,
     recapEl,
     recapPanel,
     hintEl,
@@ -783,6 +793,7 @@ export function mountApp(root: HTMLElement): void {
     updateEndgame();
     renderEnginePanel();
     renderOpening();
+    renderTheory();
     renderRecap();
     void updateOpening();
     void updateStudy();
@@ -1931,6 +1942,27 @@ export function mountApp(root: HTMLElement): void {
     return exit;
   }
 
+  /**
+   * La legenda sotto la scacchiera: dove porta ogni freccia, nell'ordine delle frecce.
+   * C'e' solo mentre si studia, e solo per le mosse che portano a un nome nuovo.
+   */
+  function renderTheory(): void {
+    theoryEl.replaceChildren();
+    theoryEl.hidden = studyLines.length === 0;
+    if (theoryEl.hidden) return;
+    for (const line of studyLines) {
+      const item = document.createElement('span');
+      item.className = 'theory-line';
+      const move = document.createElement('span');
+      move.className = 'theory-move';
+      move.textContent = toFigurine(line.san);
+      const name = document.createElement('span');
+      name.textContent = line.name;
+      item.append(move, name);
+      theoryEl.append(item);
+    }
+  }
+
   function renderOpening(): void {
     openingEl.replaceChildren();
     // In teoria il nome; fuori, lo stesso nome in grigio e la mossa che ne e' uscita.
@@ -1953,7 +1985,8 @@ export function mountApp(root: HTMLElement): void {
     eco.className = 'opening-eco';
     eco.textContent = opening.eco;
     const name = document.createElement('span');
-    name.textContent = opening.name;
+    // La famiglia nella lingua di chi legge, la variante come la trova ovunque.
+    name.textContent = localizeOpening(opening.name);
     openingEl.append(eco, name);
     const exitPly = bookExit !== null ? state.plies[bookExit] : undefined;
     if (out && bookExit !== null && exitPly) {
@@ -2551,10 +2584,12 @@ export function mountApp(root: HTMLElement): void {
     theoryMoves = found;
     if (changed) renderControls();
     if (!studying) {
-      if (studyArrows.length > 0 || studyDests) {
+      if (studyArrows.length > 0 || studyDests || studyLines.length > 0) {
         studyArrows = [];
         studyDests = undefined;
+        studyLines = [];
         renderBoard();
+        renderTheory();
       }
       return;
     }
@@ -2567,6 +2602,7 @@ export function mountApp(root: HTMLElement): void {
       studying = false;
       studyArrows = [];
       studyDests = undefined;
+      studyLines = [];
       toast(t('studyOver'));
       refresh();
       return;
@@ -2584,6 +2620,20 @@ export function mountApp(root: HTMLElement): void {
       }
     }
     studyArrows = arrows;
+    // I nomi delle aperture a cui portano le frecce. Si scartano quelli uguali al nome
+    // della posizione attuale: dopo 1.e4, scrivere "e5 Apertura di Re" non dice niente.
+    const candidates = moves.map((move) => {
+      const after = new Chess(shown);
+      after.move(move.san);
+      return { san: move.san, fenAfter: after.fen() };
+    });
+    const named = await findContinuations(candidates).catch(() => []);
+    if (mine !== generation) return;
+    studyLines = moves
+      .map((move) => named.find((entry) => entry.san === move.san))
+      .filter((entry): entry is (typeof named)[number] => entry !== undefined && entry.name !== opening?.name)
+      .map((entry) => ({ san: entry.san, name: localizeOpening(entry.name) }));
+    renderTheory();
     // Le frecce diventano mosse giocabili solo quando la posizione mostrata e' SUA: le
     // proprie si giocano come sempre, muovendo i pezzi.
     if (positionAt(state).turn() !== humanColor) {
@@ -4590,6 +4640,10 @@ function buildLayout(root: HTMLElement) {
   const openingEl = document.createElement('div');
   openingEl.className = 'opening';
   openingEl.hidden = true;
+  // La legenda delle frecce di teoria: sotto la scacchiera, accanto al nome dell'apertura.
+  const theoryEl = document.createElement('div');
+  theoryEl.className = 'theory-legend';
+  theoryEl.hidden = true;
   const controlsEl = document.createElement('div');
   controlsEl.className = 'controls';
   // Il nome del comando appena toccato, su telefono. Sta sotto la barra e non sopra:
@@ -4606,7 +4660,7 @@ function buildLayout(root: HTMLElement) {
   previewEl.hidden = true;
   const infoRow = document.createElement('div');
   infoRow.className = 'board-info';
-  infoRow.append(statusEl, evalEl, openingEl);
+  infoRow.append(statusEl, evalEl, openingEl, theoryEl);
   // La barra sta ACCANTO alla scacchiera, alla sua stessa altezza, e per questo le
   // due cose vanno in una riga loro: dentro la colonna starebbero una sotto l'altra.
   const barEl = document.createElement('div');
@@ -4708,6 +4762,7 @@ function buildLayout(root: HTMLElement) {
     tutorEl,
     previewEl,
     openingEl,
+    theoryEl,
     recapEl,
     recapPanel,
     hintEl,

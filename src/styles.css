@@ -628,6 +628,19 @@ select {
   vertical-align: middle;
 }
 .study-badge svg { width: 18px; height: 18px; vertical-align: middle; }
+
+/* La legenda delle frecce di teoria: una riga di coppie "mossa nome", che va a capo da
+   sola sul telefono. Piccola come il nome dell'apertura, perche' e' la stessa voce. */
+.theory-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+.theory-line { white-space: nowrap; }
+.theory-move { font-weight: 600; margin-right: 4px; color: var(--ink); }
 .settings-dialog .section + .section { margin-top: 18px; }
 .settings-dialog .section .settings { margin-bottom: 10px; }
 
