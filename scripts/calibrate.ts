@@ -11,13 +11,19 @@
  * serve a rispondere alla domanda che conta: "questo livello e' MOLTO piu' forte del
  * minimo di Stockfish, o comparabile, o piu' debole?".
  *
- *   npm run calibrate -- --level medio --anchor 1320 --games 20
- *   npm run calibrate -- --level medio --vs facile --games 20   (confronto interno)
- *   npm run calibrate -- --level medio --depth 3 --temp 30 --blunder 0.25
- *     (i quattro parametri si possono forzare da riga di comando: serve a cercare una
- *      taratura NUOVA senza dover modificare BOT_LEVELS ad ogni tentativo)
+ *   npm run calibrate -- --level l2 --anchor 1320 --games 20
+ *   npm run calibrate -- --level l3 --vs l2 --games 20          (confronto interno)
+ *   npm run calibrate -- --level l2 --depth 3 --temp 30 --maxcost 20
+ *     (i parametri si possono forzare da riga di comando: serve a cercare una taratura
+ *      NUOVA senza dover modificare BOT_LEVELS ad ogni tentativo)
+ *   npm run calibrate -- --level l2 --book off                  (senza spinta teorica)
+ *
+ * Il bot in prova gioca ESATTAMENTE come nell'applicazione, spinta della teoria compresa
+ * (vedi BOOK_PULL in bot.ts): misurare un bot senza libro darebbe l'Elo di un giocatore
+ * che non esiste. L'ancoraggio invece e' Stockfish nudo, che e' il metro.
  */
 
+import { readFile } from 'node:fs/promises';
 import { Chess } from 'chess.js';
 import { createEngine } from '../src/engine/uci.js';
 import type { Engine } from '../src/engine/types.js';
@@ -32,12 +38,42 @@ function arg(name: string, fallback: string): string {
   return index === -1 ? fallback : (process.argv[index + 1] ?? fallback);
 }
 
-const levelId = arg('level', 'medio');
+const levelId = arg('level', 'l2');
 const opponentId = arg('vs', '');
 const anchorElo = Number(arg('anchor', '1320'));
 const games = Number(arg('games', '20'));
 const maxPlies = Number(arg('maxPlies', '250'));
 const distraction = distractionById(arg('distraction', 'attento'));
+
+const useBook = arg('book', 'on') !== 'off';
+
+/**
+ * Il libro delle aperture, letto dal file che l'applicazione serve al browser.
+ *
+ * Serve a dare al bot in prova la stessa spinta verso la teoria che ha in partita. Se il
+ * file non c'e' si misura senza: il libro e' un di piu', e lo dice anche il codice del
+ * gioco.
+ */
+const bookTable: Record<string, [string, number][]> = useBook
+  ? await readFile(new URL('../public/book.json', import.meta.url), 'utf8')
+      .then((text) => JSON.parse(text) as Record<string, [string, number][]>)
+      .catch(() => ({}))
+  : {};
+
+function bookShares(fen: string): (uci: string) => number {
+  const entry = bookTable[fen.split(' ').slice(0, 3).join(' ')];
+  if (!entry) return () => 0;
+  const shares = new Map<string, number>();
+  for (const [san, share] of entry) {
+    try {
+      const move = new Chess(fen).move(san);
+      shares.set(`${move.from}${move.to}${move.promotion ?? ''}`, share);
+    } catch {
+      // Mossa che qui non si puo' giocare: il libro non parla di questa posizione.
+    }
+  }
+  return (uci) => shares.get(uci) ?? 0;
+}
 
 // --- giocatori ------------------------------------------------------------
 
@@ -64,7 +100,13 @@ async function botPlayer(level: BotLevel, seed: number): Promise<Player> {
     // diverso da quello che gioca davvero darebbe numeri di Elo di un giocatore
     // immaginario.
     async move(fen) {
-      return chooseBotMove((options) => engine.analyse(fen, options), level, distraction, rng);
+      return chooseBotMove(
+        (options) => engine.analyse(fen, options),
+        level,
+        distraction,
+        rng,
+        bookShares(fen),
+      );
     },
     quit: () => engine.quit(),
   };
@@ -129,10 +171,19 @@ const level: BotLevel = {
   multiPV: Number(arg('multipv', String(base.multiPV))),
   temperature: Number(arg('temp', String(base.temperature))),
   decidedPawns: Number(arg('decided', String(base.decidedPawns ?? 3))),
+  maxCost: Number(arg('maxcost', String(base.maxCost ?? 15))),
 };
+
+/** L'Elo dichiarato dipende dall'attenzione: sono due numeri per livello, non uno. */
+const declared = level.elo[distraction.id as 'attento' | 'distratto'];
 const opponentLevel = opponentId ? levelById(opponentId) : null;
 
-console.log(`Livello in prova: ${level.id} (Elo ipotizzato ${level.nominalElo}, depth ${level.depth}, MultiPV ${level.multiPV}, T=${level.temperature}, papere ${(level.blunderRate * 100).toFixed(1)}%)`);
+console.log(
+  `Livello in prova: ${level.id} ${distraction.id} (Elo dichiarato ${declared}, ` +
+    `depth ${level.depth}, MultiPV ${level.multiPV}, T=${level.temperature}, ` +
+    `tetto ${level.maxCost}, papere ${(distraction.blunderRate * 100).toFixed(1)}%)`,
+);
+console.log(useBook ? 'Con la spinta della teoria.' : 'SENZA la spinta della teoria.');
 console.log(opponentLevel ? `Avversario: bot ${opponentLevel.id}` : `Avversario: Stockfish limitato a ${anchorElo} Elo`);
 console.log(`Partite: ${games} (colori alternati)\n`);
 
@@ -178,7 +229,7 @@ console.log(`\nRisultato: ${wins}V ${draws}P ${losses}S = ${score}/${games} (${p
 console.log(`Differenza Elo stimata: ${diff >= 0 ? '+' : ''}${diff.toFixed(0)} ± ${eloMargin.toFixed(0)}`);
 if (!opponentLevel) {
   console.log(`Elo stimato del livello "${level.id}": ${(anchorElo + diff).toFixed(0)}`);
-  console.log(`(dichiarato in BOT_LEVELS: ${level.nominalElo})`);
+  console.log(`(dichiarato in BOT_LEVELS: ${declared})`);
 }
 console.log(`Tempo: ${((Date.now() - started) / 1000).toFixed(0)}s`);
 console.log(`\nLivelli disponibili: ${BOT_LEVELS.map((l) => l.id).join(', ')}`);
