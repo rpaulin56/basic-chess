@@ -37,7 +37,7 @@ import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect
 import { transportArrows, type Consequence, classifyAgainstBest } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
-import { arrowMoves, bookLoaded, bookMoves, brushFor, chooseFromBook } from '../openings/book.js';
+import { arrowMoves, bookLoaded, bookMoves, brushFor } from '../openings/book.js';
 import { obviousMove } from '../tutor/goodMoves.js';
 import { botPauseMs } from '../bot/pace.js';
 import { ThinkClock, type ThinkTime } from '../tutor/thinkClock.js';
@@ -691,6 +691,10 @@ export function mountApp(root: HTMLElement): void {
    */
   let studied = false;
   let studyArrows: readonly { from: Key; to: Key; brush: string }[] = [];
+  /** Le frecce delle mosse buone, quando le chiedi: spariscono appena muovi. */
+  let hintArrows: readonly { from: Key; to: Key; brush: string }[] = [];
+  /** Le mosse di teoria nella posizione mostrata, in UCI. Vuoto = qui il libro tace. */
+  let theoryMoves = new Set<string>();
   /** Le case verso cui si puo' muovere AL POSTO della Nonna, in studio: quelle delle frecce. */
   let studyDests: Map<Key, Key[]> | undefined;
 
@@ -729,6 +733,8 @@ export function mountApp(root: HTMLElement): void {
 
   function refresh(): void {
     generation++;
+    // Chiuso il suggerimento, spariscono anche le sue frecce: durano quanto lui.
+    if (!hint) hintArrows = [];
     thinkClock.show(thinkingPosition(), document.visibilityState === 'visible');
     saveGame();
     // Qualunque strada abbia chiuso il diagramma — nuova partita, ritiro, importazione
@@ -1322,6 +1328,21 @@ export function mountApp(root: HTMLElement): void {
     box.append(list);
   }
 
+  /** Frecce per un elenco di mosse in SAN, nella posizione mostrata. */
+  function arrowsFor(sans: readonly string[], brush: string): { from: Key; to: Key; brush: string }[] {
+    const fen = currentFen(state);
+    const arrows: { from: Key; to: Key; brush: string }[] = [];
+    for (const san of sans) {
+      try {
+        const move = new Chess(fen).move(san);
+        arrows.push({ from: move.from as Key, to: move.to as Key, brush });
+      } catch {
+        // Mossa non giocabile qui: si salta, invece di disegnare una freccia inventata.
+      }
+    }
+    return arrows;
+  }
+
   /** Un tempo detto a parole: secondi sotto il minuto, poi minuti arrotondati. */
   function duration(ms: number): string {
     const seconds = Math.max(1, Math.round(ms / 1000));
@@ -1735,11 +1756,18 @@ export function mountApp(root: HTMLElement): void {
         answersSeen++;
         saveGame();
         hint = { ...hint, revealed: true };
+        // Anche sulla scacchiera: l'elenco dice QUALI sono, le frecce dicono DOVE vanno,
+        // ed e' la differenza fra leggere una risposta e vederla.
+        const sans = hint.book.length > 0 ? hint.book.map((entry) => entry.san) : (hint.hint?.moves ?? []);
+        hintArrows = arrowsFor(sans, 'green');
         renderHint();
+        renderBoard();
       },
       onClose: () => {
         hint = null;
+        hintArrows = [];
         renderHint();
+        renderBoard();
       },
     });
   }
@@ -2469,7 +2497,17 @@ export function mountApp(root: HTMLElement): void {
     // Il quarto argomento: dopo un ritiro si puo' muovere anche se il seguito e'
     // ancora li'. Senza, la scacchiera restava bloccata proprio dopo il comando che
     // serve a riprovare.
-    else board.render(state, orientation, humanColor, true, tutorMark(), studyArrows, studyDests);
+    else {
+      board.render(
+        state,
+        orientation,
+        humanColor,
+        true,
+        tutorMark(),
+        [...studyArrows, ...hintArrows],
+        studyDests,
+      );
+    }
   }
 
   /**
@@ -2483,6 +2521,30 @@ export function mountApp(root: HTMLElement): void {
    */
   async function updateStudy(): Promise<void> {
     const mine = generation;
+    // Le mosse di teoria si sanno SEMPRE, anche a frecce spente: servono al tasto (che
+    // in apertura accende le frecce invece di dare un consiglio) e alla Nonna, che sulle
+    // mosse di libro non ha niente da dire.
+    const shownNow = currentFen(state);
+    const here = await bookMoves(shownNow);
+    if (mine !== generation) return;
+    const found = new Set(
+      here
+        .map((move) => {
+          try {
+            const played = new Chess(shownNow).move(move.san);
+            return `${played.from}${played.to}${played.promotion ?? ''}`;
+          } catch {
+            return '';
+          }
+        })
+        .filter((uci) => uci !== ''),
+    );
+    // La barra si e' gia' disegnata quando il libro risponde: se la teoria compare o
+    // sparisce, il tasto deve cambiare mestiere subito, non alla mossa dopo. Si ridisegnano
+    // i soli comandi, non tutta la pagina, per non rientrare in `refresh` da qui.
+    const changed = found.size !== theoryMoves.size || [...found].some((uci) => !theoryMoves.has(uci));
+    theoryMoves = found;
+    if (changed) renderControls();
     if (!studying) {
       if (studyArrows.length > 0 || studyDests) {
         studyArrows = [];
@@ -2680,7 +2742,6 @@ export function mountApp(root: HTMLElement): void {
     const shares = await bookShares(fen);
     const chosen =
       forced ??
-      (studying ? await bookMove(fen) : null) ??
       (await chooseBotMove(
         (options) => engine.analyse(fen, options),
         level,
@@ -2743,26 +2804,6 @@ export function mountApp(root: HTMLElement): void {
     state = next;
     evaluation = null;
     refresh();
-  }
-
-  /**
-   * La mossa di libro per questa posizione, o null.
-   *
-   * Il livello decide fin dove: sei semi-mosse al primo, dodici agli ultimi (vedi `book`
-   * in bot.ts). Fuori dal libro, o se il file non c'e', si torna al motore come prima —
-   * il libro e' un di piu', non una dipendenza.
-   */
-  async function bookMove(fen: string): Promise<string | null> {
-    const chosen = chooseFromBook(await bookMoves(fen), Math.random());
-    if (!chosen) return null;
-    try {
-      const move = new Chess(fen).move(chosen.san);
-      return `${move.from}${move.to}${move.promotion ?? ''}`;
-    } catch {
-      // Una mossa che in questa posizione non si puo' giocare: il libro non c'entra piu'
-      // niente con la partita (posizione importata, variante), e si lascia fare al motore.
-      return null;
-    }
   }
 
   /**
@@ -2980,9 +3021,15 @@ export function mountApp(root: HTMLElement): void {
      * Adesso l'analisi del "prima", se manca, la calcola runReview. Costa una ricerca
      * in piu' mentre il bot sarebbe comunque fermo ad aspettare la decisione.
      */
-    // Non mentre si studia: in apertura segnalerebbe come errori delle scelte di
-    // repertorio che errori non sono, e la valutazione del motore in teoria dice poco.
-    const judgeable = tutorEnabled && !studying && mover === humanColor;
+    /*
+     * La Nonna tace sulle mosse DI TEORIA, non su tutte quelle giocate mentre studi.
+     *
+     * Finche' si gioca il libro non c'e' niente da dire, e segnalare come errore una
+     * scelta di repertorio sarebbe sbagliato. Ma la mossa con cui si ESCE dalla teoria e'
+     * un'altra cosa: se e' una svista, e' proprio il momento in cui serve sentirselo dire.
+     */
+    const theoryMove = studying && theoryMoves.has(`${from}${to}${promotion ?? ''}`);
+    const judgeable = tutorEnabled && !theoryMove && mover === humanColor;
     const before =
       deepAnalysis?.fen === fenBefore ? deepAnalysis : lastAnalysis?.fen === fenBefore ? lastAnalysis : null;
     state = next;
@@ -3062,23 +3109,31 @@ export function mountApp(root: HTMLElement): void {
     recoverEl.append(button);
   }
 
+  /**
+   * La riga di stato, con il librone davanti quando si studia.
+   *
+   * L'involucro serve perche' la riga ha rami diversi che si scrivono da capo, e il
+   * distintivo messo dentro a uno di loro spariva negli altri: appiccicarlo DOPO, sempre,
+   * e' l'unico modo che non dipende da quale ramo ha scritto.
+   */
   function renderStatus(): void {
+    renderStatusBody();
+    if (!studying) return;
+    const badge = document.createElement('button');
+    badge.type = 'button';
+    badge.className = 'study-badge';
+    badge.title = t('sectionStudy');
+    badge.setAttribute('aria-label', t('sectionStudy'));
+    badge.append(createIcon('book'));
+    badge.addEventListener('click', () => {
+      studying = false;
+      refresh();
+    });
+    statusEl.prepend(badge);
+  }
+
+  function renderStatusBody(): void {
     statusEl.replaceChildren();
-    // Il librone: c'e' solo mentre si studia, e cliccandolo si esce. E' l'unico posto in
-    // cui si vede a colpo d'occhio che la Nonna tace di proposito.
-    if (studying) {
-      const badge = document.createElement('button');
-      badge.type = 'button';
-      badge.className = 'study-badge';
-      badge.title = t('sectionStudy');
-      badge.setAttribute('aria-label', t('sectionStudy'));
-      badge.append(createIcon('book'));
-      badge.addEventListener('click', () => {
-        studying = false;
-        refresh();
-      });
-      statusEl.append(badge);
-    }
     // Il verdetto finale si riferisce alla partita intera, non alla posizione che si
     // sta guardando: durante un rewind mostriamo di nuovo il tratto.
     const atEnd = state.cursor === state.plies.length;
@@ -3351,15 +3406,35 @@ export function mountApp(root: HTMLElement): void {
         // parlerebbe quasi sempre, e allora il suo silenzio direbbe "qui ce n'e' una
         // sola, cerca il colpo": si imparerebbe a leggere il tutor invece della
         // posizione.
+        /*
+         * Un tasto solo, due mestieri, e li decide la posizione.
+         *
+         * IN TEORIA accende le frecce del libro e resta acceso finche' non lo rispegni o
+         * finche' la teoria non finisce. Non costa niente ed e' giusto cosi': guardare le
+         * aperture che si giocano non e' farsi dire la soluzione, e infatti la Nonna in
+         * apertura non ha niente da dire.
+         *
+         * FUORI TEORIA fa quello di prima: dice quante sono le mosse buone e, se insisti,
+         * quali — e da oggi te le disegna anche sulla scacchiera. Li' il conteggio resta,
+         * perche' li' e' un aiuto vero.
+         */
         iconButton(
-          'hint',
-          t('hint'),
+          'arrows',
+          t(theoryMoves.size > 0 ? 'arrowsTheory' : 'hint'),
           // In QUALUNQUE posizione in cui tocca a te, non solo nell'ultima: il dubbio viene
           // proprio tornando indietro ("qui cosa avrei potuto giocare?"), e il consiglio e'
           // cio' che aiuta a decidere se rigiocare da li'. Spento dove tocca alla Nonna,
           // a partita finita e mentre c'e' un verdetto. Segnalato giocando.
           hint !== null || review !== null || positionAt(state).turn() !== humanColor || gameOver(state) !== null,
-          () => void askHint(),
+          () => {
+            if (theoryMoves.size > 0) {
+              studying = !studying;
+              if (studying) studied = true;
+              refresh();
+              return;
+            }
+            void askHint();
+          },
         ),
       ),
       lineBreak(),
@@ -3903,32 +3978,6 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /**
-   * L'interruttore della modalita' studio: una casella, non un menu.
-   *
-   * Accendendolo a partita appena cominciata, se ha aperto lei, la scacchiera torna sulla
-   * sua mossa: le frecce che servono in quel momento sono le SUE alternative, e chiedere
-   * un passo di navigazione in piu' sarebbe far fare a mano una cosa ovvia.
-   */
-  function studySwitch(onChange: () => void): HTMLElement {
-    const row = document.createElement('label');
-    row.className = 'check-row';
-    const box = document.createElement('input');
-    box.type = 'checkbox';
-    box.checked = studying;
-    box.addEventListener('change', () => {
-      studying = box.checked;
-      if (studying) studied = true;
-      if (studying && !hasPlayed() && state.plies.length > 0) {
-        state = goTo(state, state.plies.length - 1);
-      }
-      onChange();
-      refresh();
-    });
-    row.append(box, document.createTextNode(t('studyToggle')));
-    return row;
-  }
-
-  /**
    * La severita' della Nonna: quante mosse lascia cambiare (vedi TAKEBACK_LIMITS).
    *
    * Sta con livello e attenzione perche' decide che avversaria si ha davanti, ma NON finisce
@@ -4067,7 +4116,6 @@ export function mountApp(root: HTMLElement): void {
       const forgiveness = [help('opponentHelpTakebacks')];
       if (preferredTakebackLimit() !== takebackLimit) forgiveness.push(help('takebacksNextGame'));
       section('sectionForgiveness', takebackSelect(fill), ...forgiveness);
-      section('sectionStudy', studySwitch(fill), help('opponentHelpStudy'));
       // In FONDO, e non nella sezione del livello: la tabella incrocia livello e attenzione,
       // quindi non appartiene a nessuna delle due, ed e' la cosa piu' lunga del riquadro.
       // Riguarda anche la terza scelta, perche' un Elo vale per chi non riprende le mosse.

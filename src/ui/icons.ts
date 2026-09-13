@@ -33,7 +33,8 @@ export type IconName =
   | 'world'
   | 'replay'
   | 'eye'
-  | 'book';
+  | 'book'
+  | 'arrows';
 
 /**
  * Ogni icona e' il contenuto di un viewBox 24x24. Tratto e riempimento sono decisi
@@ -177,6 +178,16 @@ const PATHS: Record<IconName, string> = {
   eye:
     '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />' +
     '<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />',
+  // Le due frecce che divergono su una scacchiera 3x3: "da qui si puo' andare di la' o
+  // di la'".
+  //
+  // Ha preso il posto della lampadina di "E adesso?", e il cambio dice la cosa giusta:
+  // quel tasto non da' piu' un consiglio a parole, accende le frecce — quelle della
+  // teoria se sei in apertura, quelle delle mosse buone se sei fuori.
+  arrows:
+    '<rect x="3" y="3" width="18" height="18" rx="2" />' +
+    '<path d="M9 3v18M15 3v18M3 9h18M3 15h18" opacity="0.35" />' +
+    '<path d="M12 18V9m0 0-3.5 3.5M12 9l3.5 3.5" />',
   // Il librone aperto della modalita' studio: due pagine e la costola in mezzo.
   //
   // Serve come INDICATORE oltre che come comando: acceso lo studio, la Nonna tace e i

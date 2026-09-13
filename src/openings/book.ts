@@ -75,25 +75,6 @@ export async function bookMoves(fen: string): Promise<readonly BookMove[]> {
 }
 
 /**
- * Sorteggia una mossa del libro, con probabilita' proporzionale a quanto e' giocata.
- *
- * Non si prende SEMPRE la piu' giocata: la Nonna aprirebbe 1.e4 per tutta la vita, e chi
- * gioca non vedrebbe mai nient'altro. Cosi' invece esce e4 due volte su tre, d4 una su
- * quattro, e ogni tanto qualcosa di piu' raro — che e' esattamente la distribuzione di
- * quello che si trova giocando con altri.
- */
-export function chooseFromBook(moves: readonly BookMove[], random: number): BookMove | null {
-  const total = moves.reduce((sum, move) => sum + Math.max(0, move.share), 0);
-  if (total <= 0) return null;
-  let ticket = Math.min(Math.max(random, 0), 0.999999) * total;
-  for (const move of moves) {
-    ticket -= Math.max(0, move.share);
-    if (ticket < 0) return move;
-  }
-  return moves[moves.length - 1] ?? null;
-}
-
-/**
  * Quante frecce disegnare, deciso dalla DISTRIBUZIONE e non da un numero fisso.
  *
  * Si prendono le mosse piu' giocate finche' la somma delle loro quote arriva alla soglia:

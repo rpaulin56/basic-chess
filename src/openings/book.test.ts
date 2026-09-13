@@ -1,40 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arrowMoves, chooseFromBook, type BookMove } from './book.js';
-
-const moves: BookMove[] = [
-  { san: 'e4', share: 64 },
-  { san: 'd4', share: 23 },
-  { san: 'c4', share: 3 },
-];
-
-describe('la mossa di libro', () => {
-  it('sorteggia in proporzione a quanto si gioca', () => {
-    expect(chooseFromBook(moves, 0)?.san).toBe('e4');
-    expect(chooseFromBook(moves, 0.5)?.san).toBe('e4');
-    expect(chooseFromBook(moves, 0.8)?.san).toBe('d4');
-    expect(chooseFromBook(moves, 0.99)?.san).toBe('c4');
-  });
-
-  it('con il libro vuoto non sceglie niente', () => {
-    expect(chooseFromBook([], 0.5)).toBeNull();
-    expect(chooseFromBook([{ san: 'e4', share: 0 }], 0.5)).toBeNull();
-  });
-
-  it('regge un sorteggio fuori scala', () => {
-    expect(chooseFromBook(moves, 1)?.san).toBe('c4');
-    expect(chooseFromBook(moves, -1)?.san).toBe('e4');
-  });
-
-  it('la distribuzione rispetta le quote', () => {
-    const counts: Record<string, number> = {};
-    for (let i = 0; i < 900; i++) {
-      const chosen = chooseFromBook(moves, i / 900);
-      counts[chosen!.san] = (counts[chosen!.san] ?? 0) + 1;
-    }
-    expect(Math.round((counts['e4']! / 900) * 100)).toBe(71);
-    expect(Math.round((counts['d4']! / 900) * 100)).toBe(26);
-  });
-});
+import { arrowMoves, type BookMove } from './book.js';
 
 describe('le frecce da disegnare', () => {
   const start: BookMove[] = [
