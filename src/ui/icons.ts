@@ -186,8 +186,22 @@ const PATHS: Record<IconName, string> = {
   // teoria se sei in apertura, quelle delle mosse buone se sei fuori.
   arrows:
     '<rect x="3" y="3" width="18" height="18" rx="2" />' +
-    '<path d="M9 3v18M15 3v18M3 9h18M3 15h18" opacity="0.35" />' +
-    '<path d="M12 18V9m0 0-3.5 3.5M12 9l3.5 3.5" />',
+    '<path d="M9 3v18M15 3v18M3 9h18M3 15h18" opacity="0.3" />' +
+    // Due frecce che da una casa vanno in due direzioni: "da qui si puo' andare di la' o
+    // di la'".
+    //
+    // Orizzontali e non verso l'alto: due frecce che salgono dallo stesso punto formano
+    // una "V", e a venti pixel si legge solo quella (provato due volte, guardando l'icona
+    // ingrandita). Cosi' invece si vede il bivio. Punte piene per lo stesso motivo: a
+    // tratto si confondono con i gambi.
+    // Ruotato di novanta gradi a sinistra: il gambo sale dal basso e le due frecce vanno
+    // in alto a sinistra e in alto a destra. Il bivio orizzontale si leggeva bene ma
+    // diceva "destra o destra"; da sotto in su dice "da questa casa, due strade".
+    '<g transform="rotate(-90 12 12)">' +
+    '<path d="M6.5 12h3.7M10.2 12 14 8.4M10.2 12 14 15.6" />' +
+    '<polygon points="15.7,6.8 14.9,9.3 13.1,7.5" fill="currentColor" stroke="none" />' +
+    '<polygon points="15.7,17.2 13.1,16.5 14.9,14.7" fill="currentColor" stroke="none" />' +
+    '</g>',
   // Il librone aperto della modalita' studio: due pagine e la costola in mezzo.
   //
   // Serve come INDICATORE oltre che come comando: acceso lo studio, la Nonna tace e i

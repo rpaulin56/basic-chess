@@ -1891,18 +1891,23 @@ export function mountApp(root: HTMLElement): void {
    * ancora su un sentiero battuto. E' lo stesso calcolo che risponde a "e adesso?",
    * e costa una trentina di ricerche in una mappa.
    */
+  /**
+   * "Qui siamo ancora in teoria?" — e lo decide il LIBRO DELLE FREQUENZE, lo stesso da cui
+   * escono le frecce blu.
+   *
+   * Prima lo decideva il dizionario dei nomi ECO, e le due cose non coincidevano: si
+   * seguivano le frecce mossa dopo mossa e il PGN scriveva lo stesso "out of book" — visto
+   * in una partita vera, dopo 3.Af4 in una Chigorin. Erano due libri diversi che
+   * rispondevano a due domande diverse: "questa posizione ha un nome?" e "qui si gioca
+   * ancora quello che gioca la gente?". La seconda e' quella che ci interessa, ed e' anche
+   * l'unica che un principiante possa verificare guardando lo schermo.
+   *
+   * Il NOME dell'apertura continua a venire dal dizionario ECO: quello e' il suo mestiere.
+   */
   async function theoryAt(fen: string): Promise<boolean> {
     const cached = theoryCache.get(fen);
     if (cached !== undefined) return cached;
-    let known = (await findOpening([fen])) !== null;
-    if (!known) {
-      const candidates = new Chess(fen).moves({ verbose: true }).map((move) => {
-        const after = new Chess(fen);
-        after.move(move.san);
-        return { san: move.san, fenAfter: after.fen() };
-      });
-      known = (await findContinuations(candidates)).length > 0;
-    }
+    const known = (await bookMoves(fen)).length > 0;
     theoryCache.set(fen, known);
     return known;
   }
@@ -2772,6 +2777,7 @@ export function mountApp(root: HTMLElement): void {
         previous ? { to: previous.to, san: previous.san } : undefined,
       ),
       elapsedMs: performance.now() - startedAt,
+      studying,
     });
     if (wait > 0) {
       botThinking = true;

@@ -17,7 +17,28 @@
 export const PAUSE_MS = 1000;
 export const OBVIOUS_PAUSE_MS = 500;
 
-export function botPauseMs(options: { readonly obvious: boolean; readonly elapsedMs: number }): number {
-  const target = options.obvious ? OBVIOUS_PAUSE_MS : PAUSE_MS;
+/**
+ * Quanto aspetta mentre stai studiando le aperture.
+ *
+ * Molto di piu', e per una ragione precisa: con le frecce accese, prima che lei muova le
+ * frecce sulla scacchiera sono le SUE possibili risposte, ed e' proprio quello che vuoi
+ * guardare. Con un secondo scandiscono appena, e per rivederle tocca tornare indietro
+ * (segnalato usandolo). Qui la fretta non serve a nessuno: si sta studiando.
+ *
+ * Cinque secondi e non tre e mezzo: provata in partita, l'attesa piu' lunga non pesa —
+ * serve a leggere le frecce e, volendo, a sceglierle la risposta cliccandone una.
+ */
+export const STUDY_PAUSE_MS = 5000;
+
+export function botPauseMs(options: {
+  readonly obvious: boolean;
+  readonly elapsedMs: number;
+  readonly studying?: boolean;
+}): number {
+  const target = options.studying
+    ? STUDY_PAUSE_MS
+    : options.obvious
+      ? OBVIOUS_PAUSE_MS
+      : PAUSE_MS;
   return Math.max(0, Math.round(target - options.elapsedMs));
 }

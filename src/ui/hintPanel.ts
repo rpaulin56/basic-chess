@@ -63,12 +63,11 @@ export function renderHintPanel(
     if (view.leavingBook) container.append(paragraph(t('hintLeavingBook')));
     container.append(paragraph(shapeText(view.hint)));
     for (const reason of view.orientation) container.append(paragraph(t(reason.key, reason.params)));
-    if (view.revealed) {
-      container.append(moveList(view.hint.moves));
-      // "Nessuna di queste e' la migliore" ha senso solo se "queste" sono piu' d'una: con
-      // una mossa obbligata la nota contraddiceva l'elenco (segnalato giocando).
-      if (view.hint.moves.length > 1) container.append(note(t('hintUnordered')));
-    }
+    // L'elenco delle mosse non c'e' piu': da quando "Mostra le mosse" le disegna sulla
+    // scacchiera, scriverle anche qui e' dire due volte la stessa cosa — e la freccia la
+    // dice meglio, perche' fa vedere DOVE va il pezzo. Se n'e' andata con lei anche la
+    // nota "in ordine alfabetico, nessuna e' la migliore": le frecce sono tutte uguali, e
+    // l'assenza di una classifica si vede invece di doverla dichiarare.
   } else {
     container.append(paragraph(t('hintNothing')));
   }
@@ -115,27 +114,8 @@ function bookList(book: readonly Continuation[]): HTMLElement {
   return list;
 }
 
-/** Quante mosse si mostrano davvero. Oltre, l'elenco smette di essere leggibile e
- *  diventa la lista delle mosse legali, che il giocatore ha gia' davanti. */
-const MAX_SHOWN = 14;
-
-function moveList(moves: readonly string[]): HTMLElement {
-  const list = document.createElement('p');
-  list.className = 'hint-moves';
-  const shown = moves.slice(0, MAX_SHOWN).map(toFigurine).join(' · ');
-  list.textContent = moves.length > MAX_SHOWN ? `${shown} ${t('hintMore')}` : shown;
-  return list;
-}
-
 function paragraph(content: string): HTMLElement {
   const element = document.createElement('p');
-  element.textContent = content;
-  return element;
-}
-
-function note(content: string): HTMLElement {
-  const element = document.createElement('p');
-  element.className = 'hint-note';
   element.textContent = content;
   return element;
 }
