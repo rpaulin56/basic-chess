@@ -32,14 +32,21 @@ import { Chess } from 'chess.js';
 /** Fin dove si scende, in semi-mosse: dodici sono sei mosse per parte. */
 const MAX_PLIES = 12;
 /**
- * Quante mosse si tengono per posizione.
+ * Quante mosse si tengono per posizione, A SCALARE con la profondita': otto all'inizio,
+ * una in meno ogni due semi-mosse, mai meno di quattro.
  *
- * Tre erano poche, e il primo libro lo ha mostrato: dopo 1.e4 il libro conosceva solo
- * e5, c5 e d5, quindi Francese, Caro-Kann, Pirc e Alekhine non c'erano proprio — e sono
- * risposte comunissime. Con la risposta del principiante fuori libro la Nonna tornava
- * subito alle mosse strane, che e' proprio cio' che il libro deve evitare.
+ * Tre erano poche, e il primo libro lo ha mostrato: dopo 1.e4 conosceva solo e5, c5 e d5,
+ * quindi Francese, Caro-Kann e Pirc non c'erano proprio. Sei non bastavano ancora: dopo
+ * 1.e4 le sei erano e5, c5, d5, e6, c6, d6 e l'Alekhine restava fuori per un soffio.
+ *
+ * Ma un tetto alto ovunque non e' la risposta: in apertura la varieta' e' la sostanza —
+ * e' li' che si sceglie che partita giocare — mentre in fondo a una variante otto mosse
+ * sono un elenco che nessuno legge, e costano una ramificazione che esplode. A scalare si
+ * ottengono tutte e due le cose, e il giro e' anche piu' corto.
  */
-const TOP_MOVES = 6;
+function topMoves(ply) {
+  return Math.max(4, 8 - Math.floor(ply / 2));
+}
 /** Sotto questa quota una mossa e' una curiosita': non si tiene e non ci si scende. */
 const MIN_SHARE = 0.02;
 /** Sotto questo numero di partite la percentuale non dice niente. */
@@ -87,11 +94,11 @@ function positionKey(fen) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function explore(fen, attempt = 0) {
+async function explore(fen, moves, attempt = 0) {
   const url =
     // explorer.lichess.ORG, non .ovh: il vecchio host risponde 401 da settembre 2026.
     'https://explorer.lichess.org/lichess?variant=standard' +
-    `&speeds=${SPEEDS}&ratings=${RATINGS}&moves=${TOP_MOVES}&topGames=0&recentGames=0` +
+    `&speeds=${SPEEDS}&ratings=${RATINGS}&moves=${moves}&topGames=0&recentGames=0` +
     `&fen=${encodeURIComponent(fen)}`;
   const response = await fetch(url, {
     headers: {
@@ -108,7 +115,7 @@ async function explore(fen, attempt = 0) {
     const wait = Math.min(120000, told > 0 ? told : 10000 * 2 ** attempt);
     console.log(`  … HTTP ${response.status}, aspetto ${Math.round(wait / 1000)}s`);
     await sleep(wait);
-    return explore(fen, attempt + 1);
+    return explore(fen, moves, attempt + 1);
   }
   if (!response.ok) {
     // Il corpo distingue i casi: una pagina nginx e' un blocco di rete o un host morto,
@@ -126,9 +133,9 @@ async function explore(fen, attempt = 0) {
 }
 
 const started = Date.now();
-console.log(`Libro 1200-1800, ${MAX_PLIES} semi-mosse, prime ${TOP_MOVES} mosse per posizione.`);
+console.log(`Libro 1200-1800, ${MAX_PLIES} semi-mosse, da ${topMoves(0)} a ${topMoves(MAX_PLIES)} mosse per posizione.`);
 console.log(TOKEN ? 'Token trovato.' : 'Nessun token: se l’explorer lo chiede, la richiesta fallira’.');
-console.log(`Budget: ${MAX_POSITIONS} posizioni, prime ${TOP_MOVES} mosse sopra il ${MIN_SHARE * 100}%.`);
+console.log(`Budget: ${MAX_POSITIONS} posizioni, mosse sopra il ${MIN_SHARE * 100}%.`);
 
 /**
  * Si riprende da dove si era arrivati: il file gia' sul disco vale come lavoro fatto.
@@ -178,7 +185,7 @@ while (queue.length > 0 && Object.keys(book).length < MAX_POSITIONS) {
     }
     continue;
   }
-  const data = await explore(fen);
+  const data = await explore(fen, topMoves(ply));
   requests++;
   if (requests % 25 === 0) {
     console.log(`  ${requests} richieste, ${Object.keys(book).length} posizioni, coda ${queue.length}`);
