@@ -1330,9 +1330,11 @@ export function mountApp(root: HTMLElement): void {
         const drop = Math.round(rethink.drop);
         parts.push(drop < 1 ? t('whyRethinkFree') : t('whyRethinkCost', { drop }));
       }
-      if (rethink.ms !== null) {
-        parts.push(t('whyRethinkTime', { time: duration(rethink.ms) }));
-        if (median !== null && rethink.ms * 2 < median) parts.push(t('whyRethinkHasty'));
+      // Il tempo si dice SOLO quando ha fatto la differenza, come nelle altre frasi sul
+      // tempo: "ci avevi pensato 27 secondi", senza un confronto, non e' un'informazione
+      // (segnalato leggendo un riepilogo vero).
+      if (rethink.ms !== null && median !== null && rethink.ms * 2 < median) {
+        parts.push(t('whyRethinkHasty', { time: duration(rethink.ms) }));
       }
       const item = document.createElement('li');
       item.textContent = parts.join(' · ');
