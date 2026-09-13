@@ -26,7 +26,10 @@ export interface BotLevel {
    * sposta la forza quanto e piu' di un gradino di bravura, quindi un numero solo
    * sarebbe una bugia per meta' delle combinazioni.
    */
-  readonly elo: { readonly attento: number; readonly distratto: number };
+  readonly elo: {
+    readonly attento: readonly [number, number];
+    readonly distratto: readonly [number, number];
+  };
   /** Profondita' di ricerca: il primo e piu' grossolano regolatore di forza. */
   readonly depth: number;
   /** Quante alternative considerare. Sotto 3 il campionamento non ha spazio. */
@@ -118,10 +121,20 @@ const BOOK_PULL = 2;
  *   4            1807        1636         1800   51,0%
  *   5            2123        1915         1800   86,5%
  *
- * I due numeri piu' affidabili sono il 1275 e il 1807, che vengono da punteggi del
- * 43,5% e del 51,0%: li' cento partite misurano davvero. L'857 viene da un 6,5% ed e'
- * un'estrapolazione — Stockfish non scende sotto 1320 con UCI_Elo, quindi il fondo
- * della scala non si puo' misurare meglio di cosi'.
+ * Sono INTERVALLI e non numeri secchi, arrotondati alla decina: una misura per partite
+ * ha un margine, e scrivere "1517" fingerebbe una precisione che non c'e'. Gli estremi
+ * sono la stima piu' e meno il suo errore standard su sessanta partite (vedi
+ * scripts/calibrate.ts), con l'ancoraggio scelto vicino al livello in prova, perche' un
+ * punteggio troppo squilibrato rende la formula dell'Elo inaffidabile.
+ *
+ * Misure di settembre 2026, sessanta partite per casella. Il livello 1 e' l'unico che
+ * resta un'estrapolazione: perde il 93-95% contro il minimo di Stockfish (1320 con
+ * UCI_Elo), e piu' in basso di cosi' l'ancoraggio non sa scendere.
+ *
+ * Rispetto alla taratura precedente il livello 3 e' risultato piu' debole di una
+ * ottantina di punti e il livello 5 piu' forte di circa duecento, in tutte e due le
+ * colonne: l'ultimo gradino della scala e' il piu' alto, e resta cosi' per scelta — chi
+ * sceglie il livello 5 vuole un avversario nettamente piu' forte.
  *
  * COSA REGOLA COSA, misurato:
  *  - PROFONDITA': il regolatore principale, ma quantizzato a gradini troppo larghi per
@@ -151,11 +164,11 @@ export const BOT_LEVELS: readonly BotLevel[] = [
   // scatta solo quando la posizione e' senza speranza, cosi' non fanno mosse assurde a
   // meno sette ma restano liberi di essere approssimativi quando il vantaggio e'
   // soltanto grosso. E' cio' che li rende avversari credibili per chi comincia.
-  { id: 'l1', elo: { attento: 857, distratto: 808 }, depth: 2, multiPV: 8, temperature: 45, decidedPawns: 6, maxCost: 45 },
-  { id: 'l2', elo: { attento: 1275, distratto: 1189 }, depth: 3, multiPV: 6, temperature: 40, decidedPawns: 5, maxCost: 30 },
-  { id: 'l3', elo: { attento: 1602, distratto: 1511 }, depth: 4, multiPV: 5, temperature: 36, maxCost: 24 },
-  { id: 'l4', elo: { attento: 1807, distratto: 1636 }, depth: 5, multiPV: 5, temperature: 18, maxCost: 14 },
-  { id: 'l5', elo: { attento: 2123, distratto: 1915 }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
+  { id: 'l1', elo: { attento: [790, 940], distratto: [730, 890] }, depth: 2, multiPV: 8, temperature: 45, decidedPawns: 6, maxCost: 45 },
+  { id: 'l2', elo: { attento: [1220, 1310], distratto: [1110, 1210] }, depth: 3, multiPV: 6, temperature: 40, decidedPawns: 5, maxCost: 30 },
+  { id: 'l3', elo: { attento: [1470, 1560], distratto: [1390, 1480] }, depth: 4, multiPV: 5, temperature: 36, maxCost: 24 },
+  { id: 'l4', elo: { attento: [1800, 1890], distratto: [1610, 1710] }, depth: 5, multiPV: 5, temperature: 18, maxCost: 14 },
+  { id: 'l5', elo: { attento: [2290, 2380], distratto: [2080, 2170] }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
 ];
 
 /**
@@ -388,4 +401,22 @@ export function selectBotMove(
     if (threshold <= 0) return lines[i]!.pv[0]!;
   }
   return lines[0]!.pv[0]!;
+}
+
+/** L'intervallo di forza, come si scrive sullo schermo: "1470-1560". */
+export function eloText(level: BotLevel, attention: 'attento' | 'distratto'): string {
+  const [low, high] = level.elo[attention];
+  return `${low}-${high}`;
+}
+
+/**
+ * Il centro dell'intervallo, per quando serve UN numero.
+ *
+ * Serve al PGN: il tag `BlackElo` e' un numero per lo standard, e scriverci un intervallo
+ * romperebbe i programmi che lo rileggono. Sullo schermo invece si scrive l'intervallo,
+ * perche' li' la precisione finta non serve a nessuno.
+ */
+export function eloMid(level: BotLevel, attention: 'attento' | 'distratto'): number {
+  const [low, high] = level.elo[attention];
+  return Math.round((low + high) / 20) * 10;
 }

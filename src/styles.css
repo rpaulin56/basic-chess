@@ -629,17 +629,11 @@ select {
 }
 .study-badge svg { width: 18px; height: 18px; vertical-align: middle; }
 
-/* La legenda delle frecce di teoria: una riga di coppie "mossa nome", che va a capo da
-   sola sul telefono. Piccola come il nome dell'apertura, perche' e' la stessa voce. */
-.theory-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  font-size: 12px;
-  color: var(--ink-soft);
-  margin-top: 2px;
-}
-.theory-line { white-space: nowrap; }
+/* Il pannello delle mosse di teoria: la spiegazione e l'elenco "mossa nome", che va a
+   capo da solo sul telefono. */
+.panel.theory .theory-note { font-size: 13px; line-height: 1.45; margin: 0 0 8px; }
+.theory-lines { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+.theory-line { white-space: nowrap; color: var(--ink-soft); }
 .theory-move { font-weight: 600; margin-right: 4px; color: var(--ink); }
 .settings-dialog .section + .section { margin-top: 18px; }
 .settings-dialog .section .settings { margin-bottom: 10px; }
@@ -705,6 +699,14 @@ select {
    non per verificare, e sta staccata dal resto da una riga. */
 .credits-about { border-bottom: 1px solid var(--line); margin-bottom: 10px; padding-bottom: 4px; }
 .credits-about-title { font-weight: 600; color: var(--ink); margin: 0 0 6px; }
+
+/* Le sezioni richiudibili dentro "Informazioni": una funzione per volta. */
+.about-section { margin: 6px 0; }
+.about-section summary { font-weight: 600; color: var(--ink); }
+.about-section summary::before { content: '\25b8 '; }
+.about-section[open] summary::before { content: '\25be '; }
+.about-section p { margin: 6px 0 10px; }
+.about-more { margin: 10px 0 6px; color: var(--ink-soft); }
 .credits-copyright { margin: 0 0 10px; }
 
 /* --- suggerimento ("e adesso?") --- */

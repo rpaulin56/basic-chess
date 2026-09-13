@@ -7,13 +7,26 @@ export const en: Record<keyof typeof it, string> = {
   about: 'About',
   aboutTitle: 'What it is, and what it is not',
   aboutDoes:
-    'GrandmaChess lets you play an opponent at your own strength who stops you when you go wrong, tells you what the mistake cost and lets you play the move again. At the end it shows you where the game slipped away. It knows the openings and the endgames that have a name, and tells you where to study them when you reach one.',
+    'GrandmaChess lets you play an opponent at your own strength who stops you when you go wrong, tells you how bad the mistake is and, if you want, lets you play the move again. At the end it goes back over the key moments. It knows the openings and the endgames, and helps you study them.',
+  aboutTutorTitle: 'When you go wrong, Grandma stops you',
+  aboutTutor:
+    'When one of your moves really costs something, Grandma stops the game, tells you how bad it was and shows you with an animation what happens next. Then you decide: change it or carry on. The moves she lets you change are counted, though, and they run out — how many there are is up to you, along with the level.',
+  aboutStudyTitle: 'In the opening: study the theory',
+  aboutStudy:
+    'In the opening, the button with the two arrows draws on the board the moves played most often in the position in front of you: the thicker the arrow, the more that move is played — not in grandmaster tournaments, but by players between 1200 and 1800, the ones you will actually meet. While you are in theory Grandma shows the arrows but says nothing, because there is nothing to correct, and the moves you change are not counted. You can also step back onto her move and have her play a different one, to see how that reply is met.',
+  aboutAfterTitle: 'After the game',
+  aboutAfter:
+    'When the game is over Grandma goes over the turning points: the moves that cost you most, the better alternatives, and also what you did well. She tells you where she went wrong and you did not take advantage, how long you thought on average, and whether a mistake came from haste.',
+  aboutMore:
+    'And much more: pointers for studying the endgames, the evaluation bar, exporting the game, and analysing a game you bring from elsewhere by pasting its PGN.',
+  aboutNotTitle: 'What it does not do',
+  aboutPrivacyTitle: 'No network, no account',
   aboutNotTime:
-    'IT HAS NO CLOCK, and that is the biggest thing it gives up. Here you can think as long as you like, and that changes everything: a player’s Elo measures strength at comparable thinking times, so the level you beat here is not the level you would beat over the board. Thinking fast is a skill of its own, and this program does not teach it.',
+    'IT HAS NO CLOCK, by choice. Here you can think as long as you like, and that changes everything: a player’s Elo measures strength at comparable thinking times, so the level you beat here is not the level you would beat over the board. Thinking fast is a skill of its own, and this program does not teach it.',
   aboutNotElse:
-    'It does not pair you with other people, it does not give you a rating of your own, it does not drill tactics with thousands of puzzles and it does not build you an opening repertoire. To become a real player you will need a clock, opponents made of flesh, and a club: this program is where you understand your mistakes, not where you finish.',
+    'It does not pair you with other people, it does not give you a rating of your own, it does not drill tactics with thousands of puzzles and it does not build you an opening repertoire. To become a real player you will need a clock, opponents made of flesh, and a club: GrandmaChess is where you understand your mistakes calmly, not where you train to become a master.',
   aboutPrivacy:
-    'It needs no network, asks for no account and sends nothing anywhere: the chess engine runs inside your browser and the game stays there.',
+    'Once the site is open it needs no network, asks for no account and sends nothing anywhere: the chess engine runs inside your browser and the game stays there.',
   creditsAuthorLabel: 'Concept and software design',
   creditsAuthorName: 'Riccardo Paulin',
   creditsCodeLabel: 'Code written by',
@@ -255,6 +268,9 @@ export const en: Record<keyof typeof it, string> = {
     'Every move you change is a concession from Grandma: the rules would not allow it. It is fair to put a limit on changes made after a warning or on your own initiative.',
   sectionStudy: 'Study openings',
   arrowsTheory: 'Show the theory moves',
+  theoryTitle: 'The theory moves',
+  theoryNote:
+    'These are the moves played most often from here: the thicker the arrow, the more it is played. Touch a piece to play one, or step back onto Grandma’s move to have her try a different reply.',
   studyOver: 'Theory ends here: back to watching you play.',
   recapStudy: 'In this game you studied the opening.',
   whyRethinkTitle: 'Where you changed your mind',

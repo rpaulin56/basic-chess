@@ -131,11 +131,47 @@ export function createCredits(): HTMLElement {
   aboutTitle.className = 'credits-about-title';
   aboutTitle.textContent = t('aboutTitle');
   about.append(aboutTitle);
-  for (const key of ['aboutDoes', 'aboutNotTime', 'aboutNotElse', 'aboutPrivacy']) {
-    const paragraph = document.createElement('p');
-    paragraph.textContent = t(key);
-    about.append(paragraph);
-  }
+  /*
+   * Una sezione per funzione, tutte chiuse.
+   *
+   * Prima era un elenco di paragrafi che si apriva tutto insieme, e il materiale nel
+   * frattempo e' cresciuto: chi capita qui per caso trovava sei blocchi di testo e
+   * richiudeva. Cosi' invece si esplora una cosa per volta, e il titolo dice gia' se la
+   * cosa interessa.
+   */
+  const section = (titleKey: string, bodyKeys: readonly string[]): HTMLElement => {
+    const block = document.createElement('details');
+    block.className = 'about-section';
+    const summary = document.createElement('summary');
+    summary.textContent = t(titleKey);
+    block.append(summary);
+    for (const key of bodyKeys) {
+      const paragraph = document.createElement('p');
+      paragraph.textContent = t(key);
+      block.append(paragraph);
+    }
+    return block;
+  };
+
+  // "Che cos'e'" resta in chiaro: e' la risposta alla domanda che porta qui.
+  const lead = document.createElement('p');
+  lead.textContent = t('aboutDoes');
+  about.append(lead);
+  about.append(
+    section('aboutTutorTitle', ['aboutTutor']),
+    section('aboutStudyTitle', ['aboutStudy']),
+    section('aboutAfterTitle', ['aboutAfter']),
+  );
+  // Il resto non si elenca: dirlo in una riga e' piu' onesto che fingere un indice
+  // completo, e chi vuole lo trova giocando.
+  const more = document.createElement('p');
+  more.className = 'about-more';
+  more.textContent = t('aboutMore');
+  about.append(more);
+  about.append(
+    section('aboutNotTitle', ['aboutNotTime', 'aboutNotElse']),
+    section('aboutPrivacyTitle', ['aboutPrivacy']),
+  );
   details.append(about);
 
   const authors = document.createElement('dl');
@@ -200,12 +236,16 @@ export function createCredits(): HTMLElement {
   // Da qui in giu' sono i crediti veri e propri, e adesso hanno bisogno di un titolo:
   // il pannello non si chiama piu' "Crediti e licenze" ma "Informazioni", perche' la
   // prima cosa che contiene non e' un obbligo di licenza ma cosa fa il programma.
-  const creditsTitle = document.createElement('p');
-  creditsTitle.className = 'credits-about-title';
+  // Anche i crediti si aprono solo se li si cerca: sono un obbligo di licenza, non una
+  // cosa da leggere per usare il programma.
+  const credits = document.createElement('details');
+  credits.className = 'about-section';
+  const creditsTitle = document.createElement('summary');
   creditsTitle.textContent = t('credits');
   const intro = document.createElement('p');
   intro.textContent = t('creditsIntro');
-  details.append(creditsTitle, intro);
+  credits.append(creditsTitle, intro);
+  details.append(credits);
 
   const list = document.createElement('ul');
   for (const credit of CREDITS) {
@@ -218,7 +258,7 @@ export function createCredits(): HTMLElement {
     item.append(link, document.createTextNode(` — ${t(credit.what)} · ${credit.licence}`));
     list.append(item);
   }
-  details.append(list);
+  credits.append(list);
 
   const source = document.createElement('p');
   const sourceLink = document.createElement('a');
@@ -227,7 +267,7 @@ export function createCredits(): HTMLElement {
   sourceLink.rel = 'noopener';
   sourceLink.textContent = t('creditsSource');
   source.append(sourceLink);
-  details.append(source);
+  credits.append(source);
 
   return details;
 }

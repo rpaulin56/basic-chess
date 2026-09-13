@@ -26,6 +26,8 @@ import {
   BOT_LEVELS,
   DISTRACTIONS,
   distractionById,
+  eloMid,
+  eloText,
   levelById,
   type BotLevel,
   type Distraction,
@@ -1950,6 +1952,16 @@ export function mountApp(root: HTMLElement): void {
     theoryEl.replaceChildren();
     theoryEl.hidden = studyLines.length === 0;
     if (theoryEl.hidden) return;
+    const heading = document.createElement('h2');
+    heading.textContent = t('theoryTitle');
+    // La spiegazione sta QUI e non nelle impostazioni: e' il momento in cui le frecce
+    // sono davanti agli occhi, ed e' l'unico in cui una spiegazione si legge davvero.
+    const note = document.createElement('p');
+    note.className = 'theory-note';
+    note.textContent = t('theoryNote');
+    const list = document.createElement('div');
+    list.className = 'theory-lines';
+    theoryEl.append(heading, note, list);
     for (const line of studyLines) {
       const item = document.createElement('span');
       item.className = 'theory-line';
@@ -1959,7 +1971,7 @@ export function mountApp(root: HTMLElement): void {
       const name = document.createElement('span');
       name.textContent = line.name;
       item.append(move, name);
-      theoryEl.append(item);
+      list.append(item);
     }
   }
 
@@ -3491,6 +3503,9 @@ export function mountApp(root: HTMLElement): void {
             }
             void askHint();
           },
+          // Acceso finche' le frecce ci sono: e' un interruttore, non un comando che
+          // parte e finisce, e chi guarda la barra deve poterlo vedere.
+          studying,
         ),
       ),
       lineBreak(),
@@ -3731,7 +3746,8 @@ export function mountApp(root: HTMLElement): void {
     // piu' da quando i livelli sono numerati.
     const number = BOT_LEVELS.indexOf(level) + 1;
     const bot = `Grandma level ${number} (${distraction.id === 'attento' ? 'focused' : 'distracted'})`;
-    const elo = String(level.elo[distraction.id]);
+    // Un numero solo, non l'intervallo: il tag dello standard vuole quello (vedi eloMid).
+    const elo = String(eloMid(level, distraction.id));
     const players =
       humanColor === 'w'
         ? { White: human, Black: bot, BlackElo: elo }
@@ -3990,7 +4006,7 @@ export function mountApp(root: HTMLElement): void {
       // ACCANTO AGLI ALTRI: un Elo isolato non dice niente, una scala di cinque dice
       // tutto.
       element.textContent = t('levelName', { n: index + 1 });
-      element.title = t('levelElo', { elo: option.elo[distraction.id] });
+      element.title = t('levelElo', { elo: eloText(option, distraction.id) });
       element.selected = option.id === level.id;
       select.append(element);
     }
@@ -4154,7 +4170,7 @@ export function mountApp(root: HTMLElement): void {
         row.append(name);
         for (const id of ['attento', 'distratto'] as const) {
           const cell = document.createElement('td');
-          cell.textContent = String(option.elo[id]);
+          cell.textContent = eloText(option, id);
           row.append(cell);
         }
         table.append(row);
@@ -4640,9 +4656,16 @@ function buildLayout(root: HTMLElement) {
   const openingEl = document.createElement('div');
   openingEl.className = 'opening';
   openingEl.hidden = true;
-  // La legenda delle frecce di teoria: sotto la scacchiera, accanto al nome dell'apertura.
-  const theoryEl = document.createElement('div');
-  theoryEl.className = 'theory-legend';
+  /*
+   * Le mosse di teoria: un pannello nella colonna, dove parla la Nonna.
+   *
+   * Stava sotto la scacchiera, accanto al nome dell'apertura, e da li' spostava la barra
+   * dei comandi ogni volta che compariva o andava a capo — la barra si muoveva sotto il
+   * dito. Qui invece sta dove stanno le cose che la Nonna dice, e mentre si studia lei
+   * non dice nient'altro.
+   */
+  const theoryEl = document.createElement('section');
+  theoryEl.className = 'panel theory';
   theoryEl.hidden = true;
   const controlsEl = document.createElement('div');
   controlsEl.className = 'controls';
@@ -4660,7 +4683,7 @@ function buildLayout(root: HTMLElement) {
   previewEl.hidden = true;
   const infoRow = document.createElement('div');
   infoRow.className = 'board-info';
-  infoRow.append(statusEl, evalEl, openingEl, theoryEl);
+  infoRow.append(statusEl, evalEl, openingEl);
   // La barra sta ACCANTO alla scacchiera, alla sua stessa altezza, e per questo le
   // due cose vanno in una riga loro: dentro la colonna starebbero una sotto l'altra.
   const barEl = document.createElement('div');
@@ -4748,7 +4771,7 @@ function buildLayout(root: HTMLElement) {
   movesEl.className = 'movelist';
   movesPanel.append(movesTitle, movesEl);
 
-  side.append(offerEl, whyEl, tutorEl, hintEl, endgameEl, recapPanel, movesPanel);
+  side.append(offerEl, whyEl, tutorEl, theoryEl, hintEl, endgameEl, recapPanel, movesPanel);
   layout.append(boardColumn, side);
   root.append(header, layout);
   return {

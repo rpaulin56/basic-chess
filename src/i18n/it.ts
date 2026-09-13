@@ -5,13 +5,26 @@ export const it = {
   about: 'Informazioni',
   aboutTitle: 'Che cos’è, e che cosa non è',
   aboutDoes:
-    'GrandmaChess ti fa giocare contro un’avversaria della tua forza che ti ferma quando sbagli, ti dice quanto è costato l’errore e ti lascia rifare la mossa. A fine partita ti mostra i momenti in cui la partita ti è scivolata via. Riconosce le aperture e i finali che hanno un nome, e quando ci arrivi ti dice dove studiarli.',
+    'GrandmaChess ti fa giocare contro un’avversaria della tua forza che ti ferma quando sbagli, ti dice quanto è grave l’errore e volendo ti lascia rifare la mossa. A fine partita riesamina i momenti cruciali. Riconosce le aperture e i finali e ti aiuta a studiarli.',
+  aboutTutorTitle: 'Quando sbagli, la Nonna ti ferma',
+  aboutTutor:
+    'Quando una tua mossa costa davvero qualcosa, la Nonna interrompe la partita, ti dice quanto era grave e ti fa vedere con un’animazione cosa succede. Poi decidi tu: cambiarla o andare avanti. Le mosse che ti lascia cambiare però sono contate e a un certo punto finiscono — quante siano lo scegli tu, insieme al livello.',
+  aboutStudyTitle: 'In apertura: studia la teoria',
+  aboutStudy:
+    'In apertura, il tasto con le due frecce disegna sulla scacchiera le mosse che si giocano più spesso nella posizione che hai davanti: più la freccia è spessa, più quella mossa è giocata; non nei tornei dei grandi maestri, ma dai giocatori fra 1200 e 1800 punti, quelli che incontrerai davvero. Finché resti in teoria la Nonna mostra le frecce ma tace, perché non c’è niente da correggere, e le mosse che cambi non ti vengono contate. Puoi anche tornare sulla sua mossa e fargliene giocare un’altra, per vedere come si risponde.',
+  aboutAfterTitle: 'Dopo la partita',
+  aboutAfter:
+    'A partita finita la Nonna commenta i passaggi chiave: le mosse che ti sono costate di più, le alternative migliori, ma anche quello che hai fatto di buono. Ti dice dove ha sbagliato lei e non ne hai approfittato, quanto hai pensato in media e se un errore è nato dalla fretta.',
+  aboutMore:
+    'E molto altro: rimandi allo studio dei finali, la barra della valutazione, l’esportazione della partita, l’analisi di una partita che porti da fuori incollando il PGN.',
+  aboutNotTitle: 'Che cosa non fa',
+  aboutPrivacyTitle: 'Niente rete, niente account',
   aboutNotTime:
-    'NON HA L’OROLOGIO, ed è la rinuncia più grossa. Qui puoi pensare quanto vuoi, e questo cambia tutto: l’Elo di un giocatore misura la sua forza a tempi confrontabili, quindi il livello che batti qui non è il livello che batteresti in torneo. Pensare in fretta è un’abilità a sé, e questo programma non te la insegna.',
+    'NON HA L’OROLOGIO, per scelta. Qui puoi pensare quanto vuoi, e questo cambia tutto: l’Elo di un giocatore misura la sua forza a tempi confrontabili, quindi il livello che batti qui non è il livello che batteresti in torneo. Pensare in fretta è un’abilità a sé, e questo programma non te la insegna.',
   aboutNotElse:
-    'Non ti fa giocare contro altre persone, non ti dà un tuo punteggio, non ti allena la tattica con migliaia di esercizi e non ti costruisce un repertorio di aperture. Per diventare un giocatore vero ti serviranno un orologio, avversari in carne e ossa e un circolo: questo programma è il posto dove capire i tuoi errori, non dove finire.',
+    'Non ti fa giocare contro altre persone, non ti dà un tuo punteggio, non ti allena la tattica con migliaia di esercizi e non ti costruisce un repertorio di aperture. Per diventare un giocatore vero ti serviranno un orologio, avversari in carne e ossa e un circolo: GrandmaChess è il posto dove capire con calma i tuoi errori, non dove perfezionarti per diventare Maestro.',
   aboutPrivacy:
-    'Non ha bisogno di rete, non chiede un account e non manda niente a nessuno: il motore scacchistico gira dentro il tuo browser e la partita resta lì.',
+    'Una volta aperto il sito non ha bisogno di rete, non chiede un account e non manda niente a nessuno: il motore scacchistico gira dentro il tuo browser e la partita resta lì.',
   creditsAuthorLabel: 'Concept e progetto software',
   creditsAuthorName: 'Riccardo Paulin',
   creditsCodeLabel: 'Scrittura del codice',
@@ -254,6 +267,9 @@ export const it = {
     'Ogni mossa cambiata è una concessione della Nonna: le regole non lo permetterebbero. È giusto mettere un limite ai cambi fatti dopo un avviso o di tua iniziativa.',
   sectionStudy: 'Studia aperture',
   arrowsTheory: 'Mostra le mosse di teoria',
+  theoryTitle: 'Le mosse di teoria',
+  theoryNote:
+    'Sono le mosse che da qui si giocano di più: più la freccia è spessa, più è giocata. Tocca un pezzo per giocarne una, o torna sulla mossa della Nonna per farle provare un’altra risposta.',
   studyOver: 'Qui finisce la teoria: torno a guardarti giocare.',
   recapStudy: 'In questa partita hai studiato l’apertura.',
   whyRethinkTitle: 'Dove hai cambiato idea',

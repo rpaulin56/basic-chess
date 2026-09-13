@@ -27,7 +27,7 @@ import { readFile } from 'node:fs/promises';
 import { Chess } from 'chess.js';
 import { createEngine } from '../src/engine/uci.js';
 import type { Engine } from '../src/engine/types.js';
-import { BOT_LEVELS, distractionById, levelById, type BotLevel } from '../src/bot/bot.js';
+import { BOT_LEVELS, distractionById, eloText, levelById, type BotLevel } from '../src/bot/bot.js';
 import { chooseBotMove } from '../src/bot/play.js';
 import { createNodeTransport } from './nodeTransport.js';
 
@@ -174,8 +174,8 @@ const level: BotLevel = {
   maxCost: Number(arg('maxcost', String(base.maxCost ?? 15))),
 };
 
-/** L'Elo dichiarato dipende dall'attenzione: sono due numeri per livello, non uno. */
-const declared = level.elo[distraction.id as 'attento' | 'distratto'];
+/** Il dichiarato e' un INTERVALLO, e dipende anche dall'attenzione: vedi eloText. */
+const declared = eloText(level, distraction.id as 'attento' | 'distratto');
 const opponentLevel = opponentId ? levelById(opponentId) : null;
 
 console.log(
