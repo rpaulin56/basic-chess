@@ -76,7 +76,7 @@ export const en: Record<keyof typeof it, string> = {
   whyBetter: 'better {san}',
   whyTimeUsual: 'In this game you typically took {time} per move.',
   whyTimeHasty:
-    '{move} {san} cost you {drop} points. Haste let you down: you played it in {time}, against an average of {usual} per move in this game.',
+    '{move} {san} cost you {drop} points. Perhaps it was haste: you played it in {time}, against an average of {usual} per move in this game.',
   whyTimeDelicate:
     '{move} {san} — the game was still wide open here and you decided too quickly: {time}, against an average of {usual} per move in this game.',
   whyTimeDelicateBest: '{best} was better.',
@@ -277,8 +277,9 @@ export const en: Record<keyof typeof it, string> = {
   whyRethinkLine: '{move} {san}, changed to {newSan}',
   whyRethinkLineOpen: '{move} {san}, then changed',
   whyRethinkCost: 'it cost {drop} points',
+  whyRethinkNewCost: 'the new one costs {drop}',
   whyRethinkFree: 'it cost nothing',
-  whyRethinkHasty: 'you had thought for {time}, less than half your average',
+  whyRethinkHasty: 'perhaps it was haste: {time} against an average of {usual}',
   hintManyOpen: 'Almost anything works here: this position is not decided now, and there is no move to find.',
   orientNothing: 'No feature stands out. So ask yourself this: which of your pieces is taking the least part, and how can you get it playing?',
   positionTitle: 'Position: import or export',

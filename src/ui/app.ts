@@ -1330,11 +1330,23 @@ export function mountApp(root: HTMLElement): void {
         const drop = Math.round(rethink.drop);
         parts.push(drop < 1 ? t('whyRethinkFree') : t('whyRethinkCost', { drop }));
       }
+      // E quanto costa la mossa giocata al suo posto: senza, "costava 90 punti" lascia la
+      // domanda aperta — rispetto a cosa? I termini in gioco sono tre (quella ripresa, la
+      // nuova, la migliore), e i punti si contano sempre rispetto alla migliore.
+      const replacement = losses.find((loss) => loss.ply === rethink.ply);
+      if (replacement && state.plies[rethink.ply]?.san === rethink.newSan) {
+        const drop = Math.round(replacement.drop);
+        // Se la nuova non costa niente non si dice: il confronto e' gia' chiaro, e una
+        // riga in piu' per dire "zero" e' rumore.
+        if (drop >= 1) parts.push(t('whyRethinkNewCost', { drop }));
+      }
       // Il tempo si dice SOLO quando ha fatto la differenza, come nelle altre frasi sul
       // tempo: "ci avevi pensato 27 secondi", senza un confronto, non e' un'informazione
       // (segnalato leggendo un riepilogo vero).
       if (rethink.ms !== null && median !== null && rethink.ms * 2 < median) {
-        parts.push(t('whyRethinkHasty', { time: duration(rethink.ms) }));
+        // La stessa formula dell'altra frase sulla fretta: due modi di dire la stessa cosa
+        // si leggerebbero come due cose diverse.
+        parts.push(t('whyRethinkHasty', { time: duration(rethink.ms), usual: duration(median) }));
       }
       const item = document.createElement('li');
       item.textContent = parts.join(' · ');

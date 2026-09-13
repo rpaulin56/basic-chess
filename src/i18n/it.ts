@@ -74,7 +74,7 @@ export const it = {
   whyBetter: 'meglio {san}',
   whyTimeUsual: 'In questa partita hai pensato in media {time} a mossa.',
   whyTimeHasty:
-    '{move} {san} ti è costata {drop} punti. La fretta ti ha tradito: l’hai giocata in {time}, contro una media di {usual} a mossa in questa partita.',
+    '{move} {san} ti è costata {drop} punti. Forse è stata la fretta: l’hai giocata in {time}, contro una media di {usual} a mossa in questa partita.',
   whyTimeDelicate:
     '{move} {san} — qui la partita era ancora tutta da giocare e hai deciso troppo in fretta: {time}, contro una media di {usual} a mossa in questa partita.',
   whyTimeDelicateBest: 'Era meglio {best}.',
@@ -276,8 +276,9 @@ export const it = {
   whyRethinkLine: '{move} {san}, cambiata in {newSan}',
   whyRethinkLineOpen: '{move} {san}, poi cambiata',
   whyRethinkCost: 'costava {drop} punti',
+  whyRethinkNewCost: 'la nuova ne costa {drop}',
   whyRethinkFree: 'non costava niente',
-  whyRethinkHasty: 'ci avevi pensato {time}, meno della metà della tua media',
+  whyRethinkHasty: 'forse è stata la fretta: {time} contro una media di {usual}',
   hintManyOpen: 'Qui va bene quasi tutto: la posizione non si decide adesso, e non c’è una mossa da trovare.',
   orientNothing: 'Non spicca nessuna caratteristica particolare. Domandati questo: quale dei tuoi pezzi sta partecipando di meno, e come puoi farlo giocare?',
   positionTitle: 'Posizione: importa o esporta',
