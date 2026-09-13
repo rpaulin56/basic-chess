@@ -3,24 +3,24 @@ export const it = {
   tagline: 'Impara dai tuoi errori',
   credits: 'Crediti e licenze',
   about: 'Informazioni',
-  aboutTitle: 'Che cos’è, e che cosa non è',
+  aboutTitle: 'Che cos’è',
   aboutDoes:
     'GrandmaChess ti fa giocare contro un’avversaria della tua forza che ti ferma quando sbagli, ti dice quanto è grave l’errore e volendo ti lascia rifare la mossa. A fine partita riesamina i momenti cruciali. Riconosce le aperture e i finali e ti aiuta a studiarli.',
   aboutTutorTitle: 'Quando sbagli, la Nonna ti ferma',
   aboutTutor:
     'Quando una tua mossa costa davvero qualcosa, la Nonna interrompe la partita, ti dice quanto era grave e ti fa vedere con un’animazione cosa succede. Poi decidi tu: cambiarla o andare avanti. Le mosse che ti lascia cambiare però sono contate e a un certo punto finiscono — quante siano lo scegli tu, insieme al livello.',
-  aboutStudyTitle: 'In apertura: studia la teoria',
+  aboutStudyTitle: 'Studia le aperture',
   aboutStudy:
-    'In apertura, il tasto con le due frecce disegna sulla scacchiera le mosse che si giocano più spesso nella posizione che hai davanti: più la freccia è spessa, più quella mossa è giocata; non nei tornei dei grandi maestri, ma dai giocatori fra 1200 e 1800 punti, quelli che incontrerai davvero. Finché resti in teoria la Nonna mostra le frecce ma tace, perché non c’è niente da correggere, e le mosse che cambi non ti vengono contate. Puoi anche tornare sulla sua mossa e fargliene giocare un’altra, per vedere come si risponde.',
+    'In apertura, il tasto con le due frecce mostra sulla scacchiera le mosse che si giocano più spesso nella posizione che hai davanti: più la freccia è spessa, più quella mossa è giocata; non nei tornei dei Grandi Maestri, ma dai giocatori fra 1200 e 1800 punti, quelli che incontrerai davvero. Finché resti in teoria la Nonna mostra le frecce ma tace, perché non c’è niente da correggere, e le mosse che cambi non ti vengono contate. Puoi anche tornare sulla sua mossa e fargliene giocare un’altra, per vedere come si risponde.',
   aboutAfterTitle: 'Dopo la partita',
   aboutAfter:
-    'A partita finita la Nonna commenta i passaggi chiave: le mosse che ti sono costate di più, le alternative migliori, ma anche quello che hai fatto di buono. Ti dice dove ha sbagliato lei e non ne hai approfittato, quanto hai pensato in media e se un errore è nato dalla fretta.',
+    'A partita finita la Nonna commenta i passaggi chiave: le mosse che ti sono costate di più, le alternative migliori, ma anche quello che hai fatto di buono. Ti dice dove non hai approfittato dei suoi errori, quanto hai pensato in media e se un errore è nato dalla fretta.',
   aboutMore:
-    'E molto altro: rimandi allo studio dei finali, la barra della valutazione, l’esportazione della partita, l’analisi di una partita che porti da fuori incollando il PGN.',
-  aboutNotTitle: 'Che cosa non fa',
+    'E molto altro: rimandi allo studio dei finali, la barra della valutazione, l’esportazione della partita, l’analisi di una partita che porti da fuori incollando il PGN…',
+  aboutNotTitle: 'Che cosa non è',
   aboutPrivacyTitle: 'Niente rete, niente account',
   aboutNotTime:
-    'NON HA L’OROLOGIO, per scelta. Qui puoi pensare quanto vuoi, e questo cambia tutto: l’Elo di un giocatore misura la sua forza a tempi confrontabili, quindi il livello che batti qui non è il livello che batteresti in torneo. Pensare in fretta è un’abilità a sé, e questo programma non te la insegna.',
+    'NON HA L’OROLOGIO, per scelta. Qui puoi pensare quanto vuoi, e questo cambia tutto: l’Elo di un giocatore misura la sua forza a tempi confrontabili, quindi il livello che batti qui non è il livello che batteresti in torneo. Pensare in fretta è un’abilità a sé, e non è la Nonna che te la insegna.',
   aboutNotElse:
     'Non ti fa giocare contro altre persone, non ti dà un tuo punteggio, non ti allena la tattica con migliaia di esercizi e non ti costruisce un repertorio di aperture. Per diventare un giocatore vero ti serviranno un orologio, avversari in carne e ossa e un circolo: GrandmaChess è il posto dove capire con calma i tuoi errori, non dove perfezionarti per diventare Maestro.',
   aboutPrivacy:

@@ -5,24 +5,24 @@ export const en: Record<keyof typeof it, string> = {
   tagline: 'Learn from your mistakes',
   credits: 'Credits and licences',
   about: 'About',
-  aboutTitle: 'What it is, and what it is not',
+  aboutTitle: 'What it is',
   aboutDoes:
     'GrandmaChess lets you play an opponent at your own strength who stops you when you go wrong, tells you how bad the mistake is and, if you want, lets you play the move again. At the end it goes back over the key moments. It knows the openings and the endgames, and helps you study them.',
   aboutTutorTitle: 'When you go wrong, Grandma stops you',
   aboutTutor:
     'When one of your moves really costs something, Grandma stops the game, tells you how bad it was and shows you with an animation what happens next. Then you decide: change it or carry on. The moves she lets you change are counted, though, and they run out — how many there are is up to you, along with the level.',
-  aboutStudyTitle: 'In the opening: study the theory',
+  aboutStudyTitle: 'Study the openings',
   aboutStudy:
-    'In the opening, the button with the two arrows draws on the board the moves played most often in the position in front of you: the thicker the arrow, the more that move is played — not in grandmaster tournaments, but by players between 1200 and 1800, the ones you will actually meet. While you are in theory Grandma shows the arrows but says nothing, because there is nothing to correct, and the moves you change are not counted. You can also step back onto her move and have her play a different one, to see how that reply is met.',
+    'In the opening, the button with the two arrows shows on the board the moves played most often in the position in front of you: the thicker the arrow, the more that move is played — not in Grandmaster tournaments, but by players between 1200 and 1800, the ones you will actually meet. While you are in theory Grandma shows the arrows but says nothing, because there is nothing to correct, and the moves you change are not counted. You can also step back onto her move and have her play a different one, to see how that reply is met.',
   aboutAfterTitle: 'After the game',
   aboutAfter:
-    'When the game is over Grandma goes over the turning points: the moves that cost you most, the better alternatives, and also what you did well. She tells you where she went wrong and you did not take advantage, how long you thought on average, and whether a mistake came from haste.',
+    'When the game is over Grandma goes over the turning points: the moves that cost you most, the better alternatives, and also what you did well. She tells you where you did not take advantage of her mistakes, how long you thought on average, and whether a mistake came from haste.',
   aboutMore:
-    'And much more: pointers for studying the endgames, the evaluation bar, exporting the game, and analysing a game you bring from elsewhere by pasting its PGN.',
-  aboutNotTitle: 'What it does not do',
+    'And much more: pointers for studying the endgames, the evaluation bar, exporting the game, analysing a game you bring from elsewhere by pasting its PGN…',
+  aboutNotTitle: 'What it is not',
   aboutPrivacyTitle: 'No network, no account',
   aboutNotTime:
-    'IT HAS NO CLOCK, by choice. Here you can think as long as you like, and that changes everything: a player’s Elo measures strength at comparable thinking times, so the level you beat here is not the level you would beat over the board. Thinking fast is a skill of its own, and this program does not teach it.',
+    'IT HAS NO CLOCK, by choice. Here you can think as long as you like, and that changes everything: a player’s Elo measures strength at comparable thinking times, so the level you beat here is not the level you would beat over the board. Thinking fast is a skill of its own, and Grandma is not the one who will teach it.',
   aboutNotElse:
     'It does not pair you with other people, it does not give you a rating of your own, it does not drill tactics with thousands of puzzles and it does not build you an opening repertoire. To become a real player you will need a clock, opponents made of flesh, and a club: GrandmaChess is where you understand your mistakes calmly, not where you train to become a master.',
   aboutPrivacy:
