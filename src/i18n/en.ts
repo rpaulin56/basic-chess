@@ -73,6 +73,7 @@ export const en: Record<keyof typeof it, string> = {
   whyLine: '{move} {san} — {verdict} (-{drop} points)',
   whyVerdictThrown: 'You threw the game away',
   whyVerdictWinSlipped: 'The win slipped away',
+  whyVerdictWinRisked: 'You put the win at risk',
   whyVerdictMistake: 'A mistake',
   whyVerdictInaccuracy: 'An inaccuracy',
   whyUnits:

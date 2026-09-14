@@ -71,6 +71,7 @@ export const it = {
   whyLine: '{move} {san} — {verdict} (-{drop} punti)',
   whyVerdictThrown: 'Hai buttato via la partita',
   whyVerdictWinSlipped: 'Ti è sfuggita la vittoria',
+  whyVerdictWinRisked: 'Hai messo a repentaglio la vittoria',
   whyVerdictMistake: 'Un errore',
   whyVerdictInaccuracy: 'Un’imprecisione',
   whyUnits:

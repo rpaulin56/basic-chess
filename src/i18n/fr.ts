@@ -91,6 +91,7 @@ export const fr: Record<keyof typeof it, string> = {
   whyLine: '{move} {san} — {verdict} (-{drop} points)',
   whyVerdictThrown: 'Tu as jeté la partie',
   whyVerdictWinSlipped: 'La victoire t’a échappé',
+  whyVerdictWinRisked: 'Tu as mis la victoire en danger',
   whyVerdictMistake: 'Une erreur',
   whyVerdictInaccuracy: 'Une imprécision',
   whyUnits: `Les points sont une espérance de gain${NB}: sur cent parties jouées depuis cette position, combien tu en ramènerais. En perdre dix en un seul coup, c’est beaucoup.`,

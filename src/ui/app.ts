@@ -1420,7 +1420,11 @@ export function mountApp(root: HTMLElement): void {
   function lossVerdict(loss: MoveLoss): string {
     const after = loss.before - loss.drop;
     if (loss.before >= 35 && after < 20) return t('whyVerdictThrown');
-    if (loss.before >= 65 && after < 50) return t('whyVerdictWinSlipped');
+    // Se poi la partita si e' vinta lo stesso, la vittoria non e' "sfuggita": e' stata
+    // messa a rischio. Per la partita buttata no: da li' il recupero e' un regalo altrui.
+    if (loss.before >= 65 && after < 50) {
+      return humanWon() ? t('whyVerdictWinRisked') : t('whyVerdictWinSlipped');
+    }
     return loss.drop >= MISTAKE_DROP ? t('whyVerdictMistake') : t('whyVerdictInaccuracy');
   }
 
@@ -1494,6 +1498,12 @@ export function mountApp(root: HTMLElement): void {
     if (outcome) return outcome.result === '1/2-1/2';
     const over = gameOver(goTo(state, state.plies.length));
     return over !== null && !over.winner;
+  }
+
+  function humanWon(): boolean {
+    if (outcome) return outcome.result === (humanColor === 'w' ? '1-0' : '0-1');
+    const over = gameOver(goTo(state, state.plies.length));
+    return over?.winner === humanColor;
   }
 
   function humanLost(): boolean {
