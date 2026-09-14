@@ -1107,6 +1107,7 @@ export function mountApp(root: HTMLElement): void {
       item.textContent = t('whyLine', {
         move: moveLabel(loss.number, humanColor),
         san: toFigurine(loss.san),
+        verdict: lossVerdict(loss),
         drop: Math.round(loss.drop),
       });
       if (loss.best) item.textContent += ` · ${t('whyBetter', { san: toFigurine(loss.best) })}`;
@@ -1407,6 +1408,20 @@ export function mountApp(root: HTMLElement): void {
     if (seconds < 60) return seconds === 1 ? t('timeOneSecond') : t('timeSeconds', { n: seconds });
     const minutes = Math.round(seconds / 60);
     return minutes === 1 ? t('timeOneMinute') : t('timeMinutes', { n: minutes });
+  }
+
+  /**
+   * Il giudizio a parole su una mossa della lista, prima dei punti.
+   *
+   * Il numero da solo non dice quanto pesa: "75 punti" e' la partita buttata, ma
+   * lo stesso dieci da una posizione gia' persa non cambia niente. Decide quindi dove si
+   * e' arrivati, non solo quanto si e' perso (chiesto leggendo un riepilogo vero).
+   */
+  function lossVerdict(loss: MoveLoss): string {
+    const after = loss.before - loss.drop;
+    if (loss.before >= 35 && after < 20) return t('whyVerdictThrown');
+    if (loss.before >= 65 && after < 50) return t('whyVerdictWinSlipped');
+    return loss.drop >= MISTAKE_DROP ? t('whyVerdictMistake') : t('whyVerdictInaccuracy');
   }
 
   function inPlay(loss: MoveLoss): boolean {

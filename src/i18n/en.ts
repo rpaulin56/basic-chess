@@ -70,10 +70,14 @@ export const en: Record<keyof typeof it, string> = {
   whyTitleWon: 'A few moments worth a look',
   whyClean:
     'You held your ground and made no serious mistake. But a lot of small errors lose a game just as surely: let me show you a few, to give you the idea.',
-  whyLine: '{move} {san} — {drop} expectancy points',
+  whyLine: '{move} {san} — {verdict} (-{drop} points)',
+  whyVerdictThrown: 'You threw the game away',
+  whyVerdictWinSlipped: 'The win slipped away',
+  whyVerdictMistake: 'A mistake',
+  whyVerdictInaccuracy: 'An inaccuracy',
   whyUnits:
     'The points are win expectancy: out of a hundred games from that position, how many you would come away with. Losing ten in a single move is a lot.',
-  whyBetter: 'better {san}',
+  whyBetter: 'there was {san}',
   whyTimeUsual: 'In this game you typically took {time} per move.',
   whyTimeHasty:
     '{move} {san} cost you {drop} points. Perhaps it was haste: you played it in {time}, against an average of {usual} per move in this game.',

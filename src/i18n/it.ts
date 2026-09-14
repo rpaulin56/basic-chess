@@ -68,10 +68,14 @@ export const it = {
   whyTitleWon: 'Qualche momento da rivedere',
   whyClean:
     "Hai tenuto bene e non hai fatto grandi errori. Ma alla lunga tanti piccoli errori fanno perdere lo stesso: te ne mostro qualcuno, per darti un'idea.",
-  whyLine: '{move} {san} — {drop} punti di aspettativa',
+  whyLine: '{move} {san} — {verdict} (-{drop} punti)',
+  whyVerdictThrown: 'Hai buttato via la partita',
+  whyVerdictWinSlipped: 'Ti è sfuggita la vittoria',
+  whyVerdictMistake: 'Un errore',
+  whyVerdictInaccuracy: 'Un’imprecisione',
   whyUnits:
     'I punti sono di aspettativa di vittoria: su cento partite giocate da quella posizione, quante ne porteresti a casa. Perderne dieci in una mossa sola è tanto.',
-  whyBetter: 'meglio {san}',
+  whyBetter: 'c’era {san}',
   whyTimeUsual: 'In questa partita hai pensato in media {time} a mossa.',
   whyTimeHasty:
     '{move} {san} ti è costata {drop} punti. Forse è stata la fretta: l’hai giocata in {time}, contro una media di {usual} a mossa in questa partita.',
