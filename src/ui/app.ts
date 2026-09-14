@@ -207,17 +207,16 @@ function preferredTakebackLimit(): number | null {
 const HINT_DEPTH = 12;
 
 /**
- * La ricerca del matto per la fotografia, e fin dove la si tenta.
+ * La ricerca del matto per la fotografia.
  *
  * Non a profondita' fissa: a HINT_DEPTH il motore non vede il matto di donna da dieci
  * mosse, e a 18 lo vede solo a volte, secondo cosa ha in memoria (misurato nel browser).
  * `go mate` invece lo cerca apposta: donna contro re in 0,4 secondi, torre contro re
- * (matto in 18) in 0,7. Senza matto la ricerca dura tutto MATE_TIME_MS, ed e' per questo
- * che la si tenta solo con pochi pezzi: i finali, dove la fotografia serve.
+ * (matto in 18) in 0,7. Senza matto la ricerca dura tutto MATE_TIME_MS; la si tenta solo
+ * contro il re nudo, dove la fotografia serve (vedi askHint).
  */
 const MATE_MOVES = 20;
 const MATE_TIME_MS = 3000;
-const MATE_MAX_PIECES = 7;
 const HINT_MULTIPV = 20;
 
 /**
@@ -1922,22 +1921,32 @@ export function mountApp(root: HTMLElement): void {
 
     const analysis = await analyseFully(fen, { depth: HINT_DEPTH, multiPV: HINT_MULTIPV });
     if (mine !== generation || !hint) return;
-    // Un matto in due o piu': invece dell'elenco, la fotografia di dove si va a finire.
-    const top = (await findMate(fen)) ?? analysis?.lines[0];
-    if (mine !== generation || !hint) return;
-    if (top && top.mateIn !== null && top.mateIn >= 2 && applyMatePicture(fen, top.pv)) {
-      showMateMessage(fen, t('mateExample'));
-      return;
-    }
-    // Il matto non si vede, ma il finale si vince sempre: al posto del consiglio generico,
-    // il piano. Dove spingere il re che perde, con la stessa freccia viola della
-    // fotografia; quando il matto rientra nella ricerca, il tasto mostra quella.
-    const plan = planPicture(fen, top ?? null);
-    if (plan) {
-      mateArrows = [plan.arrow];
-      mateGhosts = [];
-      showMateMessage(fen, plan.message);
-      return;
+    /*
+     * La fotografia del matto e il piano: SOLO contro il re nudo.
+     *
+     * Li' il problema non e' calcolare ma avere un piano (dove spingere il re, con quale
+     * configurazione chiuderlo), ed e' quello che le frecce viola mostrano. Nel
+     * mediogioco un matto in quattro e' una combinazione da trovare: la fotografia
+     * darebbe la soluzione gia' fatta, mentre il consiglio normale ("c'e' una mossa
+     * sola, cercala") fa calcolare (deciso giocando contro la Nonna debole).
+     */
+    if (onlyKingLeft(fen)) {
+      const top = (await findMate(fen)) ?? analysis?.lines[0];
+      if (mine !== generation || !hint) return;
+      if (top && top.mateIn !== null && top.mateIn >= 2 && applyMatePicture(fen, top.pv)) {
+        showMateMessage(fen, t('mateExample'));
+        return;
+      }
+      // Il matto non si vede, ma il finale si vince sempre: al posto del consiglio
+      // generico, il piano. Dove spingere il re che perde, con la stessa freccia viola
+      // della fotografia; quando il matto rientra nella ricerca, il tasto mostra quella.
+      const plan = planPicture(fen, top ?? null);
+      if (plan) {
+        mateArrows = [plan.arrow];
+        mateGhosts = [];
+        showMateMessage(fen, plan.message);
+        return;
+      }
     }
     const built = analysis ? buildHint(analysis) : null;
 
@@ -2729,10 +2738,15 @@ export function mountApp(root: HTMLElement): void {
     return analysis;
   }
 
-  /** La linea migliore a profondita' da matto, o null se ci sono troppi pezzi. */
+  /** Vero se all'avversario di chi gioca e' rimasto solo il re. */
+  function onlyKingLeft(fen: string): boolean {
+    const board = fen.split(' ')[0] ?? '';
+    const theirs = humanColor === 'w' ? /[pnbrq]/ : /[PNBRQ]/;
+    return !theirs.test(board);
+  }
+
+  /** La linea migliore della ricerca apposta per il matto. */
   async function findMate(fen: string): Promise<EngineLine | null> {
-    const pieces = fen.split(' ')[0]!.replace(/[^a-zA-Z]/g, '').length;
-    if (pieces > MATE_MAX_PIECES) return null;
     // Il motore serve una richiesta alla volta e una nuova ferma quella in corso: se nel
     // frattempo e' partita un'altra analisi, la risposta torna vuota. Si riprova, finche'
     // la posizione e' ancora quella (misurato provandolo: capitava subito dopo un import).
