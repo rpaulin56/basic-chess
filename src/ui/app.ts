@@ -36,7 +36,7 @@ import { chooseBotMove } from '../bot/play.js';
 import { formatScore, winPercentOf } from '../engine/winProb.js';
 import type { Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
-import { transportArrows, type Consequence, classifyAgainstBest } from '../tutor/classify.js';
+import { transportArrows, type Arrow, type Consequence, classifyAgainstBest } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
 import { arrowMoves, bookLoaded, bookMoves, brushFor } from '../openings/book.js';
@@ -463,6 +463,16 @@ export function mountApp(root: HTMLElement): void {
   /** Il passo automatico della riproduzione; null quando e' ferma. */
   let previewTimer: number | null = null;
   /**
+   * "Suggerisci mossa" dopo un errore: la posizione di PRIMA, con le frecce.
+   *
+   * Prima il pannello scriveva "la mossa migliore era..." e un elenco. Ora parla come il
+   * tasto a bivio: freccia rossa sulla mossa giocata, frecce verdi sulle mosse buone, tutte
+   * nella posizione in cui si doveva scegliere. Si capisce a colpo d'occhio che cosa si
+   * poteva fare e che cosa si e' fatto, senza leggere una riga (chiesto provandolo sul
+   * telefono).
+   */
+  let bestView: { fen: string; arrows: Arrow[] } | null = null;
+  /**
    * La confutazione che il bot deve eseguire davvero.
    *
    * Se il tutor annuncia una punizione e poi il bot gioca altro, la lezione si
@@ -745,6 +755,8 @@ export function mountApp(root: HTMLElement): void {
 
   function refresh(): void {
     generation++;
+    // Il diagramma delle mosse buone vive quanto il verdetto che lo ha chiesto.
+    if (!review) bestView = null;
     // Chiuso il suggerimento, spariscono anche le sue frecce: durano quanto lui.
     if (!hint) hintArrows = [];
     thinkClock.show(thinkingPosition(), document.visibilityState === 'visible');
@@ -805,7 +817,7 @@ export function mountApp(root: HTMLElement): void {
       review
         ? {
             ...review,
-            previewing: preview !== null,
+            previewing: preview !== null || bestView !== null,
             orientation,
             humanColor,
             forgiveness: forgivenessState(),
@@ -854,7 +866,21 @@ export function mountApp(root: HTMLElement): void {
             ? [review.verdict.bestMove]
             : [];
         review = { ...review, betterSans: moves.map(sanOfBestMove).filter((san) => san !== null) };
+        // Le verdi prima e la rossa per ultima: se una mossa buona parte dalla stessa casa
+        // di quella sbagliata, la rossa resta visibile sopra.
+        const arrows: Arrow[] = moves.map((uci) => ({
+          orig: uci.slice(0, 2) as Square,
+          dest: uci.slice(2, 4) as Square,
+          brush: 'green',
+        }));
+        arrows.push({
+          orig: review.mistakeMove[0] as Square,
+          dest: review.mistakeMove[1] as Square,
+          brush: 'red',
+        });
+        bestView = { fen: review.fenBeforeMistake, arrows };
         refresh();
+        revealBoard();
       },
       onShowConsequence: () => {
         if (!review?.consequence) return;
@@ -886,6 +912,7 @@ export function mountApp(root: HTMLElement): void {
       onClosePreview: () => {
         stopPreviewAnimation();
         preview = null;
+        bestView = null;
         refresh();
       },
       },
@@ -2555,6 +2582,7 @@ export function mountApp(root: HTMLElement): void {
    */
   function renderBoard(): void {
     if (preview) renderPreview();
+    else if (bestView) board.renderPosition(bestView.fen, orientation, bestView.arrows);
     // A partita chiusa per accordo la scacchiera e' in sola lettura: la posizione
     // permette ancora di muovere, ma la partita no.
     else if (outcome) board.renderPosition(currentFen(state), orientation, []);

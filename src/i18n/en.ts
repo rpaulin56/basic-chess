@@ -167,8 +167,6 @@ export const en: Record<keyof typeof it, string> = {
   tutorForgiveNoMoreOne: 'I have already let you change one move: this time the move stays.',
   tutorForgiveNone: 'In this game moves cannot be changed: this one stays.',
   tutorShowBest: 'Suggest a move',
-  tutorBestWas: 'The best move was {move}.',
-  tutorBetterWere: 'These held the position: {moves}. The best was {best}.',
   recap: 'Critical moves',
   recapCorrected: 'taken back',
   recapKept: 'kept',

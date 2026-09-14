@@ -166,8 +166,6 @@ export const it = {
   tutorForgiveNoMoreOne: 'Ti ho già lasciato cambiare una mossa: questa volta la mossa resta.',
   tutorForgiveNone: 'In questa partita le mosse non si cambiano: questa resta.',
   tutorShowBest: 'Suggerisci mossa',
-  tutorBestWas: 'La mossa migliore era {move}.',
-  tutorBetterWere: 'Le mosse buone erano: {moves}. La migliore era {best}.',
   recap: 'Mosse critiche',
   recapCorrected: 'annullata',
   recapKept: 'mantenuta',

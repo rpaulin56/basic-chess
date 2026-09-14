@@ -178,8 +178,6 @@ export const fr: Record<keyof typeof it, string> = {
   tutorForgiveNoMoreOne: `Je t’ai déjà laissé changer un coup${NB}: cette fois, le coup reste.`,
   tutorForgiveNone: `Dans cette partie, on ne change pas de coup${NB}: celui-ci reste.`,
   tutorShowBest: 'Suggérer un coup',
-  tutorBestWas: 'Le meilleur coup était {move}.',
-  tutorBetterWere: `Les bons coups étaient${NB}: {moves}. Le meilleur était {best}.`,
   recap: 'Coups critiques',
   recapCorrected: 'annulé',
   recapKept: 'gardé',

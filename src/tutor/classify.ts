@@ -47,8 +47,11 @@ export interface LostPiece {
 export interface Arrow {
   readonly orig: Square;
   readonly dest: Square;
-  /** 'red' = pezzi dell'avversario, 'blue' = i nostri, 'yellow' = pezzi che perdiamo. */
-  readonly brush: 'red' | 'blue' | 'yellow';
+  /**
+   * 'red' = pezzi dell'avversario, 'blue' = i nostri, 'yellow' = pezzi che perdiamo.
+   * 'green' = le mosse buone, quando la Nonna le mostra dopo un errore.
+   */
+  readonly brush: 'red' | 'blue' | 'yellow' | 'green';
 }
 
 export interface Consequence {

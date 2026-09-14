@@ -1,7 +1,6 @@
 import { kindOf, type MistakeVerdict } from '../tutor/detect.js';
 import type { Consequence, LostPiece } from '../tutor/classify.js';
 import type { Explanation } from '../tutor/positional.js';
-import { toFigurine } from '../core/notation.js';
 import { t } from '../i18n/index.js';
 
 /**
@@ -191,16 +190,8 @@ export function renderTutorPanel(
   body.append(text, expectancyBars(verdict, state.orientation, state.humanColor));
   container.append(body);
 
-  if (betterSans && betterSans.length > 0) {
-    const best = document.createElement('p');
-    best.className = 'tutor-best';
-    const figurine = betterSans.map(toFigurine);
-    best.textContent =
-      figurine.length === 1
-        ? t('tutorBestWas', { move: figurine[0]! })
-        : t('tutorBetterWere', { moves: figurine.join(', '), best: figurine[0]! });
-    container.append(best);
-  }
+  // "La mossa migliore era..." non si scrive piu': le mosse buone si vedono sulla
+  // scacchiera, verdi, accanto alla rossa di quella giocata (vedi `bestView` in app.ts).
 
   const buttons = document.createElement('div');
   buttons.className = 'tutor-actions';
