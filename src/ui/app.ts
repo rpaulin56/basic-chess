@@ -1344,39 +1344,43 @@ export function mountApp(root: HTMLElement): void {
     const list = document.createElement('ul');
     for (const rethink of rethinks) {
       const move = moveLabel(rethink.number, humanColor);
-      const parts = [
-        rethink.newSan
-          ? t('whyRethinkLine', {
-              move,
-              san: toFigurine(rethink.san),
-              newSan: toFigurine(rethink.newSan),
-            })
-          : t('whyRethinkLineOpen', { move, san: toFigurine(rethink.san) }),
-      ];
+      // Ogni mossa porta tra parentesi le sue note: il costo e, per quella ripresa, la
+      // fretta. Cosi' si legge a chi si riferisce ciascun numero, e la riga resta una frase
+      // invece di un elenco puntato (chiesto leggendo un riepilogo vero).
+      const note = (notes: string[]): string => (notes.length ? ` (${notes.join('; ')})` : '');
+      const before: string[] = [];
       if (rethink.drop !== null) {
         const drop = Math.round(rethink.drop);
-        parts.push(drop < 1 ? t('whyRethinkFree') : t('whyRethinkCost', { drop }));
-      }
-      // E quanto costa la mossa giocata al suo posto: senza, "costava 90 punti" lascia la
-      // domanda aperta — rispetto a cosa? I termini in gioco sono tre (quella ripresa, la
-      // nuova, la migliore), e i punti si contano sempre rispetto alla migliore.
-      const replacement = losses.find((loss) => loss.ply === rethink.ply);
-      if (replacement && state.plies[rethink.ply]?.san === rethink.newSan) {
-        const drop = Math.round(replacement.drop);
-        // Se la nuova non costa niente non si dice: il confronto e' gia' chiaro, e una
-        // riga in piu' per dire "zero" e' rumore.
-        if (drop >= 1) parts.push(t('whyRethinkNewCost', { drop }));
+        if (drop >= 1) before.push(t('whyRethinkPoints', { drop }));
       }
       // Il tempo si dice SOLO quando ha fatto la differenza, come nelle altre frasi sul
-      // tempo: "ci avevi pensato 27 secondi", senza un confronto, non e' un'informazione
-      // (segnalato leggendo un riepilogo vero).
+      // tempo: "ci avevi pensato 27 secondi", senza un confronto, non e' un'informazione.
+      // Riguarda la mossa ripresa: e' quella giocata di corsa.
       if (rethink.ms !== null && median !== null && rethink.ms * 2 < median) {
-        // La stessa formula dell'altra frase sulla fretta: due modi di dire la stessa cosa
-        // si leggerebbero come due cose diverse.
-        parts.push(t('whyRethinkHasty', { time: duration(rethink.ms), usual: duration(median) }));
+        // Tra parentesi basta il numero: "9 secondi contro una media di 24". L'unita' si
+        // ripete solo se cambia (9 secondi contro una media di 2 minuti).
+        const sameUnit = Math.round(rethink.ms / 1000) < 60 && Math.round(median / 1000) < 60;
+        const usual = sameUnit ? String(Math.max(1, Math.round(median / 1000))) : duration(median);
+        before.push(t('whyRethinkHasty', { time: duration(rethink.ms), usual }));
+      }
+      // Il costo della nuova, contato come l'altro rispetto alla migliore. Zero non si
+      // scrive: una parentesi per dire "niente" e' rumore.
+      const after: string[] = [];
+      const replacement = losses.find((loss) => loss.ply === rethink.ply);
+      if (rethink.newSan && replacement && state.plies[rethink.ply]?.san === rethink.newSan) {
+        const drop = Math.round(replacement.drop);
+        if (drop >= 1) after.push(t('whyRethinkPoints', { drop }));
       }
       const item = document.createElement('li');
-      item.textContent = parts.join(' · ');
+      item.textContent = rethink.newSan
+        ? t('whyRethinkLine', {
+            move,
+            san: toFigurine(rethink.san),
+            before: note(before),
+            newSan: toFigurine(rethink.newSan),
+            after: note(after),
+          })
+        : t('whyRethinkLineOpen', { move, san: toFigurine(rethink.san), before: note(before) });
       list.append(item);
     }
     box.append(list);
