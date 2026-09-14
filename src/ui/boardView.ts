@@ -132,6 +132,43 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
     events: { move: (orig, dest) => onMove(orig, dest) },
   });
 
+  /*
+   * Una misura della scacchiera che non si fida dello zero.
+   *
+   * Chessground misura la scacchiera una volta e ricorda il risultato finche' non cambia
+   * dimensione. Se la misura capita mentre la pagina si sta ridisegnando, la scacchiera
+   * puo' risultare alta zero, e da li' ogni freccia esce schiacciata o con coordinate NaN,
+   * cioe' invisibile (trovato sulla fotografia del matto). I pezzi non ne soffrono perche'
+   * stanno in percentuale. Qui una misura nulla non si ricorda: si rimisura la volta dopo.
+   */
+  let keepBounds = (): void => {};
+  {
+    let cached: DOMRectReadOnly | undefined;
+    const bounds = (): DOMRectReadOnly => {
+      if (!cached || cached.width === 0 || cached.height === 0) {
+        cached = api.state.dom.elements.board.getBoundingClientRect();
+      }
+      return cached;
+    };
+    bounds.clear = (): void => {
+      cached = undefined;
+    };
+    // Rimessa dopo ogni `set`: girando la scacchiera chessground ricostruisce il suo stato
+    // e tornerebbe alla misura di serie.
+    keepBounds = () => {
+      if (api.state.dom.bounds !== bounds) api.state.dom.bounds = bounds;
+    };
+    keepBounds();
+    // Chessground al cambio di dimensione riposiziona i pezzi ma non le frecce: senza,
+    // ruotando il telefono restavano disegnate con la misura di prima.
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(() => {
+        bounds.clear();
+        api.state.dom.redraw();
+      }).observe(container);
+    }
+  }
+
   return {
     render(state, orientation, humanColor, resumable = false, mark, study = [], studyDests, ghosts = []) {
       const chess = positionAt(state);
@@ -161,6 +198,7 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
         lastMove: lastPly ? [lastPly.from as Key, lastPly.to as Key] : [],
         movable,
       });
+      keepBounds();
       programShapes = [
         ...study.map((arrow) => ({ orig: arrow.from, dest: arrow.to, brush: arrow.brush })),
         ...(mark ? [{ orig: mark.from, dest: mark.to, brush: mark.brush }] : []),
@@ -178,6 +216,7 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
         lastMove: lastMove ? [lastMove[0], lastMove[1]] : [],
         movable: { free: false, dests: new Map<Key, Key[]>(), showDests: false },
       });
+      keepBounds();
       api.setAutoShapes([]);
       // Una freccia che parte e arriva sulla stessa casa diventa un cerchio: e' il
       // modo con cui il tutor segnala "questo pezzo sparisce".

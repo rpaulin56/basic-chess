@@ -284,8 +284,6 @@ export const fr: Record<keyof typeof it, string> = {
     'Ce sont les coups les plus joués d’ici : plus la flèche est épaisse, plus il est joué. Touche une pièce pour en jouer un, ou reviens sur le coup de Mamie pour lui en faire essayer un autre.',
   studyOver: `Ici finit la théorie${NB}: je retourne te regarder jouer.`,
   mateExample: `Voici un exemple de la façon dont tu pourrais mater${NB}: les flèches violettes amènent les pièces là où elles materont.`,
-  mateOneLeft: `Il ne reste plus qu’un coup${NB}: trouve-le.`,
-  mateLost: 'D’ici, je ne vois plus le mat.',
   recapStudy: 'Dans cette partie, tu as étudié l’ouverture.',
   whyRethinkTitle: 'Là où tu as changé d’avis',
   whyRethinkLine: '{move} {san}{before}, remplacé par {newSan}{after}',

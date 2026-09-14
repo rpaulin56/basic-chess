@@ -721,9 +721,8 @@ export function mountApp(root: HTMLElement): void {
   /**
    * La fotografia del matto: acceso quando il consiglio trova un matto in due o piu'.
    *
-   * E' un interruttore come lo studio: resta acceso e si aggiorna a ogni tuo turno, e si
-   * spegne da solo quando il matto arriva, quando manca una mossa sola (li' la fotografia
-   * sarebbe la risposta) o quando il motore non lo vede piu'. Vedi `updateMate`.
+   * Vale per la posizione in cui l'hai chiesta e si spegne alla prima mossa: vedi
+   * `updateMate`. Ogni richiesta conta come un consiglio.
    */
   let mating = false;
   let mateArrows: readonly { from: Key; to: Key; brush: string }[] = [];
@@ -2726,41 +2725,16 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /**
-   * Tiene aggiornata la fotografia del matto a ogni tuo turno, e la spegne quando non
-   * ha piu' senso. Si analizza SOLO a interruttore acceso: nessun costo per chi non la usa.
+   * Spegne la fotografia del matto appena la posizione cambia.
+   *
+   * Non resta accesa: e' una risposta a "dove sto andando?", non una guida che ti porta
+   * per mano. Fatta la prima mossa, giusta o sbagliata rispetto al piano, si gioca senza
+   * frecce; se ci si perde di nuovo si ripreme il tasto (deciso provandola: tenerla
+   * accesa toglieva proprio lo sforzo di ricordare il piano).
    */
   async function updateMate(): Promise<void> {
-    if (!mating) return;
-    const fen = currentFen(state);
-    if (fen === mateFen) return;
-    mateFen = fen;
-    // Nel turno della Nonna i pezzi si sono appena mossi: le frecce di prima direbbero
-    // una cosa vecchia. Si tolgono e si ridisegnano quando tocca di nuovo a te.
-    mateArrows = [];
-    mateGhosts = [];
-    const over = gameOver(state);
-    if (over) {
-      clearMate();
-      renderControls();
-      renderBoard();
-      return;
-    }
-    if (positionAt(state).turn() !== humanColor) {
-      renderBoard();
-      return;
-    }
-    const top = await findMate(fen);
-    // Si guarda la posizione e non `generation`: un ridisegno qualunque cambia la
-    // generazione ma non la posizione, e buttare il risultato lascerebbe la scacchiera
-    // senza frecce fino alla mossa dopo.
-    if (!mating || currentFen(state) !== fen) return;
-    if (top && top.mateIn === 1) {
-      clearMate();
-      toast(t('mateOneLeft'));
-    } else if (!top || top.mateIn === null || top.mateIn < 2 || !applyMatePicture(fen, top.pv)) {
-      clearMate();
-      toast(t('mateLost'));
-    }
+    if (!mating || currentFen(state) === mateFen) return;
+    clearMate();
     renderControls();
     renderBoard();
   }

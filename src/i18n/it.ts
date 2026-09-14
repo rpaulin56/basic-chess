@@ -275,8 +275,6 @@ export const it = {
     'Sono le mosse che da qui si giocano di più: più la freccia è spessa, più è giocata. Tocca un pezzo per giocarne una, o torna sulla mossa della Nonna per farle provare un’altra risposta.',
   studyOver: 'Qui finisce la teoria: torno a guardarti giocare.',
   mateExample: 'Questo è un esempio di come potresti dare matto: le frecce viola portano i pezzi dove lo daranno.',
-  mateOneLeft: 'Ora manca una mossa sola: trovala tu.',
-  mateLost: 'Da qui il matto non lo vedo più.',
   recapStudy: 'In questa partita hai studiato l’apertura.',
   whyRethinkTitle: 'Dove hai cambiato idea',
   whyRethinkLine: '{move} {san}{before}, cambiata in {newSan}{after}',
