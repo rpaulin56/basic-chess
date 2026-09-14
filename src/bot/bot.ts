@@ -168,7 +168,7 @@ export const BOT_LEVELS: readonly BotLevel[] = [
   { id: 'l2', elo: { attento: [1220, 1310], distratto: [1110, 1210] }, depth: 3, multiPV: 6, temperature: 40, decidedPawns: 5, maxCost: 30 },
   { id: 'l3', elo: { attento: [1470, 1560], distratto: [1390, 1480] }, depth: 4, multiPV: 5, temperature: 36, maxCost: 24 },
   { id: 'l4', elo: { attento: [1800, 1890], distratto: [1610, 1710] }, depth: 5, multiPV: 5, temperature: 18, maxCost: 14 },
-  { id: 'l5', elo: { attento: [2290, 2380], distratto: [2080, 2170] }, depth: 6, multiPV: 4, temperature: 13, maxCost: 10 },
+  { id: 'l5', elo: { attento: [2110, 2200], distratto: [1930, 2020] }, depth: 6, multiPV: 4, temperature: 18, maxCost: 14 },
 ];
 
 /**
