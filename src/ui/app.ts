@@ -34,7 +34,7 @@ import {
 } from '../bot/bot.js';
 import { chooseBotMove } from '../bot/play.js';
 import { formatScore, winPercentOf } from '../engine/winProb.js';
-import type { Analysis, EngineLine } from '../engine/types.js';
+import type { AnalyseOptions, Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
 import { transportArrows, type Arrow, type Consequence, classifyAgainstBest } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
@@ -1912,7 +1912,7 @@ export function mountApp(root: HTMLElement): void {
     hint = { loading: true, book: [], leavingBook, hint: null, orientation: [], revealed: false };
     renderHint();
 
-    const analysis = await engine.analyse(fen, { depth: HINT_DEPTH, multiPV: HINT_MULTIPV });
+    const analysis = await analyseFully(fen, { depth: HINT_DEPTH, multiPV: HINT_MULTIPV });
     if (mine !== generation || !hint) return;
     // Un matto in due o piu': invece dell'elenco, la fotografia di dove si va a finire.
     const top = (await findMate(fen)) ?? analysis?.lines[0];
@@ -2696,6 +2696,27 @@ export function mountApp(root: HTMLElement): void {
     return true;
   }
 
+  /**
+   * Un'analisi arrivata fino in fondo, per le risposte che l'utente legge come verdetti.
+   *
+   * Il motore serve una richiesta alla volta e una nuova ferma quella in corso: se dopo la
+   * mossa della Nonna parte un'altra analisi, quella del consiglio torna troncata, con
+   * poche linee a profondita' diverse. Costruirci sopra il consiglio dava "c'e' una mossa
+   * sola che salva la posizione" in un finale di alfiere e cavallo dove andava bene quasi
+   * tutto (segnalato giocando). Si riprova finche' la posizione e' ancora quella.
+   */
+  async function analyseFully(fen: string, options: AnalyseOptions): Promise<Analysis | null> {
+    let analysis: Analysis | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      analysis = await engine.analyse(fen, options);
+      const complete = options.mate
+        ? (analysis?.lines.length ?? 0) > 0
+        : (analysis?.depth ?? 0) >= options.depth;
+      if (complete || currentFen(state) !== fen) return analysis;
+    }
+    return analysis;
+  }
+
   /** La linea migliore a profondita' da matto, o null se ci sono troppi pezzi. */
   async function findMate(fen: string): Promise<EngineLine | null> {
     const pieces = fen.split(' ')[0]!.replace(/[^a-zA-Z]/g, '').length;
@@ -2703,18 +2724,8 @@ export function mountApp(root: HTMLElement): void {
     // Il motore serve una richiesta alla volta e una nuova ferma quella in corso: se nel
     // frattempo e' partita un'altra analisi, la risposta torna vuota. Si riprova, finche'
     // la posizione e' ancora quella (misurato provandolo: capitava subito dopo un import).
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const analysis = await engine.analyse(fen, {
-        depth: 0,
-        multiPV: 1,
-        mate: MATE_MOVES,
-        movetimeMs: MATE_TIME_MS,
-      });
-      const line = analysis?.lines[0];
-      if (line) return line;
-      if (currentFen(state) !== fen) return null;
-    }
-    return null;
+    const analysis = await analyseFully(fen, { depth: 0, multiPV: 1, mate: MATE_MOVES, movetimeMs: MATE_TIME_MS });
+    return analysis?.lines[0] ?? null;
   }
 
   function clearMate(): void {
