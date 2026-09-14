@@ -308,3 +308,70 @@ export function reachableEndgames(fen: string): Endgame[] {
   }
   return [...found.values()];
 }
+
+/**
+ * I finali che si vincono SEMPRE, e dove va dato il matto.
+ *
+ * Il motore del browser non lo sa: in alfiere e cavallo contro re vede +1,8 e nessun
+ * matto, perche' il matto e' a trenta mosse (segnalato giocando: barra al 70% e un
+ * consiglio generico). Qui basta la firma di materiale, come per il nome del finale.
+ * Non tiene conto di un pezzo in presa o di uno stallo immediato: chi la usa deve
+ * controllare che il motore dia almeno un vantaggio chiaro.
+ */
+export interface TheoreticalWin {
+  readonly winner: 'w' | 'b';
+  /**
+   * Dove spingere il re che perde: 'edge' il bordo (donna, torre), 'corner' un angolo
+   * qualunque (due alfieri), 'light'/'dark' un angolo del colore dell'alfiere
+   * (alfiere e cavallo: il matto si da' solo li').
+   */
+  readonly target: 'edge' | 'corner' | 'light' | 'dark';
+}
+
+export function theoreticalWin(fen: string): TheoreticalWin | null {
+  const { white, black } = countMaterial(fen);
+  const sides: [TheoreticalWin['winner'], Count, Count][] = [
+    ['w', white, black],
+    ['b', black, white],
+  ];
+  for (const [winner, strong, weak] of sides) {
+    if (total(weak) !== 0 || strong.p !== 0) continue;
+    const sig = signature(strong, weak);
+    if (sig === 'KQvK' || sig === 'KRvK') return { winner, target: 'edge' };
+    // Due alfieri dello stesso colore non danno matto: servono uno chiaro e uno scuro.
+    if (sig === 'KBBvK' && strong.lightBishops === 1) return { winner, target: 'corner' };
+    if (sig === 'KBNvK') return { winner, target: strong.lightBishops === 1 ? 'light' : 'dark' };
+  }
+  return null;
+}
+
+/**
+ * La casa verso cui spingere il re che perde: la piu' vicina fra quelle ammesse.
+ * Per il bordo e' la proiezione sul lato piu' vicino; per gli angoli, l'angolo piu'
+ * vicino (del colore giusto, se conta).
+ */
+export function matingTarget(kingSquare: string, target: TheoreticalWin['target']): string {
+  const file = kingSquare.charCodeAt(0) - 97;
+  const rank = Number(kingSquare[1]) - 1;
+  const name = (f: number, r: number): string => `${String.fromCharCode(97 + f)}${r + 1}`;
+  if (target === 'edge') {
+    const options: [number, string][] = [
+      [file, name(0, rank)],
+      [7 - file, name(7, rank)],
+      [rank, name(file, 0)],
+      [7 - rank, name(file, 7)],
+    ];
+    return options.sort((a, b) => a[0] - b[0])[0]![1];
+  }
+  // a1 e h8 sono case scure, a8 e h1 chiare.
+  const all: [number, number][] = [
+    [0, 0],
+    [7, 7],
+    [0, 7],
+    [7, 0],
+  ];
+  const corners = target === 'dark' ? all.slice(0, 2) : target === 'light' ? all.slice(2) : all;
+  const distance = ([f, r]: [number, number]): number => Math.max(Math.abs(f - file), Math.abs(r - rank));
+  const best = [...corners].sort((a, b) => distance(a) - distance(b))[0]!;
+  return name(best[0], best[1]);
+}

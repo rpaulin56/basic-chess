@@ -61,7 +61,13 @@ import { renderHintPanel, type HintView } from './hintPanel.js';
 import { renderEndgamePanel, type EndgameView } from './endgamePanel.js';
 import { renderOfferPanel, type OfferView } from './offerPanel.js';
 import { acceptsDraw, judgeDraw, judgeResign } from '../tutor/adjudicate.js';
-import { classifyEndgame, type Endgame, reachableEndgames } from '../endgame/endgame.js';
+import {
+  classifyEndgame,
+  type Endgame,
+  matingTarget,
+  reachableEndgames,
+  theoreticalWin,
+} from '../endgame/endgame.js';
 import { LOCALES, LOCALE_NAMES, locale, setLocale, t } from '../i18n/index.js';
 
 type Promotion = 'q' | 'r' | 'b' | 'n';
@@ -1927,6 +1933,22 @@ export function mountApp(root: HTMLElement): void {
       toast(t('mateExample'));
       return;
     }
+    // Il matto non si vede, ma il finale si vince sempre: al posto del consiglio generico,
+    // il piano. Dove spingere il re che perde, con la stessa freccia viola della
+    // fotografia; quando il matto rientra nella ricerca, il tasto mostra quella.
+    const plan = planPicture(fen, top ?? null);
+    if (plan) {
+      hint = null;
+      mating = true;
+      mateFen = fen;
+      mateArrows = [plan.arrow];
+      mateGhosts = [];
+      renderHint();
+      renderControls();
+      renderBoard();
+      toast(plan.message);
+      return;
+    }
     const built = analysis ? buildHint(analysis) : null;
 
     /*
@@ -2728,6 +2750,28 @@ export function mountApp(root: HTMLElement): void {
     return analysis?.lines[0] ?? null;
   }
 
+  /** Il piano di un finale vinto in teoria, o null se non si applica. */
+  function planPicture(
+    fen: string,
+    line: EngineLine | null,
+  ): { arrow: { from: Key; to: Key; brush: string }; message: string } | null {
+    const win = theoreticalWin(fen);
+    const chess = new Chess(fen);
+    if (!win || win.winner !== humanColor || chess.turn() !== humanColor || !line) return null;
+    // Stessa prudenza della barra: con un pezzo in presa la teoria non vale.
+    if (winPercentOf(line) < 57) return null;
+    const loser = win.winner === 'w' ? 'b' : 'w';
+    const king = chess.findPiece({ type: 'k', color: loser })[0];
+    if (!king) return null;
+    const target = matingTarget(king, win.target);
+    if (target === king) return null;
+    const key = win.target === 'edge' ? 'planEdge' : win.target === 'corner' ? 'planCorner' : 'planBishopCorner';
+    return {
+      arrow: { from: king as Key, to: target as Key, brush: 'mate' },
+      message: t(key, { square: target }),
+    };
+  }
+
   function clearMate(): void {
     mating = false;
     mateArrows = [];
@@ -3521,6 +3565,9 @@ export function mountApp(root: HTMLElement): void {
     }
     if (showEval) {
       evalEl.append(text(formatScore(evaluation.line, evaluation.sideToMove), 'eval-score'));
+      // Il numero resta quello del motore: e' vero, solo che non basta. La scritta dice
+      // perche' la barra e' piena anche se il motore non vede il matto.
+      if (wonInTheory()) evalEl.append(text(t('evalTheoryWin'), 'eval-note'));
     }
     if (showDepth) evalEl.append(text(t('evalDepth', { depth: evaluation.depth }), 'eval-note'));
   }
@@ -3535,6 +3582,21 @@ export function mountApp(root: HTMLElement): void {
    * Il pieno cresce DAL BASSO, cioe' dalla parte in cui stai tu sulla scacchiera, e
    * gira con lei quando la si ribalta: chi gioca il Nero non deve tradurre niente.
    */
+  /**
+   * Il vincitore, se la posizione mostrata e' un finale che si vince sempre e il motore
+   * conferma almeno un vantaggio chiaro. La conferma serve a non dichiarare vinta una
+   * posizione in cui un pezzo e' in presa o c'e' uno stallo: li' il motore dice circa
+   * zero, e la teoria non si applica.
+   */
+  function wonInTheory(): 'w' | 'b' | null {
+    if (!evaluation) return null;
+    const win = theoreticalWin(currentFen(state));
+    if (!win) return null;
+    const forMover = winPercentOf(evaluation.line);
+    const forWinner = evaluation.sideToMove === win.winner ? forMover : 100 - forMover;
+    return forWinner >= 57 ? win.winner : null;
+  }
+
   function renderEvalBar(): void {
     barEl.hidden = !showBar;
     if (!showBar) return;
@@ -3545,6 +3607,8 @@ export function mountApp(root: HTMLElement): void {
     else if (evaluation) {
       const forMover = winPercentOf(evaluation.line);
       white = evaluation.sideToMove === 'w' ? forMover : 100 - forMover;
+      const won = wonInTheory();
+      if (won) white = won === 'w' ? 100 : 0;
     }
     // Mentre la Nonna pensa non si sa ancora niente della posizione nuova, e la
     // barra TIENE L'ULTIMO VALORE invece di tornare al centro.
