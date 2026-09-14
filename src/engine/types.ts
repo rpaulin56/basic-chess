@@ -37,6 +37,14 @@ export interface AnalyseOptions {
   readonly depth: number;
   /** Quante linee alternative chiedere. Il bot ne ha bisogno per scegliere. */
   readonly multiPV: number;
+  /**
+   * Cerca un matto entro queste mosse (`go mate`), invece di fermarsi alla profondita'.
+   * A profondita' fissa il motore puo' non vedere un matto lungo che con questa ricerca
+   * trova in meno di un secondo; va sempre accompagnato da `movetimeMs`, perche' senza
+   * matto la ricerca non finirebbe mai.
+   */
+  readonly mate?: number;
+  readonly movetimeMs?: number;
 }
 
 export interface Engine {

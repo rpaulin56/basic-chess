@@ -194,7 +194,11 @@ export async function createEngine(
     let bestMove: string | null = null;
     let depth = 0;
 
-    transport.send(`go depth ${request.depth}`);
+    transport.send(
+      request.mate
+        ? `go mate ${request.mate} movetime ${request.movetimeMs ?? 3000}`
+        : `go depth ${request.depth}`,
+    );
     await collectWhileAlive(
       (line) => line.startsWith('bestmove'),
       (line) => {

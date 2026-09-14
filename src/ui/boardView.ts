@@ -1,6 +1,7 @@
 import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
-import type { Key } from 'chessground/types';
+import type { DrawShape } from 'chessground/draw';
+import type { Key, Role } from 'chessground/types';
 import { positionAt, legalDests, type GameState } from '../core/game.js';
 import type { Arrow } from '../tutor/classify.js';
 
@@ -13,6 +14,12 @@ import type { Arrow } from '../tutor/classify.js';
  */
 
 export type MoveHandler = (from: Key, to: Key) => void;
+
+export interface Ghost {
+  readonly square: Key;
+  readonly role: Role;
+  readonly color: 'white' | 'black';
+}
 
 export interface BoardView {
   render(
@@ -56,6 +63,12 @@ export interface BoardView {
      * di muovere i suoi pezzi: fuori dalle frecce non si va.
      */
     studyDests?: Map<Key, Key[]>,
+    /**
+     * I pezzi FANTASMA della fotografia del matto: dove andranno i pezzi che lo danno.
+     * Un pezzo e non una freccia sola, perche' una freccia dritta si leggerebbe come
+     * "gioca questa mossa", e spesso quella mossa non esiste (un cavallo, un giro largo).
+     */
+    ghosts?: readonly Ghost[],
   ): void;
   /**
    * Disegna una posizione qualunque, in sola lettura, con eventuali frecce. La usa il
@@ -80,7 +93,7 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
    * rimettiamo quando lui le azzera — ma solo allora, cosi' chi disegna con il tasto
    * destro resta libero di farlo.
    */
-  let programShapes: { orig: Key; dest: Key; brush: string }[] = [];
+  let programShapes: DrawShape[] = [];
 
   const api: Api = Chessground(container, {
     coordinates: true,
@@ -111,13 +124,16 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
         book2: { key: 'bk2', color: '#3692e7', opacity: 0.55, lineWidth: 7 },
         book3: { key: 'bk3', color: '#3692e7', opacity: 0.65, lineWidth: 11 },
         book4: { key: 'bk4', color: '#3692e7', opacity: 0.75, lineWidth: 15 },
+        // La fotografia del matto: un colore che non si confonde con le mosse (verdi) ne'
+        // con la teoria (azzurre). Una freccia sola per tutti, re nemico compreso.
+        mate: { key: 'mt', color: '#7b3fb5', opacity: 0.8, lineWidth: 10 },
       },
     },
     events: { move: (orig, dest) => onMove(orig, dest) },
   });
 
   return {
-    render(state, orientation, humanColor, resumable = false, mark, study = [], studyDests) {
+    render(state, orientation, humanColor, resumable = false, mark, study = [], studyDests, ghosts = []) {
       const chess = positionAt(state);
       const turn: 'white' | 'black' = chess.turn() === 'w' ? 'white' : 'black';
       const lastPly = state.cursor > 0 ? state.plies[state.cursor - 1] : undefined;
@@ -150,6 +166,9 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
         ...(mark ? [{ orig: mark.from, dest: mark.to, brush: mark.brush }] : []),
       ];
       api.setShapes([...programShapes]);
+      // I fantasmi passano dalle forme AUTOMATICHE: chessground disegna i pezzi solo li'
+      // (le altre forme ignorano `piece`), e un clic sulla scacchiera non le cancella.
+      api.setAutoShapes(ghosts.map((ghost) => ({ orig: ghost.square, piece: { role: ghost.role, color: ghost.color } })));
     },
 
     renderPosition(fen, orientation, arrows, lastMove) {
@@ -159,6 +178,7 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
         lastMove: lastMove ? [lastMove[0], lastMove[1]] : [],
         movable: { free: false, dests: new Map<Key, Key[]>(), showDests: false },
       });
+      api.setAutoShapes([]);
       // Una freccia che parte e arriva sulla stessa casa diventa un cerchio: e' il
       // modo con cui il tutor segnala "questo pezzo sparisce".
       api.setShapes(

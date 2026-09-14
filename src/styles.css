@@ -859,3 +859,9 @@ select {
      nero con lo sfondo chiaro sembra ritagliata male. */
   border: 1px solid var(--line);
 }
+
+/* I fantasmi della fotografia del matto: leggeri, perche' a 0.5 si confondevano con i
+   pezzi veri (segnalato provandolo). */
+.cg-wrap cg-auto-pieces piece {
+  opacity: 0.25;
+}

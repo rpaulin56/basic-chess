@@ -49,7 +49,8 @@ import { buildHint } from '../tutor/hint.js';
 import { orientPosition } from '../tutor/orientation.js';
 import { moveNumberOf } from '../core/game.js';
 import type { Key } from 'chessground/types';
-import { createBoardView, type BoardView } from './boardView.js';
+import { createBoardView, type BoardView, type Ghost } from './boardView.js';
+import { matePicture } from '../tutor/matePicture.js';
 import { createIcon, type IconName, createStrengthIcon } from './icons.js';
 import { createCredits } from './credits.js';
 import { createEngineSession } from './engineSession.js';
@@ -198,6 +199,19 @@ function preferredTakebackLimit(): number | null {
  * altro motivo per farla solo su richiesta esplicita e mai in continuazione.
  */
 const HINT_DEPTH = 12;
+
+/**
+ * La ricerca del matto per la fotografia, e fin dove la si tenta.
+ *
+ * Non a profondita' fissa: a HINT_DEPTH il motore non vede il matto di donna da dieci
+ * mosse, e a 18 lo vede solo a volte, secondo cosa ha in memoria (misurato nel browser).
+ * `go mate` invece lo cerca apposta: donna contro re in 0,4 secondi, torre contro re
+ * (matto in 18) in 0,7. Senza matto la ricerca dura tutto MATE_TIME_MS, ed e' per questo
+ * che la si tenta solo con pochi pezzi: i finali, dove la fotografia serve.
+ */
+const MATE_MOVES = 20;
+const MATE_TIME_MS = 3000;
+const MATE_MAX_PIECES = 7;
 const HINT_MULTIPV = 20;
 
 /**
@@ -704,6 +718,18 @@ export function mountApp(root: HTMLElement): void {
    */
   let studied = false;
   let studyArrows: readonly { from: Key; to: Key; brush: string }[] = [];
+  /**
+   * La fotografia del matto: acceso quando il consiglio trova un matto in due o piu'.
+   *
+   * E' un interruttore come lo studio: resta acceso e si aggiorna a ogni tuo turno, e si
+   * spegne da solo quando il matto arriva, quando manca una mossa sola (li' la fotografia
+   * sarebbe la risposta) o quando il motore non lo vede piu'. Vedi `updateMate`.
+   */
+  let mating = false;
+  let mateArrows: readonly { from: Key; to: Key; brush: string }[] = [];
+  let mateGhosts: readonly Ghost[] = [];
+  /** La posizione per cui la fotografia e' gia' calcolata: un ridisegno non la rifa'. */
+  let mateFen = '';
   /** Le frecce delle mosse buone, quando le chiedi: spariscono appena muovi. */
   let hintArrows: readonly { from: Key; to: Key; brush: string }[] = [];
   /** Le mosse di teoria nella posizione mostrata, in UCI. Vuoto = qui il libro tace. */
@@ -811,6 +837,7 @@ export function mountApp(root: HTMLElement): void {
     renderRecap();
     void updateOpening();
     void updateStudy();
+    void updateMate();
     renderPreviewControls();
     renderTutorPanel(
       tutorEl,
@@ -1888,6 +1915,19 @@ export function mountApp(root: HTMLElement): void {
 
     const analysis = await engine.analyse(fen, { depth: HINT_DEPTH, multiPV: HINT_MULTIPV });
     if (mine !== generation || !hint) return;
+    // Un matto in due o piu': invece dell'elenco, la fotografia di dove si va a finire.
+    const top = (await findMate(fen)) ?? analysis?.lines[0];
+    if (mine !== generation || !hint) return;
+    if (top && top.mateIn !== null && top.mateIn >= 2 && applyMatePicture(fen, top.pv)) {
+      hint = null;
+      mating = true;
+      mateFen = fen;
+      renderHint();
+      renderControls();
+      renderBoard();
+      toast(t('mateExample'));
+      return;
+    }
     const built = analysis ? buildHint(analysis) : null;
 
     /*
@@ -2625,10 +2665,104 @@ export function mountApp(root: HTMLElement): void {
         humanColor,
         true,
         tutorMark(),
-        [...studyArrows, ...hintArrows],
+        [...studyArrows, ...hintArrows, ...mateArrows],
         studyDests,
+        mateGhosts,
       );
     }
+  }
+
+  /** Disegna la fotografia del matto; falso se la linea non arriva al matto. */
+  function applyMatePicture(fen: string, pv: readonly string[]): boolean {
+    const picture = matePicture(fen, pv);
+    if (!picture || picture.pieces.length === 0) return false;
+    const roles = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' } as const;
+    mateArrows = picture.pieces
+      .filter((piece) => piece.from !== piece.to && piece.color !== picture.mated)
+      .map((piece) => ({ from: piece.from as Key, to: piece.to as Key, brush: 'mate' }));
+    // Del lato che subisce, la freccia la ha solo il re: e' lui che va spinto la'. Gli
+    // altri suoi pezzi compaiono solo come fantasmi, dove lo chiuderanno. La freccia e'
+    // uguale alle altre: che sia "dove spingerlo" lo dice gia' la casa da cui parte.
+    const king = picture.pieces.find((piece) => piece.color === picture.mated && piece.type === 'k');
+    if (king && king.from !== king.to) {
+      mateArrows = [...mateArrows, { from: king.from as Key, to: king.to as Key, brush: 'mate' }];
+    }
+    mateGhosts = picture.pieces
+      .filter((piece) => piece.from !== piece.to)
+      .map((piece) => ({
+        square: piece.to as Key,
+        role: roles[piece.type],
+        color: piece.color === 'w' ? 'white' : 'black',
+      }));
+    return true;
+  }
+
+  /** La linea migliore a profondita' da matto, o null se ci sono troppi pezzi. */
+  async function findMate(fen: string): Promise<EngineLine | null> {
+    const pieces = fen.split(' ')[0]!.replace(/[^a-zA-Z]/g, '').length;
+    if (pieces > MATE_MAX_PIECES) return null;
+    // Il motore serve una richiesta alla volta e una nuova ferma quella in corso: se nel
+    // frattempo e' partita un'altra analisi, la risposta torna vuota. Si riprova, finche'
+    // la posizione e' ancora quella (misurato provandolo: capitava subito dopo un import).
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const analysis = await engine.analyse(fen, {
+        depth: 0,
+        multiPV: 1,
+        mate: MATE_MOVES,
+        movetimeMs: MATE_TIME_MS,
+      });
+      const line = analysis?.lines[0];
+      if (line) return line;
+      if (currentFen(state) !== fen) return null;
+    }
+    return null;
+  }
+
+  function clearMate(): void {
+    mating = false;
+    mateArrows = [];
+    mateGhosts = [];
+    mateFen = '';
+  }
+
+  /**
+   * Tiene aggiornata la fotografia del matto a ogni tuo turno, e la spegne quando non
+   * ha piu' senso. Si analizza SOLO a interruttore acceso: nessun costo per chi non la usa.
+   */
+  async function updateMate(): Promise<void> {
+    if (!mating) return;
+    const fen = currentFen(state);
+    if (fen === mateFen) return;
+    mateFen = fen;
+    // Nel turno della Nonna i pezzi si sono appena mossi: le frecce di prima direbbero
+    // una cosa vecchia. Si tolgono e si ridisegnano quando tocca di nuovo a te.
+    mateArrows = [];
+    mateGhosts = [];
+    const over = gameOver(state);
+    if (over) {
+      clearMate();
+      renderControls();
+      renderBoard();
+      return;
+    }
+    if (positionAt(state).turn() !== humanColor) {
+      renderBoard();
+      return;
+    }
+    const top = await findMate(fen);
+    // Si guarda la posizione e non `generation`: un ridisegno qualunque cambia la
+    // generazione ma non la posizione, e buttare il risultato lascerebbe la scacchiera
+    // senza frecce fino alla mossa dopo.
+    if (!mating || currentFen(state) !== fen) return;
+    if (top && top.mateIn === 1) {
+      clearMate();
+      toast(t('mateOneLeft'));
+    } else if (!top || top.mateIn === null || top.mateIn < 2 || !applyMatePicture(fen, top.pv)) {
+      clearMate();
+      toast(t('mateLost'));
+    }
+    renderControls();
+    renderBoard();
   }
 
   /**
@@ -3564,8 +3698,15 @@ export function mountApp(root: HTMLElement): void {
           // proprio tornando indietro ("qui cosa avrei potuto giocare?"), e il consiglio e'
           // cio' che aiuta a decidere se rigiocare da li'. Spento dove tocca alla Nonna,
           // a partita finita e mentre c'e' un verdetto. Segnalato giocando.
-          hint !== null || review !== null || positionAt(state).turn() !== humanColor || gameOver(state) !== null,
+          !mating &&
+            (hint !== null || review !== null || positionAt(state).turn() !== humanColor || gameOver(state) !== null),
           () => {
+            if (mating) {
+              clearMate();
+              renderControls();
+              renderBoard();
+              return;
+            }
             if (theoryMoves.size > 0) {
               studying = !studying;
               if (studying) studied = true;
@@ -3576,7 +3717,7 @@ export function mountApp(root: HTMLElement): void {
           },
           // Acceso finche' le frecce ci sono: e' un interruttore, non un comando che
           // parte e finisce, e chi guarda la barra deve poterlo vedere.
-          studying,
+          studying || mating,
         ),
       ),
       lineBreak(),
@@ -4576,6 +4717,9 @@ export function mountApp(root: HTMLElement): void {
     studyArrows = [];
     studyDests = undefined;
     studied = false;
+    mating = false;
+    mateArrows = [];
+    mateGhosts = [];
     // Una partita nuova prende il limite scelto adesso: e' l'unico momento in cui cambia.
     takebackLimit = preferredTakebackLimit();
     gifts.length = 0;

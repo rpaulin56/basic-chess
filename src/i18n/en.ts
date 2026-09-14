@@ -275,6 +275,9 @@ export const en: Record<keyof typeof it, string> = {
   theoryNote:
     'These are the moves played most often from here: the thicker the arrow, the more it is played. Touch a piece to play one, or step back onto Grandma’s move to have her try a different reply.',
   studyOver: 'Theory ends here: back to watching you play.',
+  mateExample: 'This is an example of how you could give mate: the purple arrows take the pieces to where they will deliver it.',
+  mateOneLeft: 'Just one move left now: find it yourself.',
+  mateLost: 'I can no longer see a mate from here.',
   recapStudy: 'In this game you studied the opening.',
   whyRethinkTitle: 'Where you changed your mind',
   whyRethinkLine: '{move} {san}{before}, changed to {newSan}{after}',
