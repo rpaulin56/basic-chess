@@ -25,6 +25,12 @@ export interface HintView {
   readonly hint: Hint | null;
   readonly orientation: readonly Explanation[];
   readonly revealed: boolean;
+  /**
+   * Una frase della Nonna che sostituisce tutto il resto: la fotografia del matto o il
+   * piano di un finale vinto. Resta nel riquadro finche' non muovi, accanto alle frecce
+   * che spiega (un avviso spariva prima di averlo letto: segnalato giocando).
+   */
+  readonly message?: string;
 }
 
 export interface HintHandlers {
@@ -50,7 +56,9 @@ export function renderHintPanel(
     return;
   }
 
-  if (view.book.length > 0) {
+  if (view.message) {
+    container.append(paragraph(view.message));
+  } else if (view.book.length > 0) {
     container.append(
       paragraph(
         view.book.length === 1

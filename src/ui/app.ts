@@ -1881,6 +1881,8 @@ export function mountApp(root: HTMLElement): void {
       onClose: () => {
         hint = null;
         hintArrows = [];
+        clearMate();
+        renderControls();
         renderHint();
         renderBoard();
       },
@@ -1924,13 +1926,7 @@ export function mountApp(root: HTMLElement): void {
     const top = (await findMate(fen)) ?? analysis?.lines[0];
     if (mine !== generation || !hint) return;
     if (top && top.mateIn !== null && top.mateIn >= 2 && applyMatePicture(fen, top.pv)) {
-      hint = null;
-      mating = true;
-      mateFen = fen;
-      renderHint();
-      renderControls();
-      renderBoard();
-      toast(t('mateExample'));
+      showMateMessage(fen, t('mateExample'));
       return;
     }
     // Il matto non si vede, ma il finale si vince sempre: al posto del consiglio generico,
@@ -1938,15 +1934,9 @@ export function mountApp(root: HTMLElement): void {
     // fotografia; quando il matto rientra nella ricerca, il tasto mostra quella.
     const plan = planPicture(fen, top ?? null);
     if (plan) {
-      hint = null;
-      mating = true;
-      mateFen = fen;
       mateArrows = [plan.arrow];
       mateGhosts = [];
-      renderHint();
-      renderControls();
-      renderBoard();
-      toast(plan.message);
+      showMateMessage(fen, plan.message);
       return;
     }
     const built = analysis ? buildHint(analysis) : null;
@@ -2750,6 +2740,16 @@ export function mountApp(root: HTMLElement): void {
     return analysis?.lines[0] ?? null;
   }
 
+  /** Accende la fotografia gia' calcolata, con la sua frase nel riquadro della Nonna. */
+  function showMateMessage(fen: string, message: string): void {
+    hint = { loading: false, book: [], leavingBook: false, hint: null, orientation: [], revealed: true, message };
+    mating = true;
+    mateFen = fen;
+    renderHint();
+    renderControls();
+    renderBoard();
+  }
+
   /** Il piano di un finale vinto in teoria, o null se non si applica. */
   function planPicture(
     fen: string,
@@ -2790,6 +2790,10 @@ export function mountApp(root: HTMLElement): void {
   async function updateMate(): Promise<void> {
     if (!mating || currentFen(state) === mateFen) return;
     clearMate();
+    if (hint?.message) {
+      hint = null;
+      renderHint();
+    }
     renderControls();
     renderBoard();
   }
@@ -3752,6 +3756,8 @@ export function mountApp(root: HTMLElement): void {
           () => {
             if (mating) {
               clearMate();
+              hint = null;
+              renderHint();
               renderControls();
               renderBoard();
               return;
