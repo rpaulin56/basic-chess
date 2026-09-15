@@ -207,6 +207,11 @@ function manifestIndex(
   transient: readonly boolean[],
 ): number {
   for (let i = 1; i <= settled; i++) {
+    // Una cattura ripresa subito non e' il momento in cui si vede il danno: e' uno
+    // scambio in corso. Dopo 41...h6? la linea era gxh6 Kxh6 e poi Kxc5: il saldo di
+    // gxh6 coincideva per caso con quello finale, e la Nonna diceva "perdi il pedone in
+    // h6" per un pedone ripreso subito, invece di quello in c5 (segnalato giocando).
+    if (transient[i] === true) continue;
     // Il danno qui deve essere gia' quello finale, o quasi: puo' mancare ancora qualcosa
     // che valga MENO di un pezzo leggero e meno di quanto si e' gia' perso. Una Donna
     // mandata a prendere un pedone e presa subito si vede subito, anche se la variante

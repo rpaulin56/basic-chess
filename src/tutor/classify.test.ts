@@ -302,3 +302,14 @@ describe('un recupero piccolo dopo una perdita grossa non sposta il momento', ()
     expect(result!.lost.map((piece) => `${piece.type}${piece.square}`)).toEqual(['qd5']);
   });
 });
+
+describe('scambio in corso prima della perdita', () => {
+  it('41...h6? gxh6 Kxh6 Kc4 ... Kxc5: il pedone perso e\' quello in c5', () => {
+    const result = classifyConsequence(
+      '8/8/3rp1kp/p1p1R1P1/P7/1PK5/8/8 w - - 0 42',
+      'g5h6 g6h6 c3c4 h6g7 c4c5 d6d3 c5c4 g7f6 e5a5 d3d8'.split(' '),
+    );
+    expect(result!.manifestAt).toBe(5);
+    expect(result!.lost.map((piece) => `${piece.type}${piece.square}`)).toEqual(['pc5']);
+  });
+});
