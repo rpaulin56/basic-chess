@@ -12,6 +12,9 @@ set -e
 HOST=root@2.28.7.113
 TARGET=/srv/basic-chess/dist
 
+# Ogni pubblicazione incrementa la versione (0.1.1, 0.1.2...): e' il numero mostrato
+# in Informazioni. package.json va poi committato insieme al resto.
+npm version patch --no-git-tag-version >/dev/null
 npm run build
 tar -czf - -C dist . | ssh "$HOST" "rm -rf $TARGET && mkdir -p $TARGET && tar -xzf - -C $TARGET && chmod -R a+rX $TARGET"
-echo "Pubblicato su https://grandmachess.com"
+echo "Pubblicato su https://grandmachess.com (versione $(node -p "require('./package.json').version"))"

@@ -172,6 +172,12 @@ export function createCredits(): HTMLElement {
     section('aboutNotTitle', ['aboutNotTime', 'aboutNotElse']),
     section('aboutPrivacyTitle', ['aboutPrivacy']),
   );
+  // Il numero di versione, per sapere quale si ha davanti quando qualcosa non va: lo
+  // incrementa deploy/publish.sh a ogni pubblicazione.
+  const version = document.createElement('p');
+  version.className = 'about-more';
+  version.textContent = t('aboutVersion', { version: __APP_VERSION__ });
+  about.append(version);
   details.append(about);
 
   const authors = document.createElement('dl');

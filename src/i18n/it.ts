@@ -18,13 +18,13 @@ export const it = {
   aboutMore:
     'E molto altro: rimandi allo studio dei finali, la barra della valutazione, l’esportazione della partita, l’analisi di una partita che porti da fuori incollando il PGN…',
   aboutNotTitle: 'Che cosa non è',
-  aboutPrivacyTitle: 'Niente rete, niente account',
+  aboutVersion: 'Versione {version}',
+  aboutPrivacyTitle: 'Niente account, niente dati',
   aboutNotTime:
     'NON HA L’OROLOGIO, per scelta. Qui puoi pensare quanto vuoi, e questo cambia tutto: l’Elo di un giocatore misura la sua forza a tempi confrontabili, quindi il livello che batti qui non è il livello che batteresti in torneo. Pensare in fretta è un’abilità a sé, e non è la Nonna che te la insegna.',
   aboutNotElse:
     'Non ti fa giocare contro altre persone, non ti dà un tuo punteggio, non ti allena la tattica con migliaia di esercizi e non ti costruisce un repertorio di aperture. Per diventare un giocatore vero ti serviranno un orologio, avversari in carne e ossa e un circolo: GrandmaChess è il posto dove capire con calma i tuoi errori, non dove perfezionarti per diventare Maestro.',
-  aboutPrivacy:
-    'Una volta aperto il sito non ha bisogno di rete, non chiede un account e non manda niente a nessuno: il motore scacchistico gira dentro il tuo browser e la partita resta lì.',
+  aboutPrivacy: 'Non chiede un account e non raccoglie nessun dato: il motore scacchistico gira dentro il tuo browser, le partite restano sul tuo dispositivo e, una volta caricata la pagina, non viene mandato niente a nessuno.',
   creditsAuthorLabel: 'Concept e progetto software',
   creditsAuthorName: 'Riccardo Paulin',
   creditsCodeLabel: 'Scrittura del codice',
@@ -143,7 +143,6 @@ export const it = {
   playAs: 'Giochi con',
   engineLoading: 'Carico il motore scacchistico…',
   engineFailed: 'Motore scacchistico non disponibile: {error}',
-  engineDiagnostics: 'Copia la diagnostica del motore',
   thinking: 'Sto pensando…',
   thinkingSuspicious: "Hai fatto un errore o c’è sotto qualcosa? Vediamo…",
   evalDepth: 'profondità {depth}',

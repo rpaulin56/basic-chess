@@ -20,13 +20,13 @@ export const en: Record<keyof typeof it, string> = {
   aboutMore:
     'And much more: pointers for studying the endgames, the evaluation bar, exporting the game, analysing a game you bring from elsewhere by pasting its PGN…',
   aboutNotTitle: 'What it is not',
-  aboutPrivacyTitle: 'No network, no account',
+  aboutVersion: 'Version {version}',
+  aboutPrivacyTitle: 'No account, no data',
   aboutNotTime:
     'IT HAS NO CLOCK, by choice. Here you can think as long as you like, and that changes everything: a player’s Elo measures strength at comparable thinking times, so the level you beat here is not the level you would beat over the board. Thinking fast is a skill of its own, and Grandma is not the one who will teach it.',
   aboutNotElse:
     'It does not pair you with other people, it does not give you a rating of your own, it does not drill tactics with thousands of puzzles and it does not build you an opening repertoire. To become a real player you will need a clock, opponents made of flesh, and a club: GrandmaChess is where you understand your mistakes calmly, not where you train to become a master.',
-  aboutPrivacy:
-    'Once the site is open it needs no network, asks for no account and sends nothing anywhere: the chess engine runs inside your browser and the game stays there.',
+  aboutPrivacy: 'It asks for no account and collects no data: the chess engine runs inside your browser, your games stay on your device, and once the page has loaded nothing is sent to anyone.',
   creditsAuthorLabel: 'Concept and software design',
   creditsAuthorName: 'Riccardo Paulin',
   creditsCodeLabel: 'Code written by',
@@ -144,7 +144,6 @@ export const en: Record<keyof typeof it, string> = {
   playAs: 'You play',
   engineLoading: 'Loading the chess engine…',
   engineFailed: 'Chess engine unavailable: {error}',
-  engineDiagnostics: 'Copy engine diagnostics',
   thinking: 'I am thinking…',
   thinkingSuspicious: 'Was that a mistake, or is there something behind it? Let me see…',
   evalDepth: 'depth {depth}',

@@ -55,7 +55,6 @@ import { matePicture } from '../tutor/matePicture.js';
 import { createIcon, type IconName, createStrengthIcon } from './icons.js';
 import { createCredits } from './credits.js';
 import { createEngineSession } from './engineSession.js';
-import { engineReport } from '../engine/diagnostics.js';
 import { renderMoveList } from './moveList.js';
 import { renderTutorPanel } from './tutorPanel.js';
 import { renderHintPanel, type HintView } from './hintPanel.js';
@@ -4767,14 +4766,6 @@ export function mountApp(root: HTMLElement): void {
       localStorage.setItem('basic-chess:depth', on ? 'on' : 'off');
     });
 
-    // La diagnostica del motore: gli ultimi eventi (caricamento, ricerche, guasti) da
-    // copiare e mandare quando qualcosa si blocca su un dispositivo che non abbiamo.
-    const diagnostics = document.createElement('button');
-    diagnostics.type = 'button';
-    diagnostics.className = 'settings-diagnostics';
-    diagnostics.textContent = t('engineDiagnostics');
-    diagnostics.addEventListener('click', () => void copy(engineReport()));
-
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'settings-close';
@@ -4787,7 +4778,6 @@ export function mountApp(root: HTMLElement): void {
       barRow,
       evalRow,
       depthRow,
-      diagnostics,
       close,
     );
     // Il cambio di lingua deve ridisegnare tutto, e finche' la finestra e' aperta
