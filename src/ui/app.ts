@@ -15,6 +15,7 @@ import { parseGameInput } from '../core/import.js';
 import { toFigurine } from '../core/notation.js';
 import {
   ANNOTATION_TAG,
+  LOSS_TAG,
   RETHINK_TAG,
   SEVERITY_SUFFIX,
   formatEmt,
@@ -4132,6 +4133,14 @@ export function mountApp(root: HTMLElement): void {
       put(entry.ply, formatEmt(entry.ms));
     }
 
+    // Il costo di ogni mossa giudicata (vedi LOSS_TAG). Solo quelle ancora nella partita:
+    // il costo di una mossa ritirata e' gia' in `%bc` o `%bcr`.
+    const tenth = (value: number): number => Math.round(value * 10) / 10;
+    for (const loss of losses) {
+      if (state.plies[loss.ply]?.san !== loss.san) continue;
+      put(loss.ply, `[${LOSS_TAG} ${tenth(loss.drop)},${tenth(loss.before)},${tenth(loss.gap)},${loss.best}]`);
+    }
+
     for (const entry of mistakeLog) {
       // Nel marcatore va SOLO cio' che non si puo' ricavare da altro. La gravita' non
       // c'e' perche' e' due volte ridondante: la dice il suffisso sulla mossa, ed e'
@@ -4188,6 +4197,39 @@ export function mountApp(root: HTMLElement): void {
     return state.plies[entry.ply]?.san !== entry.san;
   }
 
+  /**
+   * Da un PGN scritto da noi riprende con chi e con quali regole si stava giocando.
+   *
+   * Senza, una partita esportata dal telefono e continuata sul computer proseguiva con le
+   * impostazioni del computer: la Nonna passava dal livello 5 attenta al 4 distratta a
+   * meta' partita, e il limite di perdono da 5 a 3, gia' esaurito dai ripensamenti fatti
+   * (segnalato giocando). Livello e attenzione restano anche per le partite dopo, come
+   * quando li si sceglie a mano; il limite vale per questa partita, come sempre.
+   */
+  function restoreFromTags(tags: Readonly<Record<string, string>>): void {
+    if (tags['Event'] !== 'GrandmaChess') return;
+    const you = tags['White'] === 'You' ? 'w' : tags['Black'] === 'You' ? 'b' : null;
+    if (you) humanColor = you;
+    const grandma = (you === 'w' ? tags['Black'] : tags['White']) ?? '';
+    const found = grandma.match(/Grandma level (\d+) \((focused|distracted)\)/);
+    const chosen = found ? BOT_LEVELS[Number(found[1]) - 1] : undefined;
+    if (found && chosen) {
+      level = chosen;
+      distraction = distractionById(found[2] === 'focused' ? 'attento' : 'distratto');
+      localStorage.setItem('basic-chess:level', level.id);
+      localStorage.setItem('basic-chess:distraction', distraction.id);
+    }
+    // "3/5": tre ripensamenti con limite cinque. Un numero solo: senza limite. Nessun tag:
+    // il limite di serie (il tag si omette proprio in quel caso, vedi pgnTags).
+    const takebacks = tags['Takebacks'];
+    if (takebacks === undefined) takebackLimit = DEFAULT_TAKEBACK_LIMIT;
+    else {
+      const [, limit] = takebacks.split('/');
+      takebackLimit = limit === undefined ? null : Number(limit);
+    }
+    updateStrengthButton();
+  }
+
   /** Rilegge le nostre annotazioni da un PGN importato, per ricostruire il riepilogo. */
   function readAnnotations(comments: ReadonlyMap<number, string>): void {
     mistakeLog.length = 0;
@@ -4197,6 +4239,20 @@ export function mountApp(root: HTMLElement): void {
     thinkTimes.length = 0;
     thinkClock.reset();
     for (const [ply, comment] of [...comments].sort((a, b) => a[0] - b[0])) {
+      const loss = comment.match(new RegExp(`\\[${LOSS_TAG}\\s+([^\\]]+)\\]`));
+      const played = state.plies[ply];
+      if (loss && played) {
+        const [drop, before, gap, best] = loss[1]!.split(',').map((field) => field.trim());
+        losses.push({
+          ply,
+          number: moveNumberOf(state, ply),
+          san: played.san,
+          drop: Number(drop) || 0,
+          before: Number(before) || 0,
+          gap: Number(gap) || 0,
+          best: best ?? '',
+        });
+      }
       // Prima del marcatore del tutor, che se manca fa saltare il resto del giro. Senza
       // filtro sul colore: qui `humanColor` non e' ancora quello della partita importata,
       // e nei nostri PGN `%emt` sta comunque solo sulle mosse di chi gioca.
@@ -4731,6 +4787,7 @@ export function mountApp(root: HTMLElement): void {
       // FEN coincidono, ma in un PGN la posizione di partenza e' quasi sempre quella
       // iniziale, e il giocatore vuole proseguire la partita dal punto in cui e'.
       humanColor = positionAt(state).turn();
+      restoreFromTags(imported.tags);
       orientation = humanColor === 'b' ? 'black' : 'white';
       refresh();
       toast(

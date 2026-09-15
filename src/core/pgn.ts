@@ -63,6 +63,16 @@ export const ANNOTATION_TAG = '%bc';
 export const RETHINK_TAG = '%bcr';
 
 /**
+ * Il costo di ogni mossa giudicata: `[%bcl scarto,prima,strettezza,migliore]`.
+ *
+ * E' il materiale della post-analisi, e prima non viaggiava col PGN: una partita
+ * esportata dal telefono e reimportata sul computer risultava "non giocata con noi",
+ * perche' le sue mosse non avevano piu' un costo (segnalato giocando). Anche questo non
+ * e' un prefisso che confonda: `[%bc ` vuole uno spazio, qui dopo c'e' una `l`.
+ */
+export const LOSS_TAG = '%bcl';
+
+/**
  * Il suffisso da appendere alla mossa, per gravita'.
  *
  * Lo standard PGN li prevede (`!` `?` `!!` `??` `!?` `?!`) come equivalenti dei NAG
