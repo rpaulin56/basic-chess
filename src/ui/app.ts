@@ -1904,8 +1904,10 @@ export function mountApp(root: HTMLElement): void {
         hint = { ...hint, revealed: true };
         // Anche sulla scacchiera: l'elenco dice QUALI sono, le frecce dicono DOVE vanno,
         // ed e' la differenza fra leggere una risposta e vederla.
-        const sans = hint.book.length > 0 ? hint.book.map((entry) => entry.san) : (hint.hint?.moves ?? []);
-        hintArrows = arrowsFor(sans, 'green');
+        const sans = hint.book.length > 0 ? hint.book.map((entry) => entry.san) : (hint.hint?.ranked ?? []);
+        // Al massimo cinque, come dopo un errore: in una posizione aperta erano diciannove
+        // frecce una sull'altra, e la scacchiera non diceva piu' niente (segnalato giocando).
+        hintArrows = arrowsFor(sans.slice(0, MAX_GOOD_ARROWS), 'green');
         renderHint();
         renderBoard();
       },

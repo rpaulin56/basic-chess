@@ -44,6 +44,11 @@ export interface Hint {
   readonly atLeast: boolean;
   /** Le mosse, in SAN, in ordine alfabetico. */
   readonly moves: readonly string[];
+  /**
+   * Le stesse, dalla migliore in giu'. Servono alle frecce, che sono al massimo cinque:
+   * scegliere le cinque in ordine alfabetico vorrebbe dire sceglierle a caso.
+   */
+  readonly ranked: readonly string[];
 }
 
 /**
@@ -68,6 +73,7 @@ export function buildHint(analysis: Analysis): Hint | null {
   }
   if (moves.length === 0) return null;
 
+  const ranked = [...moves];
   moves.sort((a, b) => a.localeCompare(b));
   const count = moves.length;
   return {
@@ -78,6 +84,7 @@ export function buildHint(analysis: Analysis): Hint | null {
     // minimo e va detto, altrimenti si dichiara una precisione che non si ha.
     atLeast: count === analysis.lines.length && analysis.lines.length < legalCount,
     moves,
+    ranked,
   };
 }
 

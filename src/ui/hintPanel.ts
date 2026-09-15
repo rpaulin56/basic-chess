@@ -71,6 +71,8 @@ export function renderHintPanel(
     if (view.leavingBook) container.append(paragraph(t('hintLeavingBook')));
     container.append(paragraph(shapeText(view.hint)));
     for (const reason of view.orientation) container.append(paragraph(t(reason.key, reason.params)));
+    // Le frecce sono al massimo cinque (vedi MAX_GOOD_ARROWS in app.ts): le altre si dicono.
+    if (view.revealed && view.hint.count > 5) container.append(paragraph(t('tutorMoreGood')));
     // L'elenco delle mosse non c'e' piu': da quando "Mostra le mosse" le disegna sulla
     // scacchiera, scriverle anche qui e' dire due volte la stessa cosa — e la freccia la
     // dice meglio, perche' fa vedere DOVE va il pezzo. Se n'e' andata con lei anche la
