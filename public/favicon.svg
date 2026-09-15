@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- La scacchiera dell'app: case chiare #f0d9b5, scure con il 20% di nero sopra. -->
+  <rect width="64" height="64" rx="10" fill="#f0d9b5"/>
+  <g fill="#c0ae91">
+    <rect x="16" y="0" width="16" height="16"/>
+    <rect x="48" y="0" width="16" height="16"/>
+    <rect x="0" y="16" width="16" height="16"/>
+    <rect x="32" y="16" width="16" height="16"/>
+    <rect x="16" y="32" width="16" height="16"/>
+    <rect x="48" y="32" width="16" height="16"/>
+    <rect x="0" y="48" width="16" height="16"/>
+    <rect x="32" y="48" width="16" height="16"/>
+  </g>
+  <!-- La Dama: silhouette nera piena, quattro punte (la quinta impastava a 16 px). -->
+  <g fill="#111" stroke-linejoin="round">
+    <path d="M12 22 L21 40 L26 19 L32 36 L38 19 L43 40 L52 22 L48 46 H16 Z"/>
+    <path d="M15 48 H49 L51 55 H13 Z"/>
+    <circle cx="12" cy="19" r="3.2"/>
+    <circle cx="26" cy="15.5" r="3.4"/>
+    <circle cx="38" cy="15.5" r="3.4"/>
+    <circle cx="52" cy="19" r="3.2"/>
+  </g>
+</svg>
