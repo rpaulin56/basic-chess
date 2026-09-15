@@ -44,6 +44,11 @@ export interface TutorPanelState {
   /** Vero mentre il diagramma delle conseguenze e' sulla scacchiera. */
   readonly previewing: boolean;
   /**
+   * Vero se le mosse buone erano piu' di quelle disegnate: le frecce sono al massimo
+   * cinque, e le altre, equivalenti, vanno almeno nominate.
+   */
+  readonly moreGood?: boolean;
+  /**
    * Vero se la mossa precedente dell'avversario era essa stessa un errore
    * importante: allora questo non e' solo un tuo errore, e' un'occasione mancata.
    */
@@ -192,6 +197,12 @@ export function renderTutorPanel(
 
   // "La mossa migliore era..." non si scrive piu': le mosse buone si vedono sulla
   // scacchiera, verdi, accanto alla rossa di quella giocata (vedi `bestView` in app.ts).
+  if (state.previewing && state.moreGood) {
+    const more = document.createElement('p');
+    more.className = 'tutor-best';
+    more.textContent = t('tutorMoreGood');
+    container.append(more);
+  }
 
   const buttons = document.createElement('div');
   buttons.className = 'tutor-actions';

@@ -46,7 +46,7 @@ import { obviousMove } from '../tutor/goodMoves.js';
 import { botPauseMs } from '../bot/pace.js';
 import { ThinkClock, type ThinkTime } from '../tutor/thinkClock.js';
 import { hastiest, usualThinking } from '../tutor/timing.js';
-import { buildHint } from '../tutor/hint.js';
+import { buildHint, HINT_MARGIN } from '../tutor/hint.js';
 import { orientPosition } from '../tutor/orientation.js';
 import { moveNumberOf } from '../core/game.js';
 import type { Key } from 'chessground/types';
@@ -206,6 +206,12 @@ function preferredTakebackLimit(): number | null {
  * altro motivo per farla solo su richiesta esplicita e mai in continuazione.
  */
 const HINT_DEPTH = 12;
+
+/**
+ * Quante mosse buone si disegnano dopo un errore. Oltre, le frecce si coprono e la
+ * scacchiera smette di rispondere: le altre si nominano con una frase.
+ */
+const MAX_GOOD_ARROWS = 5;
 
 /**
  * La ricerca del matto per la fotografia.
@@ -491,7 +497,7 @@ export function mountApp(root: HTMLElement): void {
    * poteva fare e che cosa si e' fatto, senza leggere una riga (chiesto provandolo sul
    * telefono).
    */
-  let bestView: { fen: string; arrows: Arrow[] } | null = null;
+  let bestView: { fen: string; arrows: Arrow[]; more: boolean } | null = null;
   /**
    * La confutazione che il bot deve eseguire davvero.
    *
@@ -850,6 +856,7 @@ export function mountApp(root: HTMLElement): void {
         ? {
             ...review,
             previewing: preview !== null || bestView !== null,
+            moreGood: bestView?.more ?? false,
             orientation,
             humanColor,
             forgiveness: forgivenessState(),
@@ -900,19 +907,43 @@ export function mountApp(root: HTMLElement): void {
         review = { ...review, betterSans: moves.map(sanOfBestMove).filter((san) => san !== null) };
         // Le verdi prima e la rossa per ultima: se una mossa buona parte dalla stessa casa
         // di quella sbagliata, la rossa resta visibile sopra.
-        const arrows: Arrow[] = moves.map((uci) => ({
-          orig: uci.slice(0, 2) as Square,
-          dest: uci.slice(2, 4) as Square,
-          brush: 'green',
-        }));
-        arrows.push({
-          orig: review.mistakeMove[0] as Square,
-          dest: review.mistakeMove[1] as Square,
-          brush: 'red',
-        });
-        bestView = { fen: review.fenBeforeMistake, arrows };
-        refresh();
+        const shown = review;
+        const draw = (good: readonly string[], more: boolean): void => {
+          const arrows: Arrow[] = good.map((uci) => ({
+            orig: uci.slice(0, 2) as Square,
+            dest: uci.slice(2, 4) as Square,
+            brush: 'green',
+          }));
+          arrows.push({
+            orig: shown.mistakeMove[0] as Square,
+            dest: shown.mistakeMove[1] as Square,
+            brush: 'red',
+          });
+          bestView = { fen: shown.fenBeforeMistake, arrows, more };
+          refresh();
+        };
+        // Subito le mosse che il tutor ha gia', poi TUTTE quelle buone.
+        //
+        // L'analisi del tutor chiede tre linee: quando le mosse equivalenti sono di piu',
+        // ne resta fuori una a caso, e mancava proprio Rc6, la piu' naturale (segnalato
+        // giocando). Qui si chiede come il tasto a bifreccia, e si disegnano tutte quelle
+        // che non peggiorano la posizione, fino a cinque frecce.
+        draw(moves.slice(0, MAX_GOOD_ARROWS), false);
         revealBoard();
+        void (async () => {
+          const analysis = await analyseFully(shown.fenBeforeMistake, { depth: HINT_DEPTH, multiPV: HINT_MULTIPV });
+          const lines = analysis?.lines ?? [];
+          if (review !== shown && review?.fenBeforeMistake !== shown.fenBeforeMistake) return;
+          if (!bestView || lines.length === 0) return;
+          const top = winPercentOf(lines[0]!);
+          const mistake = `${shown.mistakeMove[0]}${shown.mistakeMove[1]}`;
+          const good = lines
+            .filter((line) => top - winPercentOf(line) <= HINT_MARGIN)
+            .map((line) => line.pv[0])
+            .filter((uci): uci is string => !!uci && uci.slice(0, 4) !== mistake);
+          if (good.length === 0) return;
+          draw(good.slice(0, MAX_GOOD_ARROWS), good.length > MAX_GOOD_ARROWS);
+        })();
       },
       onShowConsequence: () => {
         if (!review?.consequence) return;

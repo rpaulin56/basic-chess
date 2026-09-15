@@ -184,6 +184,7 @@ export const fr: Record<keyof typeof it, string> = {
   tutorForgiveNoMoreOne: `Je t’ai déjà laissé changer un coup${NB}: cette fois, le coup reste.`,
   tutorForgiveNone: `Dans cette partie, on ne change pas de coup${NB}: celui-ci reste.`,
   tutorShowBest: 'Suggérer un coup',
+  tutorMoreGood: 'D’autres coups conviennent aussi ici.',
   recap: 'Coups critiques',
   recapCorrected: 'annulé',
   recapKept: 'gardé',
