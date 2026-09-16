@@ -756,6 +756,8 @@ select {
 .why-ask.ghost { background: none; color: var(--ink-soft); border-color: var(--line); }
 .why-ask + .why-ask { margin-left: 6px; }
 .why { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+/* In cima al proprio riquadro la riga separerebbe dal niente: resta solo sotto altro. */
+.why:first-child { margin-top: 0; border-top: none; padding-top: 0; }
 .why-title {
   font-size: 12px;
   text-transform: uppercase;
