@@ -70,7 +70,7 @@ export const it = {
   whyTitleWon: 'Qualche momento da rivedere',
   whyClean:
     "Hai tenuto bene e non hai fatto grandi errori. Ma alla lunga tanti piccoli errori fanno perdere lo stesso: te ne mostro qualcuno, per darti un'idea.",
-  whyLine: '{move} {san} — {verdict} (-{drop} punti)',
+  whyLine: '{move} {san} — {verdict} (-{drop} punti{note})',
   whyVerdictThrown: 'Hai buttato via la partita',
   whyVerdictWinSlipped: 'Ti è sfuggita la vittoria',
   whyVerdictWinRisked: 'Hai messo a repentaglio la vittoria',

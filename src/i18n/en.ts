@@ -72,7 +72,7 @@ export const en: Record<keyof typeof it, string> = {
   whyTitleWon: 'A few moments worth a look',
   whyClean:
     'You held your ground and made no serious mistake. But a lot of small errors lose a game just as surely: let me show you a few, to give you the idea.',
-  whyLine: '{move} {san} — {verdict} (-{drop} points)',
+  whyLine: '{move} {san} — {verdict} (-{drop} points{note})',
   whyVerdictThrown: 'You threw the game away',
   whyVerdictWinSlipped: 'The win slipped away',
   whyVerdictWinRisked: 'You put the win at risk',

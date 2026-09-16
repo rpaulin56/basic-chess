@@ -91,7 +91,7 @@ export const fr: Record<keyof typeof it, string> = {
   whyTitle: 'Où la partie t’a échappé',
   whyTitleWon: 'Quelques moments à revoir',
   whyClean: `Tu as bien résisté et tu n’as pas fait de grosse erreur. Mais à la longue, beaucoup de petites erreurs font perdre quand même${NB}: je t’en montre quelques-unes, pour te donner une idée.`,
-  whyLine: '{move} {san} — {verdict} (-{drop} points)',
+  whyLine: '{move} {san} — {verdict} (-{drop} points{note})',
   whyVerdictThrown: 'Tu as jeté la partie',
   whyVerdictWinSlipped: 'La victoire t’a échappé',
   whyVerdictWinRisked: 'Tu as mis la victoire en danger',

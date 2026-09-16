@@ -1181,13 +1181,20 @@ export function mountApp(root: HTMLElement): void {
       box.append(text(t('whyClean'), 'why-note'));
     }
     const list = document.createElement('ul');
+    // Se la mossa giocata di fretta e' anche fra queste, la fretta si dice qui, tra
+    // parentesi accanto ai punti, e non piu' in una frase a parte sotto: la stessa mossa
+    // nominata due volte sembrava due problemi (segnalato leggendo un riepilogo vero).
+    const moment = timingMoment();
     for (const loss of worst) {
       const item = document.createElement('li');
+      const note =
+        moment && moment.move.ply === loss.ply ? `; ${hasteNote(moment.ms, moment.median)}` : '';
       item.textContent = t('whyLine', {
         move: moveLabel(loss.number, humanColor),
         san: toFigurine(loss.san),
         verdict: lossVerdict(loss),
         drop: Math.round(loss.drop),
+        note,
       });
       if (loss.best) item.textContent += ` · ${t('whyBetter', { san: toFigurine(loss.best) })}`;
       list.append(item);
@@ -1348,9 +1355,51 @@ export function mountApp(root: HTMLElement): void {
    * (una partita importata senza `%emt`, o giocata prima che si registrassero) la Nonna
    * non dice niente, invece di un numero fatto con tre mosse.
    */
+  /**
+   * La mossa di cui si dice "forse e' stata la fretta", o null. Vedi appendTiming per il
+   * criterio; sta a parte perche' la usa anche la lista delle mosse da rivedere.
+   */
+  function timingMoment(): { kind: 'hasty' | 'delicate'; move: MoveLoss; ms: number; median: number } | null {
+    const median = usualThinking(thinkTimes, timingCounts);
+    if (median === null) return null;
+    const mine = (loss: MoveLoss): boolean => inPlay(loss) && timingCounts(loss.ply);
+    const hasty = hastiest(
+      thinkTimes,
+      losses.filter((loss) => mine(loss) && loss.drop >= MISTAKE_DROP),
+      median,
+    );
+    if (hasty) return { kind: 'hasty', move: hasty.move, ms: hasty.ms, median };
+    const delicate = hastiest(
+      thinkTimes,
+      losses.filter(
+        (loss) =>
+          mine(loss) &&
+          loss.drop >= INACCURACY_DROP &&
+          loss.drop < MISTAKE_DROP &&
+          loss.before >= OPEN_GAME_LOW &&
+          loss.before <= OPEN_GAME_HIGH,
+      ),
+      median,
+    );
+    return delicate ? { kind: 'delicate', move: delicate.move, ms: delicate.ms, median } : null;
+  }
+
+  /**
+   * "forse e' stata la fretta: 5 secondi contro una media di 17". Tra parentesi basta il
+   * numero; l'unita' si ripete solo se cambia (9 secondi contro una media di 2 minuti).
+   */
+  function hasteNote(ms: number, median: number): string {
+    const sameUnit = Math.round(ms / 1000) < 60 && Math.round(median / 1000) < 60;
+    const usual = sameUnit ? String(Math.max(1, Math.round(median / 1000))) : duration(median);
+    return t('whyRethinkHasty', { time: duration(ms), usual });
+  }
+
   function appendTiming(box: HTMLElement): void {
     const median = usualThinking(thinkTimes, timingCounts);
     if (median === null) return;
+    // La fretta gia' detta nella lista delle mosse da rivedere non si ripete qui.
+    const moment = timingMoment();
+    if (moment && worstMoves().some((loss) => loss.ply === moment.move.ply)) return;
     // Le stesse mosse che fanno il tempo medio: le tue, fuori dall'apertura, non ovvie.
     // Le mosse di libro restano fuori anche da qui: rimproverare la fretta su una mossa
     // giocata a memoria sarebbe un rimprovero a chi la sapeva.
@@ -1450,11 +1499,7 @@ export function mountApp(root: HTMLElement): void {
       // tempo: "ci avevi pensato 27 secondi", senza un confronto, non e' un'informazione.
       // Riguarda la mossa ripresa: e' quella giocata di corsa.
       if (rethink.ms !== null && median !== null && rethink.ms * 2 < median) {
-        // Tra parentesi basta il numero: "9 secondi contro una media di 24". L'unita' si
-        // ripete solo se cambia (9 secondi contro una media di 2 minuti).
-        const sameUnit = Math.round(rethink.ms / 1000) < 60 && Math.round(median / 1000) < 60;
-        const usual = sameUnit ? String(Math.max(1, Math.round(median / 1000))) : duration(median);
-        before.push(t('whyRethinkHasty', { time: duration(rethink.ms), usual }));
+        before.push(hasteNote(rethink.ms, median));
       }
       // Il costo della nuova, contato come l'altro rispetto alla migliore. Zero non si
       // scrive: una parentesi per dire "niente" e' rumore.
