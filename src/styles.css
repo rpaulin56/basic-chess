@@ -853,3 +853,29 @@ select {
 .cg-wrap cg-auto-pieces piece {
   opacity: 0.25;
 }
+
+/* --- il riquadro della Nonna --- */
+/* Le voci della Nonna sono sezioni di un riquadro solo: perdono la loro cornice e si
+   separano con una riga. La barra colorata a sinistra passa al riquadro, e prende il
+   colore della voce che la decide (errore grave in rosso, finale in verde). */
+.nonna { display: flex; flex-direction: column; border-left: 4px solid var(--accent); }
+.nonna > .panel {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+.nonna > :not([hidden]) ~ :not([hidden]) {
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.nonna:has(> .tutor-blunder:not([hidden])) { border-left-color: #b23c2e; }
+/* Un riquadro vuoto non si mostra: finche' la Nonna non ha niente da dire, niente cornice
+   (la riga "Segnala" da sola non basta a tenerlo aperto). */
+.nonna:not(:has(> :not([hidden]):not(.nonna-report))) { display: none; }
+.nonna-report { text-align: right; }
+.nonna-report .rewind-back { font-size: 12px; color: var(--ink-soft); }
+.report-dialog { max-width: 420px; }
+.report-dialog p { font-size: 14px; line-height: 1.45; margin: 0 0 10px; }
+.report-actions { display: flex; gap: 16px; align-items: center; margin-top: 14px; }

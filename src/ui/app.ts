@@ -795,6 +795,7 @@ export function mountApp(root: HTMLElement): void {
     tagline,
     recapTitle,
     creditsEl,
+    reportEl,
   } = buildLayout(root);
   const board: BoardView = createBoardView(boardWrap, handleUserMove);
   // Anche la riga di stato, non solo il pannello della valutazione: quello di default e'
@@ -863,6 +864,7 @@ export function mountApp(root: HTMLElement): void {
     void updateOpening();
     void updateStudy();
     void updateMate();
+    renderReport();
     renderPreviewControls();
     renderTutorPanel(
       tutorEl,
@@ -4126,9 +4128,14 @@ export function mountApp(root: HTMLElement): void {
     // Il risultato concordato prevale su quello che direbbe la posizione: dopo un
     // abbandono la scacchiera non sa di essere finita, ma la partita si'.
     const decided = outcome ? { Result: outcome.result } : {};
+    // La versione del programma che ha scritto il PGN, in fondo. Serve alle segnalazioni:
+    // un comportamento strano raccontato da un PGN dice subito se il difetto era gia'
+    // stato corretto. E' la versione che ESPORTA: una partita cominciata prima di un
+    // aggiornamento porta il numero nuovo.
+    const version = { GrandmaChessVersion: __APP_VERSION__ };
     return gameOpening
-      ? { ...players, ...decided, ...effort, ECO: gameOpening.eco, Opening: gameOpening.name }
-      : { ...players, ...decided, ...effort };
+      ? { ...players, ...decided, ...effort, ECO: gameOpening.eco, Opening: gameOpening.name, ...version }
+      : { ...players, ...decided, ...effort, ...version };
   }
 
   /**
@@ -4765,6 +4772,79 @@ export function mountApp(root: HTMLElement): void {
    * Esc e la trappola del focus le fa il browser, e sono esattamente le tre cose che
    * si sbagliano riscrivendole a mano.
    */
+  /** La riga "Qualcosa non torna? Segnala" in fondo al riquadro della Nonna. */
+  function renderReport(): void {
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'rewind-back';
+    link.textContent = t('reportLink');
+    link.addEventListener('click', openReport);
+    reportEl.replaceChildren(link);
+  }
+
+  /**
+   * Il dialogo per segnalare qualcosa: spiega, copia la partita, apre la posta.
+   *
+   * La segnalazione utile nasce in un momento preciso della partita, e senza la partita
+   * non si capisce: per questo il PGN (con versione e marcatori) si copia da solo negli
+   * appunti. Non va nel testo della mail perche' i collegamenti `mailto:` hanno limiti di
+   * lunghezza diversi da un programma di posta all'altro, e una partita lunga verrebbe
+   * troncata senza avviso. Non parte niente da solo: si apre il programma di posta di chi
+   * scrive, e mandare resta una sua decisione.
+   */
+  function openReport(): void {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'settings-dialog report-dialog';
+    const title = document.createElement('h2');
+    title.textContent = t('reportTitle');
+    const intro = document.createElement('p');
+    intro.textContent = t('reportIntro');
+    const game = document.createElement('p');
+    game.textContent = t('reportGame');
+
+    const send = document.createElement('button');
+    send.type = 'button';
+    send.className = 'settings-close';
+    send.textContent = t('reportSend');
+    send.addEventListener('click', () => {
+      void (async () => {
+        await copy(toPgn(state, pgnTags(), annotations()));
+        // L'indirizzo si compone qui e non sta scritto per intero nella pagina: basta a
+        // tenerlo lontano da chi raccoglie indirizzi da spammare.
+        const address = ['grandmachess', 'riccardopaulin.com'].join('@');
+        // Con l'analisi di fine partita aperta la segnalazione riguarda quella, non l'ultima
+        // mossa: "alla mossa 46" farebbe cercare nel posto sbagliato.
+        const subject =
+          state.plies.length === 0
+            ? t('reportSubjectStart', { version: __APP_VERSION__ })
+            : !whyEl.hidden
+              ? t('reportSubjectEnd', { version: __APP_VERSION__ })
+              : t('reportSubject', {
+                version: __APP_VERSION__,
+                move: moveNumberOf(state, Math.max(0, state.cursor - 1)),
+              });
+        // Prima si chiude il dialogo: se il browser non sa aprire la posta (nessun
+        // programma configurato) l'errore non deve lasciarlo aperto a meta'.
+        dialog.close();
+        window.location.href =
+          `mailto:${address}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(t('reportBody'))}`;
+      })();
+    });
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'rewind-back';
+    cancel.textContent = t('reportCancel');
+    cancel.addEventListener('click', () => dialog.close());
+    const actions = document.createElement('div');
+    actions.className = 'report-actions';
+    actions.append(send, cancel);
+
+    dialog.append(title, intro, game, actions);
+    dialog.addEventListener('close', () => dialog.remove());
+    document.body.append(dialog);
+    dialog.showModal();
+  }
+
   function openSettings(): void {
     const dialog = document.createElement('dialog');
     dialog.className = 'settings-dialog';
@@ -5187,7 +5267,23 @@ function buildLayout(root: HTMLElement) {
   movesEl.className = 'movelist';
   movesPanel.append(movesTitle, movesEl);
 
-  side.append(offerEl, whyEl, tutorEl, theoryEl, hintEl, endgameEl, recapPanel, movesPanel);
+  /*
+   * Un riquadro solo per tutto quello che dice la Nonna.
+   *
+   * Erano sei pannelli uno sotto l'altro (l'offerta, l'analisi, il verdetto, la teoria,
+   * il consiglio, il finale) piu' le mosse critiche: sul telefono una pila di cornici per
+   * quella che, per chi gioca, e' una voce sola. Ora sono sezioni dello stesso riquadro,
+   * separate da una riga, e ciascuna compare e scompare come prima. Le mosse critiche
+   * stanno in fondo, perche' sono il suo riassunto; sotto andra' il "segnala".
+   */
+  const nonnaEl = document.createElement('section');
+  nonnaEl.className = 'panel nonna';
+  // In fondo, sempre nello stesso posto: "Qualcosa non torna? Segnala" (vedi openReport).
+  const reportEl = document.createElement('div');
+  reportEl.className = 'nonna-report';
+  nonnaEl.append(offerEl, whyEl, tutorEl, theoryEl, hintEl, endgameEl, recapPanel, reportEl);
+
+  side.append(nonnaEl, movesPanel);
   layout.append(boardColumn, side);
   root.append(header, layout);
   return {
@@ -5214,6 +5310,7 @@ function buildLayout(root: HTMLElement) {
     tagline,
     recapTitle,
     creditsEl,
+    reportEl,
   };
 }
 
