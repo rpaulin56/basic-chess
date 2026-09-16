@@ -272,7 +272,7 @@ export const fr: Record<keyof typeof it, string> = {
   reportSubject: 'GrandmaChess {version} – signalement au coup {move}',
   reportSubjectEnd: 'GrandmaChess {version} – signalement sur l’analyse de fin de partie',
   reportSubjectStart: 'GrandmaChess {version} – signalement',
-  reportBody: `Ce qui s’est passé${NB}:\n\n\nCe que tu attendais${NB}:\n\n\nLa partie (colle-la ci-dessous)${NB}:\n\n`,
+  reportBody: `Colle la partie ici${NB}:\n\n\nCe qui s’est passé${NB}:\n\n\nCe que tu attendais${NB}:\n\n`,
   recapTakeBacks: `Changements d’avis dans cette partie${NB}: {count}.`,
   recapTakeBacksOf: `Changements d’avis dans cette partie${NB}: {count} sur {limit}.`,
   takebackRefused: `Je t’ai déjà laissé changer {count} coups${NB}: d’ici, tu peux seulement regarder.`,

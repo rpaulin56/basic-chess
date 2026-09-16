@@ -259,7 +259,7 @@ export const it = {
   reportSubject: 'GrandmaChess {version} – segnalazione alla mossa {move}',
   reportSubjectEnd: 'GrandmaChess {version} – segnalazione sull’analisi di fine partita',
   reportSubjectStart: 'GrandmaChess {version} – segnalazione',
-  reportBody: 'Che cosa è successo:\n\n\nChe cosa ti aspettavi:\n\n\nLa partita (incollala qui sotto):\n\n',
+  reportBody: 'Incolla qui la partita:\n\n\nChe cosa è successo:\n\n\nChe cosa ti aspettavi:\n\n',
   recapTakeBacks: 'Ripensamenti in questa partita: {count}.',
   recapTakeBacksOf: 'Ripensamenti in questa partita: {count} su {limit}.',
   takebackRefused: 'Ti ho già lasciato cambiare {count} mosse: da qui puoi solo guardare.',

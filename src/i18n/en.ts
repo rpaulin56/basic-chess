@@ -260,7 +260,7 @@ export const en: Record<keyof typeof it, string> = {
   reportSubject: 'GrandmaChess {version} – report at move {move}',
   reportSubjectEnd: 'GrandmaChess {version} – report on the end-of-game review',
   reportSubjectStart: 'GrandmaChess {version} – report',
-  reportBody: 'What happened:\n\n\nWhat you expected:\n\n\nThe game (paste it below):\n\n',
+  reportBody: 'Paste the game here:\n\n\nWhat happened:\n\n\nWhat you expected:\n\n',
   recapTakeBacks: 'Second thoughts in this game: {count}.',
   recapTakeBacksOf: 'Second thoughts in this game: {count} of {limit}.',
   takebackRefused: 'I have already let you change {count} moves: from here you can only look.',
