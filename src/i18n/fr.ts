@@ -49,7 +49,7 @@ export const fr: Record<keyof typeof it, string> = {
   aboutPrivacyTitle: 'Pas de compte, pas de données',
   aboutNotTime: `IL N’Y A PAS DE PENDULE, par choix. Ici, tu peux réfléchir autant que tu veux, et ça change tout : l’Elo mesure la force aux échecs à des temps de réflexion comparables, donc le niveau que tu bats ici n’est pas celui que tu battrais en tournoi. Penser vite est une compétence à part, et ce n’est pas Mamie qui te l’apprendra.`,
   aboutNotElse: `Il ne te fait pas jouer contre d’autres personnes, il ne te donne pas de classement, il ne t’entraîne pas à la tactique avec des milliers d’exercices et il ne te construit pas de répertoire d’ouvertures. Pour vraiment progresser aux échecs, il te faudra une pendule, des adversaires en chair et en os et un club : GrandmaChess est l’endroit où comprendre tranquillement tes erreurs, pas celui où te perfectionner pour devenir maître.`,
-  aboutPrivacy: `Il ne demande pas de compte et ne collecte aucune donnée${NB}: le moteur d’échecs tourne dans ton navigateur, tes parties restent sur ton appareil et, une fois la page chargée, rien n’est envoyé à personne.`,
+  aboutPrivacy: `Il ne demande pas de compte et ne collecte aucune donnée personnelle${NB}: le moteur d’échecs tourne dans ton navigateur, tes parties restent sur ton appareil et, une fois la page chargée, rien n’est envoyé à personne.`,
   creditsAuthorLabel: 'Idée et conception du logiciel',
   creditsAuthorName: 'Riccardo Paulin',
   creditsCodeLabel: 'Écriture du code',
