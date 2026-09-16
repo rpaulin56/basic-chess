@@ -248,6 +248,8 @@ export const it = {
   orientIsolated: 'Ti resta un pedone isolato da difendere: tienine conto quando scegli i cambi.',
   recapHints: 'Consigli chiesti in questa partita: {count}.',
   recapAnswers: 'Volte in cui ti ho mostrato le mosse buone: {count}.',
+  recapMoveAt: 'mossa {moves}',
+  recapMovesAt: 'mosse {moves}',
   recapTakeBacks: 'Ripensamenti in questa partita: {count}.',
   recapTakeBacksOf: 'Ripensamenti in questa partita: {count} su {limit}.',
   takebackRefused: 'Ti ho già lasciato cambiare {count} mosse: da qui puoi solo guardare.',

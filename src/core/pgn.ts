@@ -73,6 +73,16 @@ export const RETHINK_TAG = '%bcr';
 export const LOSS_TAG = '%bcl';
 
 /**
+ * Gli aiuti, sulla mossa giocata DALLA posizione in cui sono stati chiesti:
+ * `[%bch]` un consiglio ("E adesso?"), `[%bca]` le mosse buone mostrate (sia "Mostra le
+ * mosse" sia "Suggerisci mossa" dopo un errore). Senza, il PGN portava solo i totali, e
+ * rileggendo una partita non si ritrovava il momento (segnalato giocando: "tre volte?
+ * non me lo ricordo").
+ */
+export const HINT_TAG = '%bch';
+export const ANSWER_TAG = '%bca';
+
+/**
  * Il suffisso da appendere alla mossa, per gravita'.
  *
  * Lo standard PGN li prevede (`!` `?` `!!` `??` `!?` `?!`) come equivalenti dei NAG

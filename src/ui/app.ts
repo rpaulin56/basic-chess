@@ -15,6 +15,8 @@ import { parseGameInput } from '../core/import.js';
 import { toFigurine } from '../core/notation.js';
 import {
   ANNOTATION_TAG,
+  ANSWER_TAG,
+  HINT_TAG,
   LOSS_TAG,
   RETHINK_TAG,
   SEVERITY_SUFFIX,
@@ -312,6 +314,17 @@ interface SavedGame {
   rethinks?: Rethink[];
   /** Vero se la modalita' studio e' stata usata in questa partita. */
   studied?: boolean;
+  /** Dove sono stati chiesti gli aiuti (vedi `HelpEvent`). */
+  help?: HelpEvent[];
+}
+
+/**
+ * Un aiuto e la mossa a cui si riferisce: quella giocata dalla posizione in cui e' stato
+ * chiesto. 'hint' e' "E adesso?", 'answer' sono le mosse buone mostrate.
+ */
+interface HelpEvent {
+  readonly ply: number;
+  readonly kind: 'hint' | 'answer';
 }
 
 /**
@@ -651,6 +664,8 @@ export function mountApp(root: HTMLElement): void {
    * diventa una stampella invisibile.
    */
   let hintsUsed = saved?.hints ?? 0;
+  /** Dove sono stati chiesti consigli e mosse buone: i totali da soli non dicono quando. */
+  const helpLog: HelpEvent[] = saved?.help ?? [];
   /**
    * Quante volte si e' tornati indietro per rigiocare diversamente.
    *
@@ -898,6 +913,8 @@ export function mountApp(root: HTMLElement): void {
       onReveal: () => {
         if (!review) return;
         answersSeen++;
+        // La mossa sbagliata e' l'ultima giocata: l'aiuto riguarda la mossa da quella posizione.
+        helpLog.push({ ply: state.plies.length - 1, kind: 'answer' });
         const moves = review.verdict.betterMoves.length
           ? review.verdict.betterMoves
           : review.verdict.bestMove
@@ -1027,10 +1044,8 @@ export function mountApp(root: HTMLElement): void {
       list.append(item);
     }
     if (mistakeLog.length > 0) recapEl.append(list);
-    if (hintsUsed > 0) recapEl.append(text(t('recapHints', { count: hintsUsed }), 'recap-hints'));
-    if (answersSeen > 0) {
-      recapEl.append(text(t('recapAnswers', { count: answersSeen }), 'recap-hints'));
-    }
+    if (hintsUsed > 0) recapEl.append(text(helpLine('recapHints', 'hint', hintsUsed), 'recap-hints'));
+    if (answersSeen > 0) recapEl.append(text(helpLine('recapAnswers', 'answer', answersSeen), 'recap-hints'));
     if (studied) recapEl.append(text(t('recapStudy'), 'recap-hints'));
     if (takeBacks > 0) {
       recapEl.append(
@@ -1284,6 +1299,19 @@ export function mountApp(root: HTMLElement): void {
    * righe della post-analisi usavano il punto per tutti, quindi una mossa del Nero si
    * leggeva come una del Bianco — cosa che nel riepilogo era gia' giusta e qui no.
    */
+  /**
+   * "Consigli chiesti: 3 (mosse 3, 16, 18)." Le mosse si dicono solo se il registro e'
+   * completo: una partita salvata prima dei marcatori ha i totali ma non i momenti, e un
+   * elenco parziale direbbe una cosa falsa.
+   */
+  function helpLine(key: 'recapHints' | 'recapAnswers', kind: HelpEvent['kind'], count: number): string {
+    const events = helpLog.filter((event) => event.kind === kind);
+    const line = t(key, { count });
+    if (events.length !== count) return line;
+    const numbers = [...new Set(events.map((event) => moveNumberOf(state, event.ply)))].sort((a, b) => a - b);
+    return `${line.replace(/\.$/, '')} (${t(numbers.length === 1 ? 'recapMoveAt' : 'recapMovesAt', { moves: numbers.join(', ') })}).`;
+  }
+
   function moveLabel(number: number, color: Color): string {
     return `${number}${color === 'w' ? '.' : '…'}`;
   }
@@ -1899,6 +1927,7 @@ export function mountApp(root: HTMLElement): void {
       onReveal: () => {
         if (!hint) return;
         answersSeen++;
+        helpLog.push({ ply: state.cursor, kind: 'answer' });
         saveGame();
         hint = { ...hint, revealed: true };
         // Anche sulla scacchiera: l'elenco dice QUALI sono, le frecce dicono DOVE vanno,
@@ -1935,6 +1964,7 @@ export function mountApp(root: HTMLElement): void {
     const mine = generation;
     const fen = currentFen(state);
     hintsUsed++;
+    helpLog.push({ ply: state.cursor, kind: 'hint' });
     saveGame();
 
     const chess = positionAt(state);
@@ -2685,6 +2715,7 @@ export function mountApp(root: HTMLElement): void {
         hints: hintsUsed,
         takeBacks,
         answers: answersSeen,
+        help: helpLog,
         gifts,
         outcome,
       };
@@ -3455,6 +3486,7 @@ export function mountApp(root: HTMLElement): void {
       hintsUsed = restored.hints;
       takeBacks = restored.takeBacks;
       answersSeen = restored.answers;
+      helpLog.push(...restored.help);
       outcome = restored.outcome;
       thinkClock.markInterrupted(currentFen(state));
       refresh();
@@ -4165,6 +4197,13 @@ export function mountApp(root: HTMLElement): void {
       put(entry.ply, formatEmt(entry.ms));
     }
 
+    // Dove sono stati chiesti gli aiuti (vedi HINT_TAG): uno per volta, anche due sulla
+    // stessa mossa, cosi' i totali si ricontano dal PGN.
+    for (const event of helpLog) {
+      if (event.ply >= state.plies.length) continue;
+      put(event.ply, `[${event.kind === 'hint' ? HINT_TAG : ANSWER_TAG}]`);
+    }
+
     // Il costo di ogni mossa giudicata (vedi LOSS_TAG). Solo quelle ancora nella partita:
     // il costo di una mossa ritirata e' gia' in `%bc` o `%bcr`.
     const tenth = (value: number): number => Math.round(value * 10) / 10;
@@ -4271,6 +4310,18 @@ export function mountApp(root: HTMLElement): void {
     thinkTimes.length = 0;
     thinkClock.reset();
     for (const [ply, comment] of [...comments].sort((a, b) => a[0] - b[0])) {
+      for (const [tag, kind] of [
+        [HINT_TAG, 'hint'],
+        [ANSWER_TAG, 'answer'],
+      ] as const) {
+        const found = comment.match(new RegExp(`\\[${tag}\\]`, 'g'));
+        for (let i = 0; i < (found?.length ?? 0); i++) {
+          helpLog.push({ ply, kind });
+          // I totali si ricontano dai marcatori, come i ripensamenti.
+          if (kind === 'hint') hintsUsed++;
+          else answersSeen++;
+        }
+      }
       const loss = comment.match(new RegExp(`\\[${LOSS_TAG}\\s+([^\\]]+)\\]`));
       const played = state.plies[ply];
       if (loss && played) {
@@ -4860,6 +4911,7 @@ export function mountApp(root: HTMLElement): void {
     // numero sbagliato — ed e' il motivo per cui e' rimasto nascosto un giorno intero.
     hintsUsed = 0;
     answersSeen = 0;
+    helpLog.length = 0;
     takeBacks = 0;
     rethinks.length = 0;
     studying = false;
@@ -5342,6 +5394,7 @@ interface LoadedGame {
   hints: number;
   takeBacks: number;
   answers: number;
+  help: HelpEvent[];
   gifts: Gift[];
   outcome: Outcome | null;
 }
@@ -5399,6 +5452,7 @@ function loadFrom(saved: SavedGame): LoadedGame | null {
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
       takeBacks: typeof saved.takeBacks === 'number' ? saved.takeBacks : 0,
       answers: typeof saved.answers === 'number' ? saved.answers : 0,
+      help: Array.isArray(saved.help) ? saved.help : [],
       gifts: Array.isArray(saved.gifts) ? saved.gifts : [],
       outcome: saved.outcome ?? null,
     };

@@ -261,6 +261,8 @@ export const fr: Record<keyof typeof it, string> = {
   orientIsolated: `Il te reste un pion isolé à défendre${NB}: penses-y quand tu choisis les échanges.`,
   recapHints: `Conseils demandés dans cette partie${NB}: {count}.`,
   recapAnswers: `Fois où je t’ai montré les bons coups${NB}: {count}.`,
+  recapMoveAt: 'coup {moves}',
+  recapMovesAt: 'coups {moves}',
   recapTakeBacks: `Changements d’avis dans cette partie${NB}: {count}.`,
   recapTakeBacksOf: `Changements d’avis dans cette partie${NB}: {count} sur {limit}.`,
   takebackRefused: `Je t’ai déjà laissé changer {count} coups${NB}: d’ici, tu peux seulement regarder.`,

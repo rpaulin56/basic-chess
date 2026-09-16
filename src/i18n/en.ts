@@ -249,6 +249,8 @@ export const en: Record<keyof typeof it, string> = {
   orientIsolated: 'You are left with an isolated pawn to defend: keep it in mind when choosing trades.',
   recapHints: 'Hints asked for in this game: {count}.',
   recapAnswers: 'Times I showed you the good moves: {count}.',
+  recapMoveAt: 'move {moves}',
+  recapMovesAt: 'moves {moves}',
   recapTakeBacks: 'Second thoughts in this game: {count}.',
   recapTakeBacksOf: 'Second thoughts in this game: {count} of {limit}.',
   takebackRefused: 'I have already let you change {count} moves: from here you can only look.',
