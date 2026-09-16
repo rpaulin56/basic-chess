@@ -44,6 +44,8 @@ export const fr: Record<keyof typeof it, string> = {
   aboutMore: `Et bien d’autres choses : des renvois pour étudier les finales, la barre d’évaluation, l’export de la partie, l’analyse d’une partie que tu apportes d’ailleurs en collant son PGN…`,
   aboutNotTitle: `Ce que ce n’est pas`,
   aboutVersion: 'Version {version}',
+  aboutWrite: 'Écris-nous',
+  aboutWriteSubject: 'GrandmaChess {version} – message',
   aboutPrivacyTitle: 'Pas de compte, pas de données',
   aboutNotTime: `IL N’Y A PAS DE PENDULE, par choix. Ici, tu peux réfléchir autant que tu veux, et ça change tout : l’Elo mesure la force aux échecs à des temps de réflexion comparables, donc le niveau que tu bats ici n’est pas celui que tu battrais en tournoi. Penser vite est une compétence à part, et ce n’est pas Mamie qui te l’apprendra.`,
   aboutNotElse: `Il ne te fait pas jouer contre d’autres personnes, il ne te donne pas de classement, il ne t’entraîne pas à la tactique avec des milliers d’exercices et il ne te construit pas de répertoire d’ouvertures. Pour vraiment progresser aux échecs, il te faudra une pendule, des adversaires en chair et en os et un club : GrandmaChess est l’endroit où comprendre tranquillement tes erreurs, pas celui où te perfectionner pour devenir maître.`,

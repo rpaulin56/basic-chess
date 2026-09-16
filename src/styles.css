@@ -707,6 +707,15 @@ select {
 .about-section[open] summary::before { content: '\25be '; }
 .about-section p { margin: 6px 0 10px; }
 .about-more { margin: 10px 0 6px; color: var(--ink-soft); }
+.about-write {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
 .credits-copyright { margin: 0 0 10px; }
 
 /* --- suggerimento ("e adesso?") --- */

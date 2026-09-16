@@ -21,6 +21,8 @@ export const en: Record<keyof typeof it, string> = {
     'And much more: pointers for studying the endgames, the evaluation bar, exporting the game, analysing a game you bring from elsewhere by pasting its PGN…',
   aboutNotTitle: 'What it is not',
   aboutVersion: 'Version {version}',
+  aboutWrite: 'Write to us',
+  aboutWriteSubject: 'GrandmaChess {version} – message',
   aboutPrivacyTitle: 'No account, no data',
   aboutNotTime:
     'IT HAS NO CLOCK, by choice. Here you can think as long as you like, and that changes everything: a player’s Elo measures strength at comparable thinking times, so the level you beat here is not the level you would beat over the board. Thinking fast is a skill of its own, and Grandma is not the one who will teach it.',

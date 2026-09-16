@@ -177,6 +177,19 @@ export function createCredits(): HTMLElement {
   const version = document.createElement('p');
   version.className = 'about-more';
   version.textContent = t('aboutVersion', { version: __APP_VERSION__ });
+  // Accanto alla versione, per commenti e idee: e' il posto dove si cerca chi l'ha fatto.
+  // Diverso da "Segnala" nel riquadro della Nonna, che copia anche la partita. L'indirizzo
+  // si compone al clic, per non lasciarlo intero nella pagina.
+  const write = document.createElement('button');
+  write.type = 'button';
+  write.className = 'about-write';
+  write.textContent = t('aboutWrite');
+  write.addEventListener('click', () => {
+    const address = ['grandmachess', 'riccardopaulin.com'].join('@');
+    const subject = t('aboutWriteSubject', { version: __APP_VERSION__ });
+    window.location.href = `mailto:${address}?subject=${encodeURIComponent(subject)}`;
+  });
+  version.append(' · ', write);
   about.append(version);
   details.append(about);
 

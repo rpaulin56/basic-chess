@@ -19,6 +19,8 @@ export const it = {
     'E molto altro: rimandi allo studio dei finali, la barra della valutazione, l’esportazione della partita, l’analisi di una partita che porti da fuori incollando il PGN…',
   aboutNotTitle: 'Che cosa non è',
   aboutVersion: 'Versione {version}',
+  aboutWrite: 'Scrivici',
+  aboutWriteSubject: 'GrandmaChess {version} – messaggio',
   aboutPrivacyTitle: 'Niente account, niente dati',
   aboutNotTime:
     'NON HA L’OROLOGIO, per scelta. Qui puoi pensare quanto vuoi, e questo cambia tutto: l’Elo di un giocatore misura la sua forza a tempi confrontabili, quindi il livello che batti qui non è il livello che batteresti in torneo. Pensare in fretta è un’abilità a sé, e non è la Nonna che te la insegna.',
