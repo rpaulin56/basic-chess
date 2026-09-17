@@ -3295,6 +3295,34 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
 
+    /*
+     * A partita FINITA, giocare da una posizione passata comincia una partita NUOVA.
+     *
+     * Con le righe della storia cliccabili capita di tornare a un momento chiave e
+     * rigiocarlo, ed e' una bella cosa (segnalato provandolo). Trattarlo come un
+     * ripensamento pero' era sbagliato: consumava un perdono, poteva essere rifiutato
+     * dal limite, e soprattutto cancellava il finale, il risultato e l'analisi appena
+     * letta. Adesso la partita finita si mette da parte intera — si recupera con
+     * "Riprendi la partita di prima" — e da quella posizione ne comincia un'altra, con i
+     * contatori azzerati.
+     */
+    if (finished() && state.cursor < state.plies.length) {
+      if (!confirm(t('replayFromHere'))) {
+        refresh(); // rimette il pezzo dove stava
+        return;
+      }
+      saveGame();
+      stashGame();
+      const resumed = truncateHere(state);
+      clearTutor();
+      state = resumed;
+      lastWhitePercent = null;
+      evaluation = null;
+      replaying = false;
+      // Poi si prosegue dal flusso normale: senza seguito da cancellare, la mossa entra
+      // come prima mossa della partita nuova.
+    }
+
     // Giocare mentre si guarda una posizione passata cancella il seguito: si chiede
     // conferma qui, non dentro core/game (che resta puro).
     //

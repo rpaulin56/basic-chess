@@ -132,6 +132,7 @@ export const it = {
   importInvalid: 'Testo incollato non riconosciuto come FEN o PGN: {error}',
   importedFen: 'Posizione caricata.',
   importedPgn: 'Partita caricata: {count} semi-mosse.',
+  replayFromHere: 'Rigiochi da qui? Comincia una partita nuova da questa posizione; quella finita resta da parte, e la ritrovi con «Riprendi la partita di prima» quando ne cominci una nuova.',
   overwriteFuture:
     'Stai guardando una posizione precedente. Giocando qui cancelli le {count} mosse successive. Procedere?',
   turnWhite: 'Tocca al Bianco',

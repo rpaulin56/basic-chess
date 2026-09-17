@@ -133,6 +133,7 @@ export const en: Record<keyof typeof it, string> = {
   importInvalid: 'Pasted text not recognised as FEN or PGN: {error}',
   importedFen: 'Position loaded.',
   importedPgn: 'Game loaded: {count} half-moves.',
+  replayFromHere: 'Replay from here? This starts a new game from this position; the finished one is kept aside, and you find it again with "Resume the previous game" when you start a new one.',
   overwriteFuture:
     'You are viewing an earlier position. Playing here discards the following {count} moves. Continue?',
   turnWhite: 'White to move',

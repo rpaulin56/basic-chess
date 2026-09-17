@@ -149,6 +149,7 @@ export const fr: Record<keyof typeof it, string> = {
   importInvalid: `Texte non reconnu comme FEN ou PGN${NB}: {error}`,
   importedFen: 'Position chargée.',
   importedPgn: `Partie chargée${NB}: {count} demi-coups.`,
+  replayFromHere: `Rejouer à partir d’ici${NB}? Cela commence une nouvelle partie depuis cette position${NB}; celle qui est finie est mise de côté, et tu la retrouves avec « Reprendre la partie précédente » quand tu en commences une nouvelle.`,
   overwriteFuture: `Tu regardes une position précédente. En jouant ici, tu effaces les {count} coups suivants. Continuer${NB}?`,
   turnWhite: 'Trait aux Blancs',
   rewindNotice: 'Tu regardes le coup {number} sur {total}. Tu peux jouer un autre coup d’ici,',
