@@ -802,6 +802,17 @@ select {
   padding-top: 10px;
 }
 .why-units { font-size: 12px; color: var(--ink-soft); margin-top: 8px; }
+.why-units summary { cursor: pointer; }
+.why-units p { margin: 4px 0 0; }
+.story { list-style: none; padding-left: 0 !important; }
+.story-row {
+  cursor: pointer;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.story-row:last-child { border-bottom: none; }
+.story-row:hover, .story-row:focus-visible { background: var(--accent-soft); outline: none; }
+.story-summary { margin-top: 8px; }
 .why ul { margin: 0; padding-left: 18px; font-size: 13px; }
 .why li { margin-bottom: 3px; }
 

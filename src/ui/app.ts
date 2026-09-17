@@ -413,6 +413,12 @@ interface MoveLoss {
 interface Outcome {
   readonly result: '1-0' | '0-1' | '1/2-1/2';
   readonly reason: 'resign' | 'draw';
+  /**
+   * Come stava chi ha abbandonato, secondo la Nonna, al momento di farlo. Serve a non
+   * chiedere "perche' hai perso?" a chi ha lasciato una partita ancora aperta: quella non
+   * e' scivolata via, e' stata lasciata a meta'.
+   */
+  readonly resignedFrom?: 'winning' | 'balanced' | 'worse' | 'hopeless';
 }
 
 export function mountApp(root: HTMLElement): void {
@@ -1022,7 +1028,10 @@ export function mountApp(root: HTMLElement): void {
      * critiche" con dentro il vuoto, che e' il modo migliore per insegnare a non
      * guardare quella zona dello schermo.
      */
+    // Con l'analisi aperta le Mosse critiche sono gia' tutte nella storia (vedi
+    // renderPostMortem): due racconti delle stesse mosse erano uno di troppo.
     recapPanel.hidden =
+      postMortem === 'shown' ||
       mistakeLog.length === 0 &&
       hintsUsed === 0 &&
       answersSeen === 0 &&
@@ -1125,98 +1134,212 @@ export function mountApp(root: HTMLElement): void {
       // cui la domanda neutra fa piu' danno: a chi ha buttato una vittoria non dice
       // niente, e a chi si e' salvato da una posizione persa toglierebbe un merito se
       // gliela facessimo comunque come "perche' non hai vinto".
-      ask.textContent = humanLost()
-        ? t('whyLost')
-        : humanDrew() && wasWinning()
-          ? t('whyNotWon')
-          : t('whyReview');
+      ask.textContent = leftOpen()
+        ? t('whyReviewResigned')
+        : humanLost()
+          ? t('whyLost')
+          : humanDrew() && wasWinning()
+            ? t('whyNotWon')
+            : t('whyReview');
       ask.addEventListener('click', showPostMortem);
       whyEl.append(ask);
       return;
     }
     // postMortem === 'shown'
+    //
+    // Una storia sola, in ordine di mossa. Prima c'erano due racconti paralleli: questa
+    // analisi (le mosse costose, i ripensamenti, le cose buone, gli errori della Nonna,
+    // la fretta) e le "Mosse critiche" (gli errori segnalati, gli aiuti, i ripensamenti),
+    // che nominavano le stesse mosse con parole diverse. Ora ogni mossa compare una volta,
+    // con tutto quello che la riguarda sulla stessa riga, e le Mosse critiche spariscono
+    // appena l'analisi e' aperta (vedi renderRecap). Deciso rileggendo un riepilogo vero.
     const worst = worstMoves();
-    const good = goodMoves();
     const box = document.createElement('div');
     box.className = 'why';
     // Il titolo dipende da come e' finita. "Dove la partita e' scivolata via" e' vero
     // se hai perso, o se hai buttato una vittoria; su una partita VINTA e' falso, e
     // trasforma due osservazioni in un rimprovero che nessuno ha meritato.
-    const slipped = humanLost() || (humanDrew() && wasWinning());
-    box.append(text(slipped ? t('whyTitle') : t('whyTitleWon'), 'why-title'));
-    if (worst.length === 0) {
-      /*
-       * "Non ho errori da segnalarti" e' vero, ma a meta': gli errori annullati
-       * durante la partita non sono qui perche' non sono mai stati giocati, e chi ha
-       * appena ripensato quattro mosse legge una promozione che non gli spetta.
-       *
-       * La Nonna li aveva gia' visti e lasciati correggere, quindi la frase giusta
-       * non e' "non hai sbagliato" ma "a parte quelli, non hai sbagliato": e' anche
-       * l'unico posto in cui il ripensamento viene raccontato come una GENTILEZZA sua
-       * invece che come una riga di conteggio.
-       */
-      const forgiven = mistakeLog.some((entry) => wasCorrected(entry));
-      box.append(text(t(forgiven ? 'whyNothingCorrected' : 'whyNothing'), 'why-note'));
-      appendRethinks(box);
-      appendGood(box, good);
-      appendGifts(box);
-      appendTiming(box);
-      appendAdvice(box);
-      whyEl.append(box);
-      return;
+    const slipped = (humanLost() && !leftOpen()) || (humanDrew() && wasWinning());
+    // Una vittoria senza mosse costose ha il suo titolo: "Qualche momento da rivedere"
+    // seguito da "non ho errori da segnalarti" si contraddiceva da solo.
+    const clean = humanWon() && worst.length === 0;
+    const open = leftOpen();
+    box.append(
+      text(
+        open ? t('whyTitleResigned') : slipped ? t('whyTitle') : clean ? t('whyTitleClean') : t('whyTitleWon'),
+        'why-title',
+      ),
+    );
+    if (open) {
+      box.append(
+        text(
+          t(open === 'winning' ? 'whyResignedWinning' : open === 'balanced' ? 'whyResignedBalanced' : 'whyResignedWorse'),
+          'why-note',
+        ),
+      );
     }
-    // La spiegazione "hai perso senza sbagliare" compare solo se e' VERA, e la verita'
-    // sta nei numeri e non nel registro degli interventi: il registro e' vuoto anche
-    // per una partita importata, dove la Nonna non c'era e non poteva dire niente.
-    // Si guarda quindi la mossa peggiore: se nemmeno quella arriva alla soglia
-    // dell'errore, allora la partita se n'e' andata davvero poco per volta.
-    // La PEGGIORE, non la prima: la lista qui sotto e' riordinata in ordine di
-    // partita, quindi worst[0] e' la piu' antica e non la piu' costosa.
-    const heaviest = Math.max(...worst.map((loss) => loss.drop));
-    if (humanLost() && heaviest < MISTAKE_DROP) {
-      // La frase dice "te ne mostro qualcuno" e non "ecco le tre peggiori", ed e'
-      // deliberato: misurato, quando gli scarti stanno tutti fra i sette e i dieci
-      // punti la terna cambia al cambiare della profondita' di ricerca. Presentarli
-      // come ESEMPI e' l'unica forma che regge quello che sappiamo davvero.
+    if (worst.length === 0 && !open) {
+      box.append(text(t('whyNothing'), 'why-note'));
+    } else if (!open && worst.length > 0 && humanLost() && Math.max(...worst.map((loss) => loss.drop)) < MISTAKE_DROP) {
+      // "Te ne mostro qualcuno" e non "ecco le tre peggiori": quando gli scarti stanno
+      // tutti fra i sette e i dieci punti la terna cambia con la profondita' di ricerca,
+      // e presentarli come ESEMPI e' l'unica forma che regge quello che sappiamo.
       box.append(text(t('whyClean'), 'why-note'));
     }
-    const list = document.createElement('ul');
-    // Se la mossa giocata di fretta e' anche fra queste, la fretta si dice qui, tra
-    // parentesi accanto ai punti, e non piu' in una frase a parte sotto: la stessa mossa
-    // nominata due volte sembrava due problemi (segnalato leggendo un riepilogo vero).
+    const story = storyRows(worst);
+    if (story) box.append(story);
+    if (gifts.length > 3) {
+      const seen = gifts.filter((gift) => gift.seen).length;
+      box.append(text(t('giftsMore', { count: gifts.length, taken: seen }), 'why-units'));
+    }
+    const summary = storySummary();
+    if (summary) box.append(text(summary, 'why-note story-summary'));
+    appendAdvice(box);
+    // Che cosa sono i punti: detto una volta, e chiuso. Chi l'ha capito non deve
+    // riscorrerlo a ogni partita; chi se lo chiede sa dove aprirlo.
+    if (worst.length > 0 || rethinks.length > 0) {
+      const units = document.createElement('details');
+      units.className = 'why-units';
+      const summaryEl = document.createElement('summary');
+      summaryEl.textContent = t('whyUnitsTitle');
+      const body = document.createElement('p');
+      body.textContent = t('whyUnits');
+      units.append(summaryEl, body);
+      box.append(units);
+    }
+    whyEl.append(box);
+  }
+
+  /**
+   * Le righe della storia: una per mossa, in ordine di partita, e ognuna porta alla sua
+   * posizione con un tocco (chiesto: "senza doverla cercare nell'elenco mosse").
+   */
+  function storyRows(worst: readonly MoveLoss[]): HTMLElement | null {
+    interface Row {
+      ply: number;
+      head: string;
+      /** Tra testa e parti: ", " dopo un ripensamento ("…, cambiata in d5"), " — " altrimenti. */
+      joiner: string;
+      parts: string[];
+    }
+    const rows = new Map<number, Row>();
+    const head = (ply: number): string => {
+      const played = state.plies[ply];
+      const color = played?.color ?? humanColor;
+      return `${moveLabel(moveNumberOf(state, ply), color)} ${played ? toFigurine(played.san) : ''}`.trim();
+    };
+    const row = (ply: number): Row => {
+      let found = rows.get(ply);
+      if (!found) {
+        found = { ply, head: head(ply), joiner: ' — ', parts: [] };
+        rows.set(ply, found);
+      }
+      return found;
+    };
+    const median = usualThinking(thinkTimes, timingCounts);
     const moment = timingMoment();
-    for (const loss of worst) {
+
+    // I ripensamenti: la testa e' la mossa RIPRESA, con il suo costo e la fretta; poi
+    // quella giocata al suo posto. Comprendono gli errori segnalati e annullati.
+    for (const rethink of rethinks) {
+      const note = (notes: string[]): string => (notes.length ? ` (${notes.join('; ')})` : '');
+      const before: string[] = [];
+      if (rethink.drop !== null && Math.round(rethink.drop) >= 1) {
+        before.push(t('whyRethinkPoints', { drop: Math.round(rethink.drop) }));
+      }
+      if (rethink.ms !== null && median !== null && rethink.ms * 2 < median) {
+        before.push(hasteNote(rethink.ms, median));
+      }
+      const after: string[] = [];
+      const replacement = losses.find((loss) => loss.ply === rethink.ply);
+      const kept = rethink.newSan !== null && state.plies[rethink.ply]?.san === rethink.newSan;
+      if (kept && replacement && Math.round(replacement.drop) >= 1) {
+        after.push(t('whyRethinkPoints', { drop: Math.round(replacement.drop) }));
+      }
+      const target = row(rethink.ply);
+      target.head = `${moveLabel(rethink.number, humanColor)} ${toFigurine(rethink.san)}${note(before)}`;
+      target.joiner = ', ';
+      target.parts.unshift(
+        rethink.newSan
+          ? t('storyRethink', { newSan: toFigurine(rethink.newSan), after: note(after) })
+          : t('storyRethinkOpen'),
+      );
+    }
+
+    // Le mosse costose rimaste in partita, e la mossa giocata di fretta anche se non e'
+    // fra le tre peggiori: e' l'unico posto dove dirlo.
+    const costly = [...worst];
+    if (moment && !costly.some((loss) => loss.ply === moment.move.ply)) costly.push(moment.move);
+    for (const loss of costly) {
+      if (rethinks.some((rethink) => rethink.ply === loss.ply)) continue; // gia' detto dal ripensamento
+      const note = moment && moment.move.ply === loss.ply ? `; ${hasteNote(moment.ms, moment.median)}` : '';
+      const better = loss.best ? ` · ${t('whyBetter', { san: toFigurine(loss.best) })}` : '';
+      row(loss.ply).parts.push(
+        t('storyLoss', { verdict: lossVerdict(loss), drop: Math.round(loss.drop), note }) + better,
+      );
+    }
+
+    for (const move of goodMoves()) row(move.ply).parts.push(t('storyGood'));
+    for (const gift of [...gifts].sort((a, b) => a.ply - b.ply).slice(0, 3)) {
+      row(gift.ply).parts.push(t(gift.seen ? 'storyGiftSeen' : 'storyGiftMissed'));
+    }
+    // Gli aiuti, uno per tipo per mossa: due consigli nella stessa posizione sono una
+    // cosa sola da raccontare.
+    for (const kind of ['hint', 'answer'] as const) {
+      const plies = new Set(helpLog.filter((event) => event.kind === kind).map((event) => event.ply));
+      for (const ply of plies) row(ply).parts.push(t(kind === 'hint' ? 'storyHint' : 'storyAnswer'));
+    }
+
+    if (rows.size === 0) return null;
+    const list = document.createElement('ul');
+    list.className = 'story';
+    for (const entry of [...rows.values()].sort((a, b) => a.ply - b.ply)) {
       const item = document.createElement('li');
-      const note =
-        moment && moment.move.ply === loss.ply ? `; ${hasteNote(moment.ms, moment.median)}` : '';
-      item.textContent = t('whyLine', {
-        move: moveLabel(loss.number, humanColor),
-        san: toFigurine(loss.san),
-        verdict: lossVerdict(loss),
-        drop: Math.round(loss.drop),
-        note,
+      item.className = 'story-row';
+      item.tabIndex = 0;
+      item.setAttribute('role', 'button');
+      const parts = entry.parts.join(' · ');
+      // Dopo il trattino si comincia con la maiuscola ("— Mi hai chiesto un consiglio");
+      // dopo la virgola del ripensamento no ("…, cambiata in d5").
+      const tail = entry.joiner === ' — ' ? `${parts.charAt(0).toUpperCase()}${parts.slice(1)}` : parts;
+      item.textContent = `${entry.head}${entry.joiner}${tail}`;
+      // Alla posizione PRIMA della mossa: quella in cui si doveva scegliere.
+      const go = (): void => {
+        seek(Math.min(entry.ply, state.plies.length));
+        revealBoard();
+      };
+      item.addEventListener('click', go);
+      item.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          go();
+        }
       });
-      if (loss.best) item.textContent += ` · ${t('whyBetter', { san: toFigurine(loss.best) })}`;
       list.append(item);
     }
-    box.append(list);
-    appendRethinks(box);
-    // Che cosa sono quei punti, detto UNA VOLTA e sotto la lista.
-    //
-    // "Dieci punti persi" non dice niente da solo: chi legge puo' pensare a
-    // centesimi di pedone, che sono l'unita' con cui i motori parlano fra loro e
-    // l'unica che si trova in giro. Qui invece sono punti di aspettativa, cioe' la
-    // sola unita' in cui il tutor ragiona — e ha il pregio di essere spiegabile in
-    // una frase senza nominare la valutazione del motore.
-    //
-    // Sotto e non sopra: chi ha gia' capito legge le mosse e salta la nota; chi non
-    // ha capito la trova dove ha finito di leggere e si e' fatto la domanda.
-    appendGood(box, good);
-    appendGifts(box);
-    appendTiming(box);
-    box.append(text(t('whyUnits'), 'why-units'));
-    appendAdvice(box);
-    whyEl.append(box);
+    return list;
+  }
+
+  /** "In media hai pensato 17 secondi a mossa · 3 consigli · 2 ripensamenti su 5." */
+  function storySummary(): string | null {
+    const parts: string[] = [];
+    const median = usualThinking(thinkTimes, timingCounts);
+    if (median !== null) parts.push(t('storyAverage', { time: duration(median) }));
+    if (studied) parts.push(t('storyStudied'));
+    if (hintsUsed > 0) parts.push(t(hintsUsed === 1 ? 'storyHintsOne' : 'storyHints', { count: hintsUsed }));
+    if (answersSeen > 0) {
+      parts.push(t(answersSeen === 1 ? 'storyAnswersOne' : 'storyAnswers', { count: answersSeen }));
+    }
+    if (takeBacks > 0) {
+      parts.push(
+        takebackLimit === null
+          ? t('storyTakeBacks', { count: takeBacks })
+          : t('storyTakeBacksOf', { count: takeBacks, limit: takebackLimit }),
+      );
+    }
+    if (parts.length === 0) return null;
+    const line = parts.join(' · ');
+    return `${line.charAt(0).toUpperCase()}${line.slice(1)}.`;
   }
 
   /**
@@ -1265,50 +1388,6 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /**
-   * Le mosse buone, in fondo: si finisce con quello che si e' fatto bene.
-   *
-   * Non e' cortesia. Chi ha appena letto tre suoi errori chiude il pannello con quelli
-   * in testa, e il merito riconosciuto per ultimo e' l'unico che resta. Ma solo se c'e'
-   * davvero — vedi goodMoves, che e' avaro apposta.
-   */
-  /**
-   * "Ti ho regalato qualcosa e l'hai visto": il merito che mancava.
-   *
-   * Sta prima del consiglio e dopo le mosse buone, perche' non parla di come hai
-   * giocato ma di come hai guardato ME. E' l'unica riga del pannello in cui la Nonna
-   * parla dei propri errori.
-   */
-  function appendGifts(box: HTMLElement): void {
-    if (gifts.length === 0) return;
-    box.append(text(t('giftsTitle'), 'why-gifts-title'));
-    const list = document.createElement('ul');
-    // In ordine di partita come tutto il resto del pannello, e al massimo tre: a un
-    // livello distratto le papere possono essere parecchie, e un elenco lungo di mosse
-    // altrui affoga le proprie.
-    const shown = [...gifts].sort((a, b) => a.ply - b.ply).slice(0, 3);
-    for (const gift of shown) {
-      const item = document.createElement('li');
-      item.textContent = t(gift.seen ? 'giftLineSeen' : 'giftLineMissed', {
-        move: moveLabel(gift.number, gift.color),
-        san: toFigurine(gift.san),
-      });
-      list.append(item);
-    }
-    box.append(list);
-    if (gifts.length > 3) {
-      const seen = gifts.filter((gift) => gift.seen).length;
-      box.append(text(t('giftsMore', { count: gifts.length, taken: seen }), 'why-units'));
-    }
-  }
-
-  /**
-   * "23." per il Bianco, "23…" per il Nero.
-   *
-   * E' la notazione standard, e serve a dire di CHI e' la mossa senza scriverlo. Le
-   * righe della post-analisi usavano il punto per tutti, quindi una mossa del Nero si
-   * leggeva come una del Bianco — cosa che nel riepilogo era gia' giusta e qui no.
-   */
-  /**
    * "Consigli chiesti: 3 (mosse 3, 16, 18)." Le mosse si dicono solo se il registro e'
    * completo: una partita salvata prima dei marcatori ha i totali ma non i momenti, e un
    * elenco parziale direbbe una cosa falsa.
@@ -1321,6 +1400,13 @@ export function mountApp(root: HTMLElement): void {
     return `${line.replace(/\.$/, '')} (${t(numbers.length === 1 ? 'recapMoveAt' : 'recapMovesAt', { moves: numbers.join(', ') })}).`;
   }
 
+  /**
+   * "23." per il Bianco, "23…" per il Nero.
+   *
+   * E' la notazione standard, e serve a dire di CHI e' la mossa senza scriverlo. Le
+   * righe della post-analisi usavano il punto per tutti, quindi una mossa del Nero si
+   * leggeva come una del Bianco — cosa che nel riepilogo era gia' giusta e qui no.
+   */
   function moveLabel(number: number, color: Color): string {
     return `${number}${color === 'w' ? '.' : '…'}`;
   }
@@ -1331,33 +1417,13 @@ export function mountApp(root: HTMLElement): void {
     if (sentence) box.append(text(sentence, 'why-advice'));
   }
 
-  function appendGood(box: HTMLElement, good: readonly MoveLoss[]): void {
-    if (good.length === 0) return;
-    box.append(text(t('whyGoodTitle'), 'why-good-title'));
-    const list = document.createElement('ul');
-    for (const move of good) {
-      const item = document.createElement('li');
-      item.textContent = t('whyGoodLine', {
-        move: moveLabel(move.number, humanColor),
-        san: toFigurine(move.san),
-      });
-      list.append(item);
-    }
-    box.append(list);
-  }
-
   /**
-   * Quanto hai pensato: il tuo solito, e al massimo una mossa giocata di fretta che e'
-   * costata cara (vedi tutor/timing.ts).
+   * La mossa di cui si dice "forse e' stata la fretta", o null (vedi tutor/timing.ts).
    *
-   * Nel "solito" non entrano le mosse d'apertura giocate a memoria ne' quelle ovvie:
-   * abbasserebbero il numero senza dire niente di come si pensa. Se i tempi non bastano
-   * (una partita importata senza `%emt`, o giocata prima che si registrassero) la Nonna
-   * non dice niente, invece di un numero fatto con tre mosse.
-   */
-  /**
-   * La mossa di cui si dice "forse e' stata la fretta", o null. Vedi appendTiming per il
-   * criterio; sta a parte perche' la usa anche la lista delle mosse da rivedere.
+   * Una sola, e sempre su una mossa che il tempo ha fatto pagare: prima l'errore vero
+   * giocato di fretta; se non c'e', l'imprecisione giocata di fretta in una posizione
+   * ancora aperta. Nel tempo medio non entrano le mosse d'apertura giocate a memoria ne'
+   * quelle ovvie; senza abbastanza tempi (una partita importata senza `%emt`) niente.
    */
   function timingMoment(): { kind: 'hasty' | 'delicate'; move: MoveLoss; ms: number; median: number } | null {
     const median = usualThinking(thinkTimes, timingCounts);
@@ -1394,76 +1460,6 @@ export function mountApp(root: HTMLElement): void {
     return t('whyRethinkHasty', { time: duration(ms), usual });
   }
 
-  function appendTiming(box: HTMLElement): void {
-    const median = usualThinking(thinkTimes, timingCounts);
-    if (median === null) return;
-    // La fretta gia' detta nella lista delle mosse da rivedere non si ripete qui.
-    const moment = timingMoment();
-    if (moment && worstMoves().some((loss) => loss.ply === moment.move.ply)) return;
-    // Le stesse mosse che fanno il tempo medio: le tue, fuori dall'apertura, non ovvie.
-    // Le mosse di libro restano fuori anche da qui: rimproverare la fretta su una mossa
-    // giocata a memoria sarebbe un rimprovero a chi la sapeva.
-    const mine = (loss: MoveLoss): boolean => inPlay(loss) && timingCounts(loss.ply);
-    // Una frase sola, e sempre su una mossa che il tempo ha fatto pagare: del tempo in se'
-    // la Nonna non parla mai. Prima l'errore vero giocato di fretta; se non c'e',
-    // l'imprecisione giocata di fretta dove la strada era stretta (gap alto), che durante
-    // la partita non viene mai segnalata. Mai su una mossa riuscita: quella sta fra le
-    // lodi ("c'era una sola mossa buona, e tu l'hai trovata"), e rimproverare la fretta
-    // li' sarebbe contraddirsi nello stesso riepilogo.
-    const hasty = hastiest(
-      thinkTimes,
-      losses.filter((loss) => mine(loss) && loss.drop >= MISTAKE_DROP),
-      median,
-    );
-    if (hasty) {
-      box.append(
-        text(
-          t('whyTimeHasty', {
-            move: moveLabel(hasty.move.number, humanColor),
-            san: toFigurine(hasty.move.san),
-            time: duration(hasty.ms),
-            usual: duration(median),
-            drop: Math.round(hasty.move.drop),
-          }),
-          'why-note',
-        ),
-      );
-      return;
-    }
-    const delicate = hastiest(
-      thinkTimes,
-      losses.filter(
-        (loss) =>
-          mine(loss) &&
-          loss.drop >= INACCURACY_DROP &&
-          loss.drop < MISTAKE_DROP &&
-          loss.before >= OPEN_GAME_LOW &&
-          loss.before <= OPEN_GAME_HIGH,
-      ),
-      median,
-    );
-    if (delicate) {
-      // La mossa giusta si dice QUI: la lista sopra ne mostra al massimo tre, e
-      // un'imprecisione puo' restarne fuori, portandosi via anche il "meglio".
-      const best = delicate.move.best
-        ? ` ${t('whyTimeDelicateBest', { best: toFigurine(delicate.move.best) })}`
-        : '';
-      box.append(
-        text(
-          t('whyTimeDelicate', {
-            move: moveLabel(delicate.move.number, humanColor),
-            san: toFigurine(delicate.move.san),
-            time: duration(delicate.ms),
-            usual: duration(median),
-          }) + best,
-          'why-note',
-        ),
-      );
-      return;
-    }
-    box.append(text(t('whyTimeUsual', { time: duration(median) }), 'why-note'));
-  }
-
   /** Le mosse che entrano nel tempo medio: le tue, fuori dall'apertura, non ovvie. */
   function timingCounts(ply: number): boolean {
     return (
@@ -1471,57 +1467,6 @@ export function mountApp(root: HTMLElement): void {
       !(gameBookExit !== null && ply < gameBookExit) &&
       !obvious(ply)
     );
-  }
-
-  /**
-   * I ripensamenti, come momenti critici: la Nonna li tratta tutti, che li avesse segnalati
-   * o no. Chi si e' ripreso una mossa guardando la barra vuole ritrovarla qui — dove,
-   * quanto costava, e se l'aveva giocata di fretta (segnalato giocando: "la mia unica
-   * imprecisione, che mi sono auto-perdonato con il back").
-   */
-  function appendRethinks(box: HTMLElement): void {
-    if (rethinks.length === 0) return;
-    box.append(text(t('whyRethinkTitle'), 'why-good-title'));
-    const median = usualThinking(thinkTimes, timingCounts);
-    const list = document.createElement('ul');
-    for (const rethink of rethinks) {
-      const move = moveLabel(rethink.number, humanColor);
-      // Ogni mossa porta tra parentesi le sue note: il costo e, per quella ripresa, la
-      // fretta. Cosi' si legge a chi si riferisce ciascun numero, e la riga resta una frase
-      // invece di un elenco puntato (chiesto leggendo un riepilogo vero).
-      const note = (notes: string[]): string => (notes.length ? ` (${notes.join('; ')})` : '');
-      const before: string[] = [];
-      if (rethink.drop !== null) {
-        const drop = Math.round(rethink.drop);
-        if (drop >= 1) before.push(t('whyRethinkPoints', { drop }));
-      }
-      // Il tempo si dice SOLO quando ha fatto la differenza, come nelle altre frasi sul
-      // tempo: "ci avevi pensato 27 secondi", senza un confronto, non e' un'informazione.
-      // Riguarda la mossa ripresa: e' quella giocata di corsa.
-      if (rethink.ms !== null && median !== null && rethink.ms * 2 < median) {
-        before.push(hasteNote(rethink.ms, median));
-      }
-      // Il costo della nuova, contato come l'altro rispetto alla migliore. Zero non si
-      // scrive: una parentesi per dire "niente" e' rumore.
-      const after: string[] = [];
-      const replacement = losses.find((loss) => loss.ply === rethink.ply);
-      if (rethink.newSan && replacement && state.plies[rethink.ply]?.san === rethink.newSan) {
-        const drop = Math.round(replacement.drop);
-        if (drop >= 1) after.push(t('whyRethinkPoints', { drop }));
-      }
-      const item = document.createElement('li');
-      item.textContent = rethink.newSan
-        ? t('whyRethinkLine', {
-            move,
-            san: toFigurine(rethink.san),
-            before: note(before),
-            newSan: toFigurine(rethink.newSan),
-            after: note(after),
-          })
-        : t('whyRethinkLineOpen', { move, san: toFigurine(rethink.san), before: note(before) });
-      list.append(item);
-    }
-    box.append(list);
   }
 
   /** Frecce per un elenco di mosse in SAN, nella posizione mostrata. */
@@ -1631,6 +1576,12 @@ export function mountApp(root: HTMLElement): void {
     return losses.some((loss) => turnAfter(loss.ply) === humanColor && loss.before >= 70);
   }
 
+  /** Come stavi quando hai abbandonato, se la partita era ancora aperta; null altrimenti. */
+  function leftOpen(): 'winning' | 'balanced' | 'worse' | null {
+    const from = outcome?.reason === 'resign' ? outcome.resignedFrom : undefined;
+    return from && from !== 'hopeless' ? from : null;
+  }
+
   function humanDrew(): boolean {
     if (outcome) return outcome.result === '1/2-1/2';
     const over = gameOver(goTo(state, state.plies.length));
@@ -1664,6 +1615,8 @@ export function mountApp(root: HTMLElement): void {
     // vengono giudicate, e rianalizzare per quelle sarebbe attesa sprecata.
     postMortem = judged >= Math.ceil(mine / 2) ? 'shown' : 'foreign';
     renderPostMortem();
+    // Aperta la storia, le Mosse critiche si chiudono: sono gia' tutte li' dentro.
+    renderRecap();
   }
 
   /** Rianalizza la partita da capo, dopo che l'utente ha detto di si'. */
@@ -1774,6 +1727,7 @@ export function mountApp(root: HTMLElement): void {
     postMortem = 'shown';
     saveGame();
     renderPostMortem();
+    renderRecap();
   }
 
   /**
@@ -1904,7 +1858,11 @@ export function mountApp(root: HTMLElement): void {
     renderOfferPanel(offerEl, offer, {
       onConfirm: () => {
         // Si abbandona: il risultato lo decide il colore di chi si arrende.
-        outcome = { result: humanColor === 'w' ? '0-1' : '1-0', reason: 'resign' };
+        outcome = {
+          result: humanColor === 'w' ? '0-1' : '1-0',
+          reason: 'resign',
+          ...(offer?.resign ? { resignedFrom: offer.resign } : {}),
+        };
         offer = null;
         refresh();
       },
