@@ -65,9 +65,11 @@ import { renderOfferPanel, type OfferView } from './offerPanel.js';
 import { acceptsDraw, judgeDraw, judgeResign } from '../tutor/adjudicate.js';
 import {
   classifyEndgame,
+  countMaterial,
   type Endgame,
   matingTarget,
   reachableEndgames,
+  theoreticalDraw,
   theoreticalWin,
 } from '../endgame/endgame.js';
 import { LOCALES, LOCALE_NAMES, locale, setLocale, t } from '../i18n/index.js';
@@ -207,6 +209,9 @@ function preferredTakebackLimit(): number | null {
  * altro motivo per farla solo su richiesta esplicita e mai in continuazione.
  */
 const HINT_DEPTH = 12;
+
+/** Quante mosse "piatte" di fila, in un finale, prima che la Nonna proponga la patta. */
+const FLAT_MOVES = 12;
 
 /**
  * Quante mosse buone si disegnano dopo un errore. Oltre, le frecce si coprono e la
@@ -704,6 +709,12 @@ export function mountApp(root: HTMLElement): void {
    * valuta prima di rispondere, nella posizione che ha davanti (vedi answerDraw).
    */
   let drawOffered = false;
+  /**
+   * Le patte proposte dalla Nonna in questa partita, con il materiale di quel momento:
+   * una proposta rifiutata non si ripete finche' il materiale non cambia. Le semi-mosse
+   * finiscono anche nella storia di fine partita ("qui ti ho proposto la patta").
+   */
+  const drawProposals: { ply: number; material: string }[] = [];
   /**
    * I finali gia' segnalati in questa partita.
    *
@@ -1262,6 +1273,12 @@ export function mountApp(root: HTMLElement): void {
     }
 
     for (const move of goodMoves()) row(move.ply).parts.push(t('storyGood'));
+    // La patta proposta dalla Nonna, sulla mossa che le e' seguita: e' li' che si poteva
+    // chiudere. Se la partita e' finita patta proprio li', non c'e' niente da ricordare.
+    for (const proposal of drawProposals) {
+      if (proposal.ply >= state.plies.length) continue;
+      row(proposal.ply).parts.push(t('storyDrawProposed'));
+    }
     for (const gift of [...gifts].sort((a, b) => a.ply - b.ply).slice(0, 3)) {
       row(gift.ply).parts.push(t(gift.seen ? 'storyGiftSeen' : 'storyGiftMissed'));
     }
@@ -1848,6 +1865,13 @@ export function mountApp(root: HTMLElement): void {
   function renderOffer(): void {
     renderOfferPanel(offerEl, offer, {
       onConfirm: () => {
+        // La patta proposta dalla Nonna, accettata.
+        if (offer?.proposed) {
+          outcome = { result: '1/2-1/2', reason: 'draw' };
+          offer = null;
+          refresh();
+          return;
+        }
         // Si abbandona: il risultato lo decide il colore di chi si arrende.
         outcome = {
           result: humanColor === 'w' ? '0-1' : '1-0',
@@ -3231,6 +3255,48 @@ export function mountApp(root: HTMLElement): void {
     state = next;
     evaluation = null;
     refresh();
+    proposeDrawIfDead();
+  }
+
+  /**
+   * La Nonna propone la patta quando continuare non serve a niente.
+   *
+   * Non chiude la partita da sola: la regola FIDE lo fa solo per le posizioni in cui il
+   * matto e' impossibile (e quelle finiscono gia' da sole). Qui il matto e' possibile ma
+   * nessuno dei due lo puo' forzare, e saperlo riconoscere fa parte del gioco: la Nonna
+   * lo dice e propone la patta, dopo la sua mossa come vuole la regola, e chi gioca
+   * accetta o continua. Due casi:
+   * - un finale patto in teoria, riconosciuto dal materiale (vedi theoreticalDraw);
+   * - dal finale in poi, dodici mosse di fila in cui l'aspettativa resta vicina al pari:
+   *   nessuno riesce a fare progressi.
+   * Una volta sola per situazione: rifiutata, torna solo se il materiale cambia.
+   */
+  function proposeDrawIfDead(): void {
+    if (outcome || offer || review || finished()) return;
+    if (state.cursor !== state.plies.length || positionAt(state).turn() !== humanColor) return;
+    const fen = currentFen(state);
+    const board = fen.split(' ')[0] ?? '';
+    const material = board.replace(/[^a-zA-Z]/g, '').split('').sort().join('');
+    if (drawProposals.some((entry) => entry.material === material)) return;
+    const theory = theoreticalDraw(fen);
+    let reason: string | null = theory ? `drawReason_${theory}` : null;
+    if (!reason) {
+      const { white, black } = countMaterial(fen);
+      const pieces = white.n + white.b + white.r + white.q + black.n + black.b + black.r + black.q;
+      const mine = losses
+        .filter((loss) => turnAfter(loss.ply) === humanColor)
+        .sort((a, b) => b.ply - a.ply)
+        .slice(0, FLAT_MOVES);
+      const flat =
+        pieces <= 4 &&
+        mine.length === FLAT_MOVES &&
+        mine.every((loss) => loss.before >= 40 && loss.before <= 60);
+      if (flat) reason = 'drawReason_flat';
+    }
+    if (!reason) return;
+    drawProposals.push({ ply: state.cursor, material });
+    offer = { kind: 'draw', thinking: false, proposed: reason };
+    renderOffer();
   }
 
   /**
@@ -4044,15 +4110,54 @@ export function mountApp(root: HTMLElement): void {
     element.disabled = disabled;
     element.append(createIcon(name));
     element.addEventListener('click', onClick);
+    touchLabel(element, label);
     return element;
   }
 
   /**
-   * Il bilanciere, che dice quanto e' forte la Nonna adesso.
+   * Il nome di un'icona, al tocco prolungato.
    *
-   * I dischi crescono con il livello (vedi `createStrengthIcon`). E un occhio piccolo
-   * sopra la sbarra, ma SOLO se e' attenta: la distinzione e' "c'e' o non c'e'", perche'
-   * aperto contro chiuso, a quella misura, non si distingue. Il numero esatto del
+   * Col mouse il nome compare passandoci sopra (`title`); sul telefono no, e il tocco
+   * lungo selezionava l'icona come fosse testo, senza dire niente (segnalato usandolo).
+   * Qui il tocco lungo mostra il nome in basso, come gli altri avvisi, e il pulsante non
+   * scatta: chi tiene premuto vuole sapere cos'e', non usarlo.
+   */
+  function touchLabel(element: HTMLElement, label: string): void {
+    let timer: number | null = null;
+    let shown = false;
+    const clear = (): void => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = null;
+    };
+    element.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse') return;
+      shown = false;
+      clear();
+      timer = window.setTimeout(() => {
+        shown = true;
+        toast(label);
+      }, 500);
+    });
+    for (const type of ['pointerup', 'pointercancel', 'pointerleave'] as const) {
+      element.addEventListener(type, clear);
+    }
+    element.addEventListener('contextmenu', (event) => event.preventDefault());
+    element.addEventListener(
+      'click',
+      (event) => {
+        if (!shown) return;
+        shown = false;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      },
+      true,
+    );
+  }
+
+  /**
+   * Il bilanciere, che apre il riquadro della forza. Il livello non lo porta piu'
+   * l'icona: si legge nella riga di stato. Prima i dischi crescevano con il livello e un
+   * occhio segnava l'attenzione, ma l'icona composta non si leggeva. Il numero esatto del
    * livello sta nel pannello che l'icona apre.
    */
   /**
@@ -4624,7 +4729,6 @@ export function mountApp(root: HTMLElement): void {
       dialog.replaceChildren();
       const title = document.createElement('h2');
       title.textContent = t('opponentHelpTitle');
-      dialog.append(title);
 
       // Tre sezioni, ognuna col suo titolo: il menu, la spiegazione che lo riguarda e —
       // per il livello — la tabella. Prima i tre menu stavano in fila con le spiegazioni
@@ -4706,7 +4810,8 @@ export function mountApp(root: HTMLElement): void {
       close.className = 'settings-close';
       close.textContent = t('settingsClose');
       close.addEventListener('click', () => dialog.close());
-      dialog.append(close, document.createElement('hr'));
+      // "Come scegliere" introduce le spiegazioni, non le scelte: sta sotto la linea.
+      dialog.append(close, document.createElement('hr'), title);
 
       section('sectionLevel', null, help('opponentHelpLevel'));
       section('sectionAttention', null, help('opponentHelpCareful'), help('opponentHelpSloppy'));
@@ -4980,6 +5085,7 @@ export function mountApp(root: HTMLElement): void {
     outcome = null;
     offer = null;
     drawOffered = false;
+    drawProposals.length = 0;
     // Anche i finali gia' visti: appartengono alla partita, non alla sessione.
     endgamesSeen.clear();
     endgamesAnnounced.clear();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { matingTarget, theoreticalWin } from './endgame.js';
+import { matingTarget, theoreticalDraw, theoreticalWin } from './endgame.js';
 
 describe('theoreticalWin', () => {
   it('riconosce alfiere e cavallo e il colore dell\'angolo', () => {
@@ -33,5 +33,21 @@ describe('matingTarget', () => {
   it('il bordo piu\' vicino per donna e torre', () => {
     expect(matingTarget('e5', 'edge')).toBe('h5');
     expect(matingTarget('c7', 'edge')).toBe('c8');
+  });
+});
+
+describe('theoreticalDraw', () => {
+  it('riconosce i finali patti senza pedoni', () => {
+    expect(theoreticalDraw('8/8/4k3/8/8/4K3/8/5NN1 w - - 0 1')).toBe('knights');
+    expect(theoreticalDraw('8/8/4k3/8/8/4K3/r7/R7 w - - 0 1')).toBe('rook');
+    expect(theoreticalDraw('8/5b2/4k3/8/8/4K3/8/5N2 w - - 0 1')).toBe('minor');
+    expect(theoreticalDraw('3q4/8/4k3/8/8/4K3/8/3Q4 w - - 0 1')).toBe('queen');
+  });
+
+  it('non dichiara patta quello che non lo e\'', () => {
+    // Con un pedone la teoria cambia.
+    expect(theoreticalDraw('8/8/4k3/8/8/4K3/r6P/R7 w - - 0 1')).toBeNull();
+    // Torre contro Alfiere: spesso patta, ma non sempre.
+    expect(theoreticalDraw('8/5b2/4k3/8/8/4K3/8/R7 w - - 0 1')).toBeNull();
   });
 });

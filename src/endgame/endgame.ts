@@ -375,3 +375,22 @@ export function matingTarget(kingSquare: string, target: TheoreticalWin['target'
   const best = [...corners].sort((a, b) => distance(a) - distance(b))[0]!;
   return name(best[0], best[1]);
 }
+
+/**
+ * I finali patti in teoria: il matto e' ancora possibile sulla scacchiera, quindi non
+ * sono "posizioni morte" e la partita non finisce da sola, ma nessuno dei due lo puo'
+ * forzare. Senza pedoni, perche' con i pedoni la teoria cambia caso per caso.
+ *
+ * Restituisce la chiave del motivo (vedi i testi drawReason*), o null.
+ */
+export function theoreticalDraw(fen: string): 'knights' | 'minor' | 'rook' | 'queen' | null {
+  const { white, black } = countMaterial(fen);
+  if (white.p + black.p > 0) return null;
+  const [strong, weak] = total(white) >= total(black) ? [white, black] : [black, white];
+  const sig = signature(strong, weak);
+  if (sig === 'KNNvK') return 'knights';
+  if (['KBvKB', 'KNvKN', 'KBvKN', 'KNvKB'].includes(sig)) return 'minor';
+  if (sig === 'KRvKR') return 'rook';
+  if (sig === 'KQvKQ') return 'queen';
+  return null;
+}

@@ -27,6 +27,8 @@ export interface OfferView {
   readonly accepted?: boolean | null;
   /** Patta offerta, in attesa della mossa di chi la offre (regolamento FIDE, 9.1.2.1). */
   readonly waiting?: boolean;
+  /** La patta la propone la Nonna: la chiave del perche' (testi drawReason*). */
+  readonly proposed?: string;
 }
 
 export interface OfferHandlers {
@@ -69,6 +71,16 @@ export function renderOfferPanel(
 
   const actions = document.createElement('div');
   actions.className = 'tutor-actions';
+
+  if (view.proposed) {
+    container.append(said(t(view.proposed)));
+    actions.append(
+      action(t('drawProposalAccept'), handlers.onConfirm, 'primary'),
+      action(t('drawProposalDecline'), handlers.onCancel),
+    );
+    container.append(actions);
+    return;
+  }
 
   if (view.waiting) {
     container.append(said(t('drawAfterMove')));

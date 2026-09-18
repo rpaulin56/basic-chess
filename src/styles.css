@@ -273,6 +273,12 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
    pulsanti, e lo spazio guadagnato in altezza vale piu' speso in leggibilita' che
    lasciato vuoto. */
 .icon-btn {
+  /* Il tocco lungo mostra il nome (vedi touchLabel): niente selezione come testo, niente
+     menu del sistema, niente riquadro grigio del tocco. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
   width: 40px;
   height: 40px;
   display: grid;
