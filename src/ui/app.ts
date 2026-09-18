@@ -716,7 +716,7 @@ export function mountApp(root: HTMLElement): void {
    * finche' non muovi di nuovo, e l'errore si rivede con calma nella storia di fine
    * partita. Vale anche con il limite "Mai", fin dall'inizio.
    */
-  let quietNote: { ply: number; drop: number; severity: string } | null = null;
+  let quietNote: { ply: number; drop: number; number: number; san: string } | null = null;
   /**
    * Le patte proposte dalla Nonna in questa partita, con il materiale di quel momento:
    * una proposta rifiutata non si ripete finche' il materiale non cambia. Le semi-mosse
@@ -2664,7 +2664,12 @@ export function mountApp(root: HTMLElement): void {
       );
       const refutation = after.lines[0]?.pv ?? [];
       if (forgivenessState() === 'exhausted') {
-        quietNote = { ply: state.plies.length - 1, drop: verdict.drop, severity: verdict.severity };
+        quietNote = {
+          ply: state.plies.length - 1,
+          drop: verdict.drop,
+          number: moveNumberOf(state, state.plies.length - 1),
+          san: state.plies[state.plies.length - 1]?.san ?? '',
+        };
         // La Nonna gioca comunque la confutazione: l'errore si paga come annunciato.
         if (refutation.length > 0) forcedLine = { startFen: pending.fenAfter, moves: refutation };
       } else review = {
@@ -3067,15 +3072,13 @@ export function mountApp(root: HTMLElement): void {
    * gravita' che il pannello scrive a parole, e le due cose devono concordare.
    */
   function tutorMark(): { from: Key; to: Key; brush: string } | undefined {
-    if (!review && !quietNote) return undefined;
-    // Con la nota, la freccia sta sulla mossa sbagliata anche dopo la risposta della Nonna.
-    const ply = review ? state.plies[state.cursor - 1] : state.plies[quietNote!.ply];
-    if (!ply || (!review && state.cursor !== state.plies.length)) return undefined;
-    const severity = review ? review.verdict.severity : quietNote!.severity;
+    if (!review) return undefined;
+    const ply = state.plies[state.cursor - 1];
+    if (!ply) return undefined;
     return {
       from: ply.from as Key,
       to: ply.to as Key,
-      brush: severity === 'blunder' ? 'red' : 'yellow',
+      brush: review.verdict.severity === 'blunder' ? 'red' : 'yellow',
     };
   }
 
@@ -4997,8 +5000,16 @@ export function mountApp(root: HTMLElement): void {
     if (review || !quietNote || finished()) return;
     tutorEl.replaceChildren();
     tutorEl.hidden = false;
+    // La mossa si nomina nel testo, e la freccia non c'e': dopo la risposta della Nonna
+    // una freccia sulla mossa di prima faceva sembrare la partita ancora ferma li', e
+    // non si capiva che toccava di nuovo a te (segnalato giocando).
     const note = document.createElement('p');
-    note.textContent = t('tutorQuiet', { drop: Math.round(quietNote.drop) });
+    const yourTurn = positionAt(state).turn() === humanColor && state.cursor === state.plies.length;
+    note.textContent =
+      t('tutorQuiet', {
+        move: `${moveLabel(quietNote.number, humanColor)} ${toFigurine(quietNote.san)}`,
+        drop: Math.round(quietNote.drop),
+      }) + (yourTurn ? ` ${t('tutorQuietYourTurn')}` : '');
     tutorEl.append(note);
   }
 
