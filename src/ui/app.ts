@@ -36,7 +36,7 @@ import {
   type Distraction,
 } from '../bot/bot.js';
 import { chooseBotMove } from '../bot/play.js';
-import { formatScore, winPercentOf } from '../engine/winProb.js';
+import { winPercentOf } from '../engine/winProb.js';
 import type { AnalyseOptions, Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
 import { transportArrows, type Arrow, type Consequence, classifyAgainstBest } from '../tutor/classify.js';
@@ -54,7 +54,7 @@ import { moveNumberOf } from '../core/game.js';
 import type { Key } from 'chessground/types';
 import { createBoardView, type BoardView, type Ghost } from './boardView.js';
 import { matePicture } from '../tutor/matePicture.js';
-import { createIcon, type IconName, createStrengthIcon } from './icons.js';
+import { createIcon, type IconName } from './icons.js';
 import { createCredits } from './credits.js';
 import { createEngineSession } from './engineSession.js';
 import { renderMoveList } from './moveList.js';
@@ -532,15 +532,6 @@ export function mountApp(root: HTMLElement): void {
   let forcedLine: { startFen: string; moves: readonly string[] } | null = null;
   let tutorEnabled = localStorage.getItem('basic-chess:tutor') !== 'off';
   /**
-   * Se mostrare la valutazione del motore sotto la scacchiera.
-   *
-   * Il numero e' due cose insieme: una misura per chi sa leggerla e una stampella per
-   * chi non ancora. SPENTO di default, perche' finche' c'e' si guarda quello invece
-   * della posizione, e giudicare da soli e' esattamente cio' che si viene a imparare
-   * qui. Chi lo vuole lo accende — e chi lo vuole lo trova.
-   */
-  let showEval = localStorage.getItem('basic-chess:eval') === 'on';
-  /**
    * Se mostrare la barra verticale accanto alla scacchiera.
    *
    * E' un'opzione SEPARATA dal numero, e non un modo diverso di disegnare la stessa
@@ -555,14 +546,6 @@ export function mountApp(root: HTMLElement): void {
    * cambia: li' il valore precedente non c'entra piu' niente.
    */
   let lastWhitePercent: number | null = null;
-  /**
-   * Se mostrare anche la profondita' della ricerca accanto al punteggio.
-   *
-   * Spenta di default: "profondita' 14" e' un dettaglio del motore, non
-   * un'informazione sulla partita, e chi non sa cos'e' la legge come rumore accanto
-   * al numero che invece conta. Chi sa cos'e' la accende.
-   */
-  let showDepth = localStorage.getItem('basic-chess:depth') === 'on';
   /**
    * Vero quando l'utente ha appena rigiocato una mossa che aveva ritirato.
    *
@@ -3717,48 +3700,24 @@ export function mountApp(root: HTMLElement): void {
           : t('thinking');
       return;
     }
-    statusEl.textContent = positionAt(state).turn() === 'w' ? t('turnWhite') : t('turnBlack');
+    // Con chi si gioca, in chiaro: l'icona del bilanciere non lo dice piu'.
+    statusEl.textContent = `${positionAt(state).turn() === 'w' ? t('turnWhite') : t('turnBlack')} · ${t(
+      'statusOpponent',
+      {
+        n: BOT_LEVELS.indexOf(level) + 1,
+        attention: t(distraction.id === 'attento' ? 'distractionCareful' : 'distractionSloppy'),
+      },
+    )}`;
   }
 
   function renderEnginePanel(): void {
     renderEvalBar();
+    // Sotto la scacchiera resta solo l'avviso che il motore non parte: e' l'unica cosa
+    // che chi gioca deve sapere del motore. Numero e profondita' se ne sono andati.
     evalEl.replaceChildren();
-    // Numero e profondita' sono due interruttori indipendenti: la riga serve se ne e'
-    // acceso almeno uno. E gli avvisi del motore (sta caricando, non parte) valgono
-    // per tutti e due, quindi stanno qui e non in ciascuno.
-    evalEl.hidden = !showEval && !showDepth;
-    if (evalEl.hidden) return;
     const failure = engine.error();
-    if (failure) {
-      evalEl.append(text(t('engineFailed', { error: failure }), 'eval-note'));
-      return;
-    }
-    if (engine.loading()) {
-      evalEl.append(text(t('engineLoading'), 'eval-note'));
-      return;
-    }
-    // A partita finita nessuna analisi partira' mai (non c'e' niente da analizzare):
-    // senza questo ramo il pannello restava a "analisi…" per sempre dopo il matto.
-    const over = state.cursor === state.plies.length ? gameOver(state) : null;
-    if (over) {
-      // Solo il risultato: il MOTIVO ("scacco matto", "stallo") lo dice gia' la riga
-      // di stato qui accanto, e ripeterlo a mezzo centimetro di distanza e' rumore.
-      if (showEval) {
-        evalEl.append(text(over.winner ? (over.winner === 'w' ? '1-0' : '0-1') : '½-½', 'eval-score'));
-      }
-      return;
-    }
-    if (!evaluation) {
-      evalEl.append(text(t('analysing'), 'eval-note'));
-      return;
-    }
-    if (showEval) {
-      evalEl.append(text(formatScore(evaluation.line, evaluation.sideToMove), 'eval-score'));
-      // Il numero resta quello del motore: e' vero, solo che non basta. La scritta dice
-      // perche' la barra e' piena anche se il motore non vede il matto.
-      if (wonInTheory()) evalEl.append(text(t('evalTheoryWin'), 'eval-note'));
-    }
-    if (showDepth) evalEl.append(text(t('evalDepth', { depth: evaluation.depth }), 'eval-note'));
+    evalEl.hidden = !failure;
+    if (failure) evalEl.append(text(t('engineFailed', { error: failure }), 'eval-note'));
   }
 
   /**
@@ -3863,7 +3822,26 @@ export function mountApp(root: HTMLElement): void {
           orientation = orientation === 'white' ? 'black' : 'white';
           refresh();
         }),
-        iconButton('settings', t('settings'), false, openSettings),
+        // La barra della valutazione, accesa o spenta. Prima c'era un pannello di
+        // impostazioni con tre caselle; il numero e la profondita' se ne sono andati
+        // (numeri mostrati perche' li avevamo, non perche' insegnassero qualcosa), e per
+        // una casella sola un pannello era un passaggio in piu'.
+        iconButton(
+          'evalBar',
+          t('showBar'),
+          false,
+          () => {
+            showBar = !showBar;
+            try {
+              localStorage.setItem('basic-chess:evalBar', showBar ? 'on' : 'off');
+            } catch {
+              // Memoria non disponibile: vale per questa sessione.
+            }
+            renderEnginePanel();
+            renderControls();
+          },
+          showBar,
+        ),
       ),
       separator(),
       // Un'icona sola per tutto cio' che riguarda far entrare e uscire posizioni.
@@ -4090,14 +4068,10 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function strengthButton(): HTMLElement {
+    // Un bilanciere e basta: l'icona composta (dischi quanti il livello, e un occhio per
+    // l'attenzione) non si leggeva. Il livello si legge nella riga di stato.
     const button = iconButton('strength', t('opponentHelp'), false, openOpponentHelp);
     button.classList.add('strength');
-    button.querySelector('svg')?.replaceWith(createStrengthIcon(Number(level.id.replace(/^l/, '')) || 1));
-    if (distraction.id === 'attento') {
-      const eye = createIcon('eye');
-      eye.classList.add('strength-eye');
-      button.append(eye);
-    }
     return button;
   }
 
@@ -4707,29 +4681,43 @@ export function mountApp(root: HTMLElement): void {
         table.append(row);
       }
 
-      section('sectionLevel', levelSelect(fill), help('opponentHelpLevel'));
-      section(
-        'sectionAttention',
-        distractionSelect(fill),
-        help('opponentHelpCareful'),
-        help('opponentHelpSloppy'),
-      );
-      // Il limite non cambia la partita gia' cominciata: se la scelta e' diversa da quella
-      // con cui si gioca, lo si dice qui, invece di lasciar credere che valga adesso.
-      const forgiveness = [help('opponentHelpTakebacks')];
-      if (preferredTakebackLimit() !== takebackLimit) forgiveness.push(help('takebacksNextGame'));
-      section('sectionForgiveness', takebackSelect(fill), ...forgiveness);
-      // In FONDO, e non nella sezione del livello: la tabella incrocia livello e attenzione,
-      // quindi non appartiene a nessuna delle due, ed e' la cosa piu' lunga del riquadro.
-      // Riguarda anche la terza scelta, perche' un Elo vale per chi non riprende le mosse.
-      section('sectionElo', null, table, help('opponentHelpEloTakebacks'));
+      // In cima le tre scelte affiancate, ciascuna con il suo nome, e subito sotto "Chiudi":
+      // la scelta si fa in un colpo d'occhio. Le spiegazioni vengono dopo, separate da una
+      // linea, per chi le cerca (deciso usandolo). Su schermo stretto vanno a capo da sole.
+      const choices = document.createElement('div');
+      choices.className = 'choices';
+      for (const [titleKey, control] of [
+        ['sectionLevel', levelSelect(fill)],
+        ['sectionAttention', distractionSelect(fill)],
+        ['sectionForgiveness', takebackSelect(fill)],
+      ] as const) {
+        const choice = document.createElement('label');
+        choice.className = 'choice';
+        const name = document.createElement('span');
+        name.className = 'choice-name';
+        name.textContent = t(titleKey);
+        choice.append(name, control);
+        choices.append(choice);
+      }
+      dialog.append(choices);
 
       const close = document.createElement('button');
       close.type = 'button';
       close.className = 'settings-close';
       close.textContent = t('settingsClose');
       close.addEventListener('click', () => dialog.close());
-      dialog.append(close);
+      dialog.append(close, document.createElement('hr'));
+
+      section('sectionLevel', null, help('opponentHelpLevel'));
+      section('sectionAttention', null, help('opponentHelpCareful'), help('opponentHelpSloppy'));
+      // Il limite non cambia la partita gia' cominciata: se la scelta e' diversa da quella
+      // con cui si gioca, lo si dice qui, invece di lasciar credere che valga adesso.
+      const forgiveness = [help('opponentHelpTakebacks')];
+      if (preferredTakebackLimit() !== takebackLimit) forgiveness.push(help('takebacksNextGame'));
+      section('sectionForgiveness', null, ...forgiveness);
+      // In FONDO: la tabella incrocia livello e attenzione, e riguarda anche il perdono,
+      // perche' un Elo vale per chi non riprende le mosse.
+      section('sectionElo', null, table, help('opponentHelpEloTakebacks'));
     };
 
     fill();
@@ -4945,82 +4933,6 @@ export function mountApp(root: HTMLElement): void {
 
     dialog.append(title, intro, game, actions);
     dialog.addEventListener('close', () => dialog.remove());
-    document.body.append(dialog);
-    dialog.showModal();
-  }
-
-  function openSettings(): void {
-    const dialog = document.createElement('dialog');
-    dialog.className = 'settings-dialog';
-
-    const title = document.createElement('h2');
-    title.textContent = t('settings');
-
-    /**
-     * Tre interruttori indipendenti sotto un titolo, invece di uno principale con due
-     * subordinati.
-     *
-     * Prima la profondita' era annidata sotto il numero e si spegneva con lui. Ma da
-     * quando la barra e il numero sono due oggetti diversi in due posti diversi —
-     * una accanto alla scacchiera, l'altro nella riga di stato — non c'e' piu' un
-     * "mostra la valutazione" che li contenga: ci sono tre cose che si vedono o non
-     * si vedono, e il titolo dice solo di cosa si sta parlando.
-     */
-    const evalTitle = document.createElement('div');
-    evalTitle.className = 'check-title';
-    evalTitle.textContent = t('showEvalTitle');
-
-    const flag = (
-      key: string,
-      checked: boolean,
-      apply: (on: boolean) => void,
-    ): HTMLElement => {
-      const row = document.createElement('label');
-      row.className = 'check-row nested';
-      const box = document.createElement('input');
-      box.type = 'checkbox';
-      box.checked = checked;
-      box.addEventListener('change', () => {
-        apply(box.checked);
-        renderEnginePanel();
-      });
-      row.append(box, document.createTextNode(t(key)));
-      return row;
-    };
-
-    const barRow = flag('showBar', showBar, (on) => {
-      showBar = on;
-      localStorage.setItem('basic-chess:evalBar', on ? 'on' : 'off');
-    });
-    const evalRow = flag('showEval', showEval, (on) => {
-      showEval = on;
-      localStorage.setItem('basic-chess:eval', on ? 'on' : 'off');
-    });
-    const depthRow = flag('showDepth', showDepth, (on) => {
-      showDepth = on;
-      localStorage.setItem('basic-chess:depth', on ? 'on' : 'off');
-    });
-
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.className = 'settings-close';
-    close.textContent = t('settingsClose');
-    close.addEventListener('click', () => dialog.close());
-
-    dialog.append(
-      title,
-      evalTitle,
-      barRow,
-      evalRow,
-      depthRow,
-      close,
-    );
-    // Il cambio di lingua deve ridisegnare tutto, e finche' la finestra e' aperta
-    // ridisegnare sotto di lei sarebbe uno sfarfallio inutile: si aspetta la chiusura.
-    dialog.addEventListener('close', () => {
-      dialog.remove();
-      refresh();
-    });
     document.body.append(dialog);
     dialog.showModal();
   }

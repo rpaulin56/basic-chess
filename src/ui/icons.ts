@@ -24,6 +24,7 @@ export type IconName =
   | 'tutorOff'
   | 'hint'
   | 'strength'
+  | 'evalBar'
   | 'resign'
   | 'draw'
   | 'settings'
@@ -87,7 +88,10 @@ const PATHS: Record<IconName, string> = {
   // una riga sotto la scacchiera, per una scelta che si fa a inizio partita e poi non
   // si tocca piu'. Un peso da sollevare dice "forza" senza parole e in qualunque
   // lingua, e apre il pannello dove la scelta si fa davvero, spiegazioni comprese.
-  strength: '<path d="M3 9.5v5M6.5 7v10M17.5 7v10M21 9.5v5M6.5 12h11" />',
+  strength: '<path d="M2 12h20M5.5 8v8M8.5 6v12M15.5 6v12M18.5 8v8" />',
+  // La barra della valutazione: un rettangolo verticale pieno per meta'. E' un
+  // interruttore (vedi la barra degli strumenti): acceso, la barra c'e'.
+  evalBar: '<rect x="8" y="3" width="8" height="18" rx="1.5" /><path d="M8 13h8v6.5a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 8 19.5z" fill="currentColor" stroke="none" />',
   // Il Re rovesciato: il gesto dell'abbandono negli SCACCHI, non nello sport in
   // generale.
   //
@@ -233,38 +237,6 @@ const PATHS: Record<IconName, string> = {
 
 export function createIcon(name: IconName): SVGSVGElement {
   return svgWith(PATHS[name]);
-}
-
-/**
- * Il bilanciere caricato secondo il livello: piu' dischi, piu' forte la Nonna.
- *
- * Idea dell'autore, al posto di un numero nell'angolo: il numero esatto si legge
- * toccando l'icona, e quello che serve a colpo d'occhio e' la TENDENZA — scarico o
- * carico — che un peso dice senza parole e in qualunque lingua. Provato a grandezza
- * reale: 1 e 5 si distinguono subito, 3 e 4 meno, ed e' un prezzo accettabile.
- *
- * Dall'interno verso l'esterno, per lato: 1 un disco piccolo, 2 due piccoli, 3 grande
- * e piccolo, 4 due grandi, 5 due grandi e uno piccolo. Il 2 era un disco grande solo:
- * due piccoli si leggono meglio come "un gradino sopra l'1" (proposta dell'autore).
- */
-const PLATES: readonly (readonly ('big' | 'small')[])[] = [
-  ['small'],
-  ['small', 'small'],
-  ['big', 'small'],
-  ['big', 'big'],
-  ['big', 'big', 'small'],
-];
-const PLATE_X = [7, 4.5, 2];
-
-export function createStrengthIcon(level: number): SVGSVGElement {
-  const plates = PLATES[Math.min(PLATES.length, Math.max(1, level)) - 1] ?? PLATES[0]!;
-  let d = 'M7 12h10';
-  plates.forEach((kind, index) => {
-    const [top, bottom] = kind === 'big' ? [7, 17] : [9.5, 14.5];
-    const x = PLATE_X[index]!;
-    d += `M${x} ${top}V${bottom}M${24 - x} ${top}V${bottom}`;
-  });
-  return svgWith(`<path d="${d}" />`);
 }
 
 function svgWith(inner: string): SVGSVGElement {

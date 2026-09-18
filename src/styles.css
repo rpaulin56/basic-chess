@@ -285,19 +285,6 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
   cursor: pointer;
 }
 .icon-btn:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
-/* L'occhio della Nonna attenta, sopra la sbarra del bilanciere e centrato: guarda la
-   partita dall'alto. Il colore segue il pulsante (currentColor), cosi' il passaggio del
-   mouse lo tinge insieme all'icona. */
-.icon-btn.strength { position: relative; }
-.icon-btn svg.strength-eye {
-  position: absolute;
-  top: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 12px;
-  height: 12px;
-  stroke-width: 2.4;
-}
 .icon-btn:disabled { opacity: 0.3; cursor: default; }
 /* Il tutor acceso e' uno STATO, non un'azione: si vede senza doverci passare sopra. */
 .icon-btn.on { color: var(--accent); background: var(--accent-soft); }
@@ -417,13 +404,6 @@ select {
 
 /* --- valutazione --- */
 .evaluation { display: flex; align-items: baseline; gap: 6px; }
-.eval-score {
-  /* In linea con il resto: era 20px quando aveva un pannello tutto suo, e a quella
-     misura in mezzo alla riga di stato griderebbe piu' del tratto. */
-  font-size: 15px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
 .eval-note { font-size: 12px; color: var(--ink-soft); }
 
 /*
@@ -902,3 +882,9 @@ select {
 .report-dialog { max-width: 420px; }
 .report-dialog p { font-size: 14px; line-height: 1.45; margin: 0 0 10px; }
 .report-actions { display: flex; gap: 16px; align-items: center; margin-top: 14px; }
+
+/* Il riquadro della forza: le tre scelte in riga, "Chiudi" sotto, le spiegazioni dopo. */
+.settings-dialog .choices { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 12px; }
+.settings-dialog .choice { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.settings-dialog .choice-name { font-weight: 600; color: var(--ink-soft); font-size: 12px; }
+.settings-dialog hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
