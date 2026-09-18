@@ -102,12 +102,15 @@ export function createCredits(): HTMLElement {
         : !details.contains(event.target as Node);
       if (!outside) return;
       details.open = false;
-      document.removeEventListener('click', close);
+      document.removeEventListener('pointerdown', close);
       document.removeEventListener('keydown', close);
     };
-    // Nel prossimo giro di eventi: altrimenti il clic che apre il pannello lo richiude.
+    // `pointerdown` e non `click`: sul telefono un tocco su una zona che non e' un
+    // pulsante (la scacchiera, lo sfondo) spesso non genera nessun clic, e il pannello
+    // restava aperto (segnalato usandolo). Nel prossimo giro di eventi: altrimenti il
+    // tocco che apre il pannello lo richiude.
     setTimeout(() => {
-      document.addEventListener('click', close);
+      document.addEventListener('pointerdown', close);
       document.addEventListener('keydown', close);
     });
   });

@@ -90,7 +90,7 @@ const PATHS: Record<IconName, string> = {
   // lingua, e apre il pannello dove la scelta si fa davvero, spiegazioni comprese.
   // Un manubrio: la sbarra e due sfere piene. Con i dischi a coppie si leggeva come una
   // scaletta coricata (segnalato usandolo); le sfere piene si riconoscono a colpo d'occhio.
-  strength: '<path d="M8 12h8" stroke-width="2.6" /><circle cx="5" cy="12" r="4.2" fill="currentColor" /><circle cx="19" cy="12" r="4.2" fill="currentColor" />',
+  strength: '<path d="M8 12h8" /><circle cx="5.5" cy="12" r="3.5" fill="currentColor" /><circle cx="18.5" cy="12" r="3.5" fill="currentColor" />',
   // La barra della valutazione: un rettangolo verticale pieno per meta'. E' un
   // interruttore (vedi la barra degli strumenti): acceso, la barra c'e'.
   evalBar: '<rect x="8" y="3" width="8" height="18" rx="1.5" /><path d="M8 13h8v6.5a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 8 19.5z" fill="currentColor" stroke="none" />',
