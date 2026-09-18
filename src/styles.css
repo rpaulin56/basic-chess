@@ -153,6 +153,7 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
 /* La riga che avvisa che si sta guardando indietro. Colorata come il resto degli
    avvisi della Nonna, perche' e' un'informazione sullo stato e non un errore. */
 .status.rewind { color: var(--accent); display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; }
+.rewind-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; width: 100%; }
 .rewind-back {
   font: inherit;
   font-size: 14px;

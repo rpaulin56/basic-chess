@@ -652,7 +652,7 @@ export function mountApp(root: HTMLElement): void {
    * A che punto e' la post-analisi: nascosta finche' la partita e' aperta, poi offerta,
    * poi (se accettata) eventualmente in attesa della rianalisi, infine mostrata.
    */
-  let postMortem: 'hidden' | 'offered' | 'foreign' | 'thinking' | 'shown' = 'hidden';
+  let postMortem: 'hidden' | 'offered' | 'thinking' | 'shown' = 'hidden';
   /** Alzata per fermare la rianalisi in corso: la controlla il ciclo ad ogni posizione. */
   let stopStudy = false;
   let thinkingEl: HTMLElement | null = null;
@@ -842,11 +842,20 @@ export function mountApp(root: HTMLElement): void {
       evaluation = null;
       refresh();
     });
-    // La post-analisi si offre quando la partita e' finita, e si ritira se si torna
-    // indietro: navigando dentro la partita si riapre, e offrire un bilancio di
-    // qualcosa che sta ancora succedendo non ha senso.
+    // A partita finita l'analisi si apre da sola. C'era prima una domanda ("Vuoi vedere
+    // perche' hai perso?"): uno stato intermedio che non aggiungeva niente, perche' chi
+    // non la vuole leggere semplicemente non la legge (deciso giocando). Resta la domanda
+    // solo per le partite senza i nostri appunti, dove l'analisi costa un'attesa.
     if (!finished()) postMortem = 'hidden';
-    else if (postMortem === 'hidden') postMortem = 'offered';
+    else if (postMortem === 'hidden') {
+      // Senza i nostri appunti l'analisi si rifa' da capo, e parte da sola: chi non vuole
+      // aspettare la ferma (deciso giocando: la domanda prima era un passaggio in piu').
+      if (decidePostMortem() === 'shown') postMortem = 'shown';
+      else {
+        postMortem = 'thinking';
+        queueMicrotask(() => void study_());
+      }
+    }
     langEl.replaceChildren(languageButton());
     // I testi costruiti UNA VOLTA SOLA nell'intestazione e nei titoli dei pannelli
     // restavano nella lingua di partenza: si vedeva "Learn from your mistakes" sopra
@@ -1096,34 +1105,14 @@ export function mountApp(root: HTMLElement): void {
     whyEl.replaceChildren();
     whyEl.hidden = !finished() || postMortem === 'hidden';
     if (whyEl.hidden) return;
-    // La partita non porta i nostri appunti: prima di mettercisi mezzo minuto, lo
-    // dice e chiede il permesso. Il tempo e' dell'utente, non nostro.
-    if (postMortem === 'foreign') {
-      const box = document.createElement('div');
-      box.className = 'why';
-      box.append(text(t('whyForeign'), 'why-note'));
-      const study = document.createElement('button');
-      study.type = 'button';
-      study.className = 'why-ask';
-      study.textContent = t('whyStudy');
-      study.addEventListener('click', () => void study_());
-      const never = document.createElement('button');
-      never.type = 'button';
-      never.className = 'why-ask ghost';
-      never.textContent = t('whyStop');
-      never.addEventListener('click', () => {
-        postMortem = 'offered';
-        renderPostMortem();
-      });
-      box.append(study, never);
-      whyEl.append(box);
-      return;
-    }
+    // La partita non porta i nostri appunti: l'analisi si rifa' da capo, lo si dice, e
+    // la si puo' fermare. Il tempo e' dell'utente, non nostro.
     if (postMortem === 'thinking') {
       // Il testo si tiene da parte perche' la rianalisi lo aggiorna man mano:
       // ridisegnare tutto il riepilogo ad ogni posizione farebbe sfarfallare il
       // pannello per un minuto.
       thinkingEl = text(t('whyThinking'), 'why-thinking');
+      whyEl.append(text(t('whyForeign'), 'why-note'));
       // Interrompibile: mezzo minuto e' abbastanza perche' uno cambi idea, e un'attesa
       // che non si puo' fermare e' una trappola anche quando e' breve.
       const stop = document.createElement('button');
@@ -1619,14 +1608,23 @@ export function mountApp(root: HTMLElement): void {
    * si giudica la successiva, quindi si percorre la partita una volta sola.
    */
   function showPostMortem(): void {
+    if (decidePostMortem() === 'foreign') {
+      void study_();
+      return;
+    }
+    postMortem = 'shown';
+    renderPostMortem();
+    // Aperta la storia, le Mosse critiche si chiudono: sono gia' tutte li' dentro.
+    renderRecap();
+  }
+
+  /** 'shown' se abbiamo i costi delle mosse, 'foreign' se l'analisi va rifatta. */
+  function decidePostMortem(): 'shown' | 'foreign' {
     const judged = losses.filter((loss) => turnAfter(loss.ply) === humanColor).length;
     const mine = state.plies.filter((_, ply) => turnAfter(ply) === humanColor).length;
     // Meta' delle mosse basta a dire "il dato c'e'": le prime mosse di libro non
     // vengono giudicate, e rianalizzare per quelle sarebbe attesa sprecata.
-    postMortem = judged >= Math.ceil(mine / 2) ? 'shown' : 'foreign';
-    renderPostMortem();
-    // Aperta la storia, le Mosse critiche si chiudono: sono gia' tutte li' dentro.
-    renderRecap();
+    return judged >= Math.ceil(mine / 2) ? 'shown' : 'foreign';
   }
 
   /** Rianalizza la partita da capo, dopo che l'utente ha detto di si'. */
@@ -2788,9 +2786,19 @@ export function mountApp(root: HTMLElement): void {
   function renderBoard(): void {
     if (preview) renderPreview();
     else if (bestView) board.renderPosition(bestView.fen, orientation, bestView.arrows);
-    // A partita chiusa per accordo la scacchiera e' in sola lettura: la posizione
-    // permette ancora di muovere, ma la partita no.
-    else if (outcome) board.renderPosition(currentFen(state), orientation, []);
+    // A partita finita — matto, stallo, abbandono, patta concordata — la scacchiera e' in
+    // sola lettura, in qualunque posizione la si guardi. Per rigiocare da un momento si
+    // chiede una partita nuova, esplicitamente (vedi startFromHere): una mossa non basta,
+    // perche' sembrava un ripensamento e si scontrava con il limite dei perdoni.
+    else if (finished()) {
+      const lastPly = state.cursor > 0 ? state.plies[state.cursor - 1] : undefined;
+      board.renderPosition(
+        currentFen(state),
+        orientation,
+        [],
+        lastPly ? [lastPly.from as Key, lastPly.to as Key] : undefined,
+      );
+    }
     // Il quarto argomento: dopo un ritiro si puo' muovere anche se il seguito e'
     // ancora li'. Senza, la scacchiera restava bloccata proprio dopo il comando che
     // serve a riprovare.
@@ -3342,34 +3350,6 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
 
-    /*
-     * A partita FINITA, giocare da una posizione passata comincia una partita NUOVA.
-     *
-     * Con le righe della storia cliccabili capita di tornare a un momento chiave e
-     * rigiocarlo, ed e' una bella cosa (segnalato provandolo). Trattarlo come un
-     * ripensamento pero' era sbagliato: consumava un perdono, poteva essere rifiutato
-     * dal limite, e soprattutto cancellava il finale, il risultato e l'analisi appena
-     * letta. Adesso la partita finita si mette da parte intera — si recupera con
-     * "Riprendi la partita di prima" — e da quella posizione ne comincia un'altra, con i
-     * contatori azzerati.
-     */
-    if (finished() && state.cursor < state.plies.length) {
-      if (!confirm(t('replayFromHere'))) {
-        refresh(); // rimette il pezzo dove stava
-        return;
-      }
-      saveGame();
-      stashGame();
-      const resumed = truncateHere(state);
-      clearTutor();
-      state = resumed;
-      lastWhitePercent = null;
-      evaluation = null;
-      replaying = false;
-      // Poi si prosegue dal flusso normale: senza seguito da cancellare, la mossa entra
-      // come prima mossa della partita nuova.
-    }
-
     // Giocare mentre si guarda una posizione passata cancella il seguito: si chiede
     // conferma qui, non dentro core/game (che resta puro).
     //
@@ -3599,6 +3579,26 @@ export function mountApp(root: HTMLElement): void {
     statusEl.prepend(badge);
   }
 
+  /**
+   * Una partita nuova dalla posizione mostrata di una partita finita.
+   *
+   * La partita finita si mette da parte intera (si recupera con "Riprendi la partita di
+   * prima") e da questa posizione ne comincia un'altra, con i contatori azzerati. Se qui
+   * tocca alla Nonna, la partita nuova comincia con la sua mossa.
+   */
+  function startFromHere(): void {
+    saveGame();
+    stashGame();
+    const resumed = truncateHere(state);
+    clearTutor();
+    state = resumed;
+    lastWhitePercent = null;
+    evaluation = null;
+    replaying = false;
+    saveGame();
+    refresh();
+  }
+
   function renderStatusBody(): void {
     statusEl.replaceChildren();
     // Il verdetto finale si riferisce alla partita intera, non alla posizione che si
@@ -3631,6 +3631,30 @@ export function mountApp(root: HTMLElement): void {
       // Da una posizione in cui tocca alla Nonna non si puo' giocare, e "gioca per
       // riprendere da qui" invitava a una cosa impossibile.
       const theirTurn = positionAt(state).turn() !== humanColor;
+      // A partita finita si dice che e' finita, e le due cose che si possono fare: tornare
+      // all'analisi, o cominciare da qui una partita nuova. I perdoni non c'entrano piu'.
+      const over = finished();
+      if (over) {
+        statusEl.append(text(t('rewindFinished', { number, total }), 'rewind-text'));
+        const actions = document.createElement('span');
+        actions.className = 'rewind-actions';
+        const back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'rewind-back';
+        back.textContent = t('rewindBackAnalysis');
+        back.addEventListener('click', () => {
+          seek(state.plies.length);
+          whyEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        const fresh = document.createElement('button');
+        fresh.type = 'button';
+        fresh.className = 'rewind-back';
+        fresh.textContent = t('rewindNewGameHere');
+        fresh.addEventListener('click', startFromHere);
+        actions.append(back, fresh);
+        statusEl.append(actions);
+        return;
+      }
       statusEl.append(
         text(
           retrying
@@ -5133,9 +5157,10 @@ export function mountApp(root: HTMLElement): void {
     // Navigando il ritiro e' finito, in un verso o nell'altro: tornare poi per caso
     // proprio su quella posizione non deve riaccendere "ho tolto la tua mossa".
     retryAt = null;
-    // Navigare riapre una partita chiusa per accordo: l'abbandono e' reversibile
-    // quanto una mossa ritirata.
-    outcome = null;
+    // Navigare NON riapre una partita finita. Prima l'abbandono si annullava tornando
+    // indietro, e a partita abbandonata una mossa da una posizione passata diventava un
+    // ripensamento, rifiutato a perdoni esauriti (segnalato giocando): una partita finita
+    // si guarda, e se si rigioca da li' ne comincia una nuova (vedi handleUserMove).
     offer = null;
     drawOffered = false;
     hint = null;
