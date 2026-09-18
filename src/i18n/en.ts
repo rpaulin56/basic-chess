@@ -178,6 +178,8 @@ export const en: Record<keyof typeof it, string> = {
   tutorForgiveNoMore: 'I have already let you change {count} moves: this time the move stays.',
   tutorForgiveNoMoreOne: 'I have already let you change one move: this time the move stays.',
   tutorForgiveNone: 'In this game moves cannot be changed: this one stays.',
+  tutorQuiet: 'This move costs {drop} points: we will look at it together after the game.',
+  touchHint: 'Touch and hold an icon to see what it does.',
   tutorShowBest: 'Suggest a move',
   tutorMoreGood: 'Other moves work here too.',
   recap: 'Critical moves',

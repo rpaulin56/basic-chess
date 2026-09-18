@@ -710,6 +710,14 @@ export function mountApp(root: HTMLElement): void {
    */
   let drawOffered = false;
   /**
+   * La nota della Nonna quando non ti puo' piu' perdonare: la mossa costa, ma non si puo'
+   * rimediare, e fermarti per mostrarti le conseguenze sarebbe stato un rimprovero e non
+   * una lezione (segnalato giocando a zero perdoni). La partita va avanti, la nota resta
+   * finche' non muovi di nuovo, e l'errore si rivede con calma nella storia di fine
+   * partita. Vale anche con il limite "Mai", fin dall'inizio.
+   */
+  let quietNote: { ply: number; drop: number; severity: string } | null = null;
+  /**
    * Le patte proposte dalla Nonna in questa partita, con il materiale di quel momento:
    * una proposta rifiutata non si ripete finche' il materiale non cambia. Le semi-mosse
    * finiscono anche nella storia di fine partita ("qui ti ho proposto la patta").
@@ -1017,6 +1025,8 @@ export function mountApp(root: HTMLElement): void {
       },
       },
     );
+    // Dopo il pannello del verdetto, che senza verdetto si nasconde.
+    renderQuietNote();
     void driveEngine();
   }
 
@@ -2652,10 +2662,15 @@ export function mountApp(root: HTMLElement): void {
         pending.fenAfter,
         after.lines[0]?.pv ?? [],
       );
-      review = {
+      const refutation = after.lines[0]?.pv ?? [];
+      if (forgivenessState() === 'exhausted') {
+        quietNote = { ply: state.plies.length - 1, drop: verdict.drop, severity: verdict.severity };
+        // La Nonna gioca comunque la confutazione: l'errore si paga come annunciato.
+        if (refutation.length > 0) forcedLine = { startFen: pending.fenAfter, moves: refutation };
+      } else review = {
         verdict,
         consequence,
-        refutation: after.lines[0]?.pv ?? [],
+        refutation,
         // Le ragioni posizionali si calcolano confrontando la posizione PRIMA
         // dell'errore con quella futura in cui la conseguenza si manifesta: e'
         // il confronto che mostra cosa ha causato la mossa.
@@ -3052,13 +3067,15 @@ export function mountApp(root: HTMLElement): void {
    * gravita' che il pannello scrive a parole, e le due cose devono concordare.
    */
   function tutorMark(): { from: Key; to: Key; brush: string } | undefined {
-    if (!review) return undefined;
-    const ply = state.plies[state.cursor - 1];
-    if (!ply) return undefined;
+    if (!review && !quietNote) return undefined;
+    // Con la nota, la freccia sta sulla mossa sbagliata anche dopo la risposta della Nonna.
+    const ply = review ? state.plies[state.cursor - 1] : state.plies[quietNote!.ply];
+    if (!ply || (!review && state.cursor !== state.plies.length)) return undefined;
+    const severity = review ? review.verdict.severity : quietNote!.severity;
     return {
       from: ply.from as Key,
       to: ply.to as Key,
-      brush: review.verdict.severity === 'blunder' ? 'red' : 'yellow',
+      brush: severity === 'blunder' ? 'red' : 'yellow',
     };
   }
 
@@ -3490,6 +3507,8 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function commit(from: Square, to: Square, promotion?: Promotion): void {
+    // Una mossa nuova tua chiude la nota sulla precedente.
+    if (positionAt(state).turn() === humanColor) quietNote = null;
     // L'offerta di patta in attesa parte con la mossa di chi la fa.
     drawOffered = offer?.waiting === true && positionAt(state).turn() === humanColor;
     outcome = null;
@@ -3855,6 +3874,10 @@ export function mountApp(root: HTMLElement): void {
    */
   function renderControls(): void {
     controlsEl.replaceChildren();
+    // Solo sui dispositivi a tocco (vedi .touch-hint): col mouse il nome compare da solo.
+    const touchHint = document.createElement('p');
+    touchHint.className = 'touch-hint';
+    touchHint.textContent = t('touchHint');
 
     const toolbar = document.createElement('div');
     toolbar.className = 'toolbar';
@@ -4064,7 +4087,7 @@ export function mountApp(root: HTMLElement): void {
     // Sotto la scacchiera non resta piu' niente: il livello sta dietro il bilanciere e
     // il colore fra i comandi che aprono e chiudono una partita. Erano cinque controlli
     // sempre presenti, per scelte che si fanno una volta.
-    controlsEl.append(toolbar);
+    controlsEl.append(toolbar, touchHint);
   }
 
   /*
@@ -4969,6 +4992,16 @@ export function mountApp(root: HTMLElement): void {
    * Esc e la trappola del focus le fa il browser, e sono esattamente le tre cose che
    * si sbagliano riscrivendole a mano.
    */
+  /** La nota della Nonna a perdoni finiti (vedi quietNote), al posto del verdetto. */
+  function renderQuietNote(): void {
+    if (review || !quietNote || finished()) return;
+    tutorEl.replaceChildren();
+    tutorEl.hidden = false;
+    const note = document.createElement('p');
+    note.textContent = t('tutorQuiet', { drop: Math.round(quietNote.drop) });
+    tutorEl.append(note);
+  }
+
   /** La riga "Qualcosa non torna? Segnala" in fondo al riquadro della Nonna. */
   function renderReport(): void {
     const link = document.createElement('button');
@@ -5084,6 +5117,7 @@ export function mountApp(root: HTMLElement): void {
   function clearTutor(): void {
     outcome = null;
     offer = null;
+    quietNote = null;
     drawOffered = false;
     drawProposals.length = 0;
     // Anche i finali gia' visti: appartengono alla partita, non alla sessione.

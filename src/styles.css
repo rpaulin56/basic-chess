@@ -894,3 +894,9 @@ select {
 .settings-dialog .choice { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .settings-dialog .choice-name { font-weight: 600; color: var(--ink-soft); font-size: 12px; }
 .settings-dialog hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+
+/* "Tocca a lungo un'icona per sapere cosa fa": solo dove si tocca e non si passa col mouse. */
+.touch-hint { display: none; margin: 4px 0 0; font-size: 12px; font-style: italic; color: var(--ink-soft); }
+@media (hover: none) and (pointer: coarse) {
+  .touch-hint { display: block; }
+}

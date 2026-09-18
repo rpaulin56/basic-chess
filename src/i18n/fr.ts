@@ -194,6 +194,8 @@ export const fr: Record<keyof typeof it, string> = {
   tutorForgiveNoMore: `Je t’ai déjà laissé changer {count} coups${NB}: cette fois, le coup reste.`,
   tutorForgiveNoMoreOne: `Je t’ai déjà laissé changer un coup${NB}: cette fois, le coup reste.`,
   tutorForgiveNone: `Dans cette partie, on ne change pas de coup${NB}: celui-ci reste.`,
+  tutorQuiet: `Ce coup coûte {drop} points${NB}: on le regardera ensemble à la fin de la partie.`,
+  touchHint: 'Appuie longuement sur une icône pour savoir ce qu’elle fait.',
   tutorShowBest: 'Suggérer un coup',
   tutorMoreGood: 'D’autres coups conviennent aussi ici.',
   recap: 'Coups critiques',
