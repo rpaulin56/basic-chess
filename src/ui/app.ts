@@ -717,6 +717,11 @@ export function mountApp(root: HTMLElement): void {
   /** L'offerta in corso, con il giudizio dell'avversaria. */
   let offer: OfferView | null = null;
   /**
+   * Vero se l'ultima mossa giocata porta con se' un'offerta di patta: la Nonna la
+   * valuta prima di rispondere, nella posizione che ha davanti (vedi answerDraw).
+   */
+  let drawOffered = false;
+  /**
    * I finali gia' segnalati in questa partita.
    *
    * Una volta per tipo e basta. La scheda dice una cosa vera e utile la prima volta
@@ -904,6 +909,11 @@ export function mountApp(root: HTMLElement): void {
         state = goTo(state, Math.max(0, state.cursor - 1));
         replaying = false;
         evaluation = null;
+        // La patta offerta con la mossa ritirata torna in attesa: partira' con la prossima.
+        if (drawOffered) {
+          drawOffered = false;
+          offer = { kind: 'draw', thinking: false, waiting: true };
+        }
         refresh();
       },
       onContinue: () => {
@@ -1898,6 +1908,18 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
 
+    /*
+     * La patta si offre DOPO aver mosso (regolamento FIDE, articolo 9.1.2.1): chi offre
+     * ha gia' fatto la sua scelta, e l'avversaria valuta la posizione che ha davanti,
+     * con il tratto suo. Prima la Nonna rispondeva subito, sulla posizione PRIMA della
+     * mossa: chi offriva poteva vedere la risposta e decidere poi che cosa giocare.
+     */
+    if (kind === 'draw') {
+      offer = { kind, thinking: false, waiting: true };
+      renderOffer();
+      return;
+    }
+
     offer = { kind, thinking: true };
     renderOffer();
     const truth = await engine.analyse(fen, { depth: REVIEW_DEPTH, multiPV: 1 });
@@ -1909,22 +1931,39 @@ export function mountApp(root: HTMLElement): void {
     }
     const mineNow = winPercentOf(truth.lines[0]!);
 
-    if (kind === 'resign') {
-      offer = { kind, thinking: false, resign: judgeResign(mineNow) };
-      renderOffer();
-      return;
-    }
+    offer = { kind, thinking: false, resign: judgeResign(mineNow) };
+    renderOffer();
+  }
 
-    const verdict = judgeDraw(mineNow, moveNumber);
+  /**
+   * La risposta all'offerta di patta fatta con l'ultima mossa. La Nonna guarda la
+   * posizione che ha davanti, con il tratto suo: accetta, e la partita finisce, oppure
+   * rifiuta e gioca. Vero se ha accettato.
+   *
+   * Il giudizio per chi offre ("era ragionevole?") si fa alla profondita' del tutor, che
+   * deve dire la verita'; la risposta la da' lei con la sua vista al suo livello: una da
+   * 900 punti che rifiuta una patta giusta e' realistica, e insegna che le offerte si
+   * valutano da soli.
+   */
+  async function answerDraw(): Promise<boolean> {
+    const mine = generation;
+    const fen = currentFen(state);
+    const moveNumber = positionAt(state).moveNumber();
+    offer = { kind: 'draw', thinking: true };
+    renderOffer();
+    const truth = await engine.analyse(fen, { depth: REVIEW_DEPTH, multiPV: 1 });
+    if (mine !== generation || !offer) return false;
+    // Il motore risponde dal punto di vista di chi ha il tratto, e il tratto e' suo.
+    const hersTruth = truth && truth.lines.length > 0 ? winPercentOf(truth.lines[0]!) : 50;
+    const verdict = judgeDraw(100 - hersTruth, moveNumber);
     const opponent = await engine.analyse(fen, { depth: level.depth, multiPV: 1 });
-    if (mine !== generation || !offer) return;
-    // L'aspettativa dell'avversaria e' il complemento della nostra: il motore
-    // risponde sempre dal punto di vista di chi ha il tratto, e il tratto e' nostro.
-    const hers = opponent && opponent.lines.length > 0 ? 100 - winPercentOf(opponent.lines[0]!) : 50;
+    if (mine !== generation || !offer) return false;
+    const hers = opponent && opponent.lines.length > 0 ? winPercentOf(opponent.lines[0]!) : 50;
     const accepted = acceptsDraw(hers);
-    offer = { kind, thinking: false, draw: verdict, accepted };
+    offer = { kind: 'draw', thinking: false, draw: verdict, accepted };
     if (accepted) outcome = { result: '1/2-1/2', reason: 'draw' };
     refresh();
+    return accepted;
   }
 
   function renderHint(): void {
@@ -2408,6 +2447,14 @@ export function mountApp(root: HTMLElement): void {
     const botTurn = atEnd && chess.turn() !== humanColor;
     if (botTurn) {
       if (botThinking) return;
+      if (drawOffered) {
+        // Accettata, la partita e' finita. Rifiutata, la risposta resta sullo schermo e
+        // la Nonna muove quando la si chiude (vedi driveEngine: con un'offerta sul tavolo
+        // il motore aspetta), cosi' il suo "no" non scappa via con la sua mossa.
+        drawOffered = false;
+        await answerDraw();
+        return;
+      }
       await playBotMove();
       return;
     }
@@ -3414,6 +3461,8 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function commit(from: Square, to: Square, promotion?: Promotion): void {
+    // L'offerta di patta in attesa parte con la mossa di chi la fa.
+    drawOffered = offer?.waiting === true && positionAt(state).turn() === humanColor;
     outcome = null;
     offer = null;
     hint = null;
@@ -4994,6 +5043,7 @@ export function mountApp(root: HTMLElement): void {
   function clearTutor(): void {
     outcome = null;
     offer = null;
+    drawOffered = false;
     // Anche i finali gia' visti: appartengono alla partita, non alla sessione.
     endgamesSeen.clear();
     endgamesAnnounced.clear();
@@ -5087,6 +5137,7 @@ export function mountApp(root: HTMLElement): void {
     // quanto una mossa ritirata.
     outcome = null;
     offer = null;
+    drawOffered = false;
     hint = null;
     state = goTo(state, cursor);
     evaluation = null;

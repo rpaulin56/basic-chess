@@ -340,6 +340,8 @@ export const it = {
   drawOffer: 'Offri la patta',
   resignHeading: 'Vuoi abbandonare?',
   drawHeading: 'Patta?',
+  drawAfterMove: 'Fai prima la tua mossa, poi decido.',
+  drawWithdraw: 'Ritira l’offerta',
   resignWinning: 'Ma stai meglio tu: non c’è nessun motivo di arrendersi.',
   resignBalanced: 'La posizione è equilibrata: qui si gioca ancora.',
   resignWorse: 'Stai peggio, ma non è finita. Non ti arrendere subito.',

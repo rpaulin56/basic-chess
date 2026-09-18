@@ -353,6 +353,8 @@ export const fr: Record<keyof typeof it, string> = {
   drawOffer: 'Proposer nulle',
   resignHeading: `Tu veux abandonner${NB}?`,
   drawHeading: `Nulle${NB}?`,
+  drawAfterMove: 'Joue d’abord ton coup, ensuite je déciderai.',
+  drawWithdraw: 'Retirer la proposition',
   resignWinning: `Mais ta position est meilleure${NB}: il n’y a aucune raison d’abandonner.`,
   resignBalanced: `La position est équilibrée${NB}: la partie continue.`,
   resignWorse: 'Ta position est moins bonne, mais ce n’est pas fini. N’abandonne pas tout de suite.',

@@ -25,6 +25,8 @@ export interface OfferView {
   readonly draw?: DrawVerdict;
   /** Risposta all'offerta di patta: null finche' non e' stata fatta davvero. */
   readonly accepted?: boolean | null;
+  /** Patta offerta, in attesa della mossa di chi la offre (regolamento FIDE, 9.1.2.1). */
+  readonly waiting?: boolean;
 }
 
 export interface OfferHandlers {
@@ -67,6 +69,13 @@ export function renderOfferPanel(
 
   const actions = document.createElement('div');
   actions.className = 'tutor-actions';
+
+  if (view.waiting) {
+    container.append(said(t('drawAfterMove')));
+    actions.append(action(t('drawWithdraw'), handlers.onCancel));
+    container.append(actions);
+    return;
+  }
 
   if (view.kind === 'resign') {
     const verdict = view.resign ?? 'balanced';

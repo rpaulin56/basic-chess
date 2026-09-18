@@ -341,6 +341,8 @@ export const en: Record<keyof typeof it, string> = {
   drawOffer: 'Offer a draw',
   resignHeading: 'Do you want to resign?',
   drawHeading: 'A draw?',
+  drawAfterMove: 'Make your move first, then I will decide.',
+  drawWithdraw: 'Withdraw the offer',
   resignWinning: 'But you are better: there is no reason at all to give up.',
   resignBalanced: 'The position is balanced: there is still a game here.',
   resignWorse: 'You are worse, but it is not over. Do not give up just yet.',
