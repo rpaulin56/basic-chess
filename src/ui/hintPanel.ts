@@ -31,11 +31,18 @@ export interface HintView {
    * che spiega (un avviso spariva prima di averlo letto: segnalato giocando).
    */
   readonly message?: string;
+  /**
+   * La prima pressione del tasto: che aiuto la Nonna puo' dare qui, prima di darlo. Gli
+   * aiuti si contano, e chi preme per curiosita' non deve pagarne uno senza saperlo.
+   */
+  readonly choice?: 'theory' | 'hint' | 'mate';
 }
 
 export interface HintHandlers {
   readonly onReveal: () => void;
   readonly onClose: () => void;
+  /** Dalla scelta: accetta l'aiuto proposto. */
+  readonly onAccept: () => void;
 }
 
 export function renderHintPanel(
@@ -48,8 +55,20 @@ export function renderHintPanel(
   if (!view) return;
 
   const heading = document.createElement('h2');
-  heading.textContent = t('hintHeading');
+  heading.textContent = t(view.choice ? 'askHeading' : 'hintHeading');
   container.append(heading);
+
+  if (view.choice) {
+    container.append(paragraph(t(`askIntro_${view.choice}`)));
+    const choiceActions = document.createElement('div');
+    choiceActions.className = 'tutor-actions';
+    choiceActions.append(
+      action(t(`askAccept_${view.choice}`), handlers.onAccept, 'primary'),
+      action(t('hintClose'), handlers.onClose),
+    );
+    container.append(choiceActions);
+    return;
+  }
 
   if (view.loading) {
     container.append(paragraph(t('hintThinking')));

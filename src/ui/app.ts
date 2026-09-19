@@ -2023,6 +2023,18 @@ export function mountApp(root: HTMLElement): void {
         renderHint();
         renderBoard();
       },
+      onAccept: () => {
+        const choice = hint?.choice;
+        hint = null;
+        renderHint();
+        if (choice === 'theory') {
+          studying = true;
+          studied = true;
+          refresh();
+          return;
+        }
+        void askHint();
+      },
       onClose: () => {
         hint = null;
         hintArrows = [];
@@ -4000,7 +4012,9 @@ export function mountApp(root: HTMLElement): void {
          */
         iconButton(
           'arrows',
-          t(theoryMoves.size > 0 ? 'arrowsTheory' : 'hint'),
+          // Un nome solo, qualunque cosa la Nonna possa offrire qui: che cosa, lo dice lei
+          // nel riquadro (vedi la scelta sotto).
+          t('askHeading'),
           // In QUALUNQUE posizione in cui tocca a te, non solo nell'ultima: il dubbio viene
           // proprio tornando indietro ("qui cosa avrei potuto giocare?"), e il consiglio e'
           // cio' che aiuta a decidere se rigiocare da li'. Spento dove tocca alla Nonna,
@@ -4016,13 +4030,25 @@ export function mountApp(root: HTMLElement): void {
               renderBoard();
               return;
             }
-            if (theoryMoves.size > 0) {
-              studying = !studying;
-              if (studying) studied = true;
+            // Lo studio acceso si spegne con lo stesso tasto, senza domande.
+            if (studying) {
+              studying = false;
               refresh();
               return;
             }
-            void askHint();
+            // Prima di dare un aiuto si dice quale: la prima pressione non costa niente.
+            const choice = theoryMoves.size > 0 ? 'theory' : onlyKingLeft(currentFen(state)) ? 'mate' : 'hint';
+            hint = {
+              loading: false,
+              book: [],
+              leavingBook: false,
+              hint: null,
+              orientation: [],
+              revealed: false,
+              choice,
+            };
+            renderHint();
+            renderControls();
           },
           // Acceso finche' le frecce ci sono: e' un interruttore, non un comando che
           // parte e finisce, e chi guarda la barra deve poterlo vedere.
@@ -4858,7 +4884,10 @@ export function mountApp(root: HTMLElement): void {
         choice.append(name, control);
         choices.append(choice);
       }
-      dialog.append(choices);
+      // Il nome della finestra in cima, come in "Come ti aiuta la Nonna".
+      const top = document.createElement('h2');
+      top.textContent = t('opponentHelp');
+      dialog.append(top, choices);
 
       const close = document.createElement('button');
       close.type = 'button';
