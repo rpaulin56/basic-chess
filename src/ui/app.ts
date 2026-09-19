@@ -4587,8 +4587,8 @@ export function mountApp(root: HTMLElement): void {
 
   /** Quanti errori sono gia' stati perdonati in questa partita, rispetto al limite. */
   function forgivenessState(): 'available' | 'last' | 'exhausted' {
-    // Se non ti ferma mai, non ti lascia nemmeno rigiocare: una partita vera.
-    if (stops === 'never') return 'exhausted';
+    // "Non fermarmi mai" non toglie i rigiochi: si torna indietro lo stesso, di propria
+    // iniziativa. E' il contrario che vale: senza rigiochi la Nonna non ti ferma.
     // Tutti i ripensamenti, non solo gli errori segnalati: vedi TAKEBACK_LIMITS.
     if (takebackLimit === null) return 'available';
     if (takeBacks >= takebackLimit) return 'exhausted';
@@ -5025,26 +5025,19 @@ export function mountApp(root: HTMLElement): void {
       });
 
       const replay = takebackSelect(fill);
-      // Se non ti ferma mai non ti lascia nemmeno rigiocare: il menu dice "Mai" e non si tocca.
-      if (stops === 'never') {
-        const select = replay as HTMLSelectElement;
-        select.value = '0';
-        select.disabled = true;
-      }
+      // Senza rigiochi rimasti fermarti non servirebbe: non potresti rifare la mossa. Il
+      // menu resta visibile, spento, e la scelta vale di nuovo alla partita dopo.
+      const exhausted = forgivenessState() === 'exhausted';
+      stopsChoice.disabled = exhausted;
 
-      const bar = document.createElement('select');
-      for (const [value, key] of [
-        ['on', 'barOn'],
-        ['off', 'barOff'],
-      ] as const) {
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = t(key);
-        option.selected = (value === 'on') === showBar;
-        bar.append(option);
-      }
+      // La barra e' indipendente dal resto: una casella, con la sua icona.
+      const barLine = document.createElement('label');
+      barLine.className = 'choice-check';
+      const bar = document.createElement('input');
+      bar.type = 'checkbox';
+      bar.checked = showBar;
       bar.addEventListener('change', () => {
-        showBar = bar.value === 'on';
+        showBar = bar.checked;
         try {
           localStorage.setItem('basic-chess:evalBar', showBar ? 'on' : 'off');
         } catch {
@@ -5052,31 +5045,51 @@ export function mountApp(root: HTMLElement): void {
         }
         renderEnginePanel();
       });
+      const barText = document.createElement('span');
+      barText.textContent = t('showBarCheck');
+      barLine.append(bar, createIcon('evalBar'), barText);
 
-      const choices = document.createElement('div');
-      choices.className = 'choices';
-      for (const [titleKey, control] of [
-        ['stopsTitle', stopsChoice],
-        ['replayTitle', replay],
-        ['showBar', bar],
-      ] as const) {
-        const choice = document.createElement('label');
-        choice.className = 'choice';
+      const note = (text: string): HTMLElement => {
+        const element = document.createElement('span');
+        element.className = 'choice-note';
+        element.textContent = text;
+        return element;
+      };
+      const choice = (titleKey: string, control: HTMLElement, below: string | null): HTMLElement => {
+        const element = document.createElement('label');
+        element.className = 'choice';
         const name = document.createElement('span');
         name.className = 'choice-name';
         name.textContent = t(titleKey);
-        choice.append(name, control);
-        // Sotto i rigiochi, quanti ne restano in questa partita: l'informazione c'e' per chi
-        // la cerca, invece di stare nella riga di stato dove con "Max 1" non diceva niente.
-        if (titleKey === 'replayTitle' && stops !== 'never' && takebackLimit !== null) {
-          const left = document.createElement('span');
-          left.className = 'choice-note';
-          const remaining = Math.max(0, takebackLimit - takeBacks);
-          left.textContent = remaining === 1 ? t('replayLeftOne') : t('replayLeft', { left: remaining });
-          choice.append(left);
-        }
-        choices.append(choice);
+        element.append(name, control);
+        if (below) element.append(note(below));
+        return element;
+      };
+      // Quanti rigiochi restano in questa partita, anche quando sono finiti.
+      let left: string | null = null;
+      if (takebackLimit !== null && takebackLimit > 0) {
+        const remaining = Math.max(0, takebackLimit - takeBacks);
+        left =
+          remaining === 0
+            ? t('replayLeftNone')
+            : remaining === 1
+              ? t('replayLeftOne')
+              : t('replayLeft', { left: remaining });
       }
+      const stopsNote = !exhausted
+        ? null
+        : takebackLimit === 0
+          ? t('stopsNoReplay')
+          : t('stopsReplaysUsed');
+
+      // Nell'ordine in cui la Nonna aiuta: l'analisi sempre, la barra se la vuoi, i
+      // rigiochi, e solo se ne restano le interruzioni.
+      const always = document.createElement('p');
+      always.className = 'help-always';
+      always.textContent = t('helpAlways');
+      const choices = document.createElement('div');
+      choices.className = 'choices';
+      choices.append(choice('replayTitle', replay, left), choice('stopsTitle', stopsChoice, stopsNote));
       const close = document.createElement('button');
       close.type = 'button';
       close.className = 'settings-close';
@@ -5086,11 +5099,11 @@ export function mountApp(root: HTMLElement): void {
       title.textContent = t('opponentHelpTitle');
       const heading = document.createElement('h2');
       heading.textContent = t('helpTitle');
-      dialog.append(heading, choices, close, document.createElement('hr'), title);
+      dialog.append(heading, always, barLine, choices, close, document.createElement('hr'), title);
 
-      section('stopsTitle', help('helpStops'), help('helpStopsAfter'));
-      section('replayTitle', help('opponentHelpTakebacks'));
       section('showBar', help('helpBar'));
+      section('replayTitle', help('opponentHelpTakebacks'));
+      section('stopsTitle', help('helpStops'));
     };
 
     fill();
