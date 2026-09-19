@@ -123,6 +123,7 @@ export const fr: Record<keyof typeof it, string> = {
   whyVerdictInaccuracy: 'Une imprécision',
   whyUnits: `Les points sont une espérance de gain${NB}: sur cent parties jouées depuis cette position, combien tu en ramènerais. En perdre dix en un seul coup, c’est beaucoup.`,
   whyBetter: 'il y avait {san}',
+  whyBetterPerpetual: 'il y avait {san}, avec l’échec perpétuel',
   timeOneSecond: 'une seconde',
   timeSeconds: '{n} secondes',
   timeOneMinute: 'une minute',

@@ -39,7 +39,7 @@ import { chooseBotMove } from '../bot/play.js';
 import { winPercentOf } from '../engine/winProb.js';
 import type { AnalyseOptions, Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
-import { transportArrows, type Arrow, type Consequence, classifyAgainstBest, pieceGiven, type PieceGiven } from '../tutor/classify.js';
+import { transportArrows, type Arrow, type Consequence, classifyAgainstBest, pieceGiven, perpetualIn, type PieceGiven } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
 import { arrowMoves, bookLoaded, bookMoves, brushFor } from '../openings/book.js';
@@ -420,6 +420,8 @@ interface MoveLoss {
    * principiante nota, e il racconto deve nominarlo anche sotto le soglie.
    */
   lostPiece?: PieceGiven;
+  /** La mossa migliore portava a uno scacco perpetuo: e' la ragione da dire (vedi `perpetualIn`). */
+  perpetual?: boolean;
 }
 
 /**
@@ -1332,7 +1334,9 @@ export function mountApp(root: HTMLElement): void {
     for (const loss of costly) {
       if (rethinks.some((rethink) => rethink.ply === loss.ply)) continue; // gia' detto dal ripensamento
       const note = moment && moment.move.ply === loss.ply ? `; ${hasteNote(moment.ms, moment.median)}` : '';
-      const better = loss.best ? ` · ${t('whyBetter', { san: toFigurine(loss.best) })}` : '';
+      const better = loss.best
+        ? ` · ${t(loss.perpetual ? 'whyBetterPerpetual' : 'whyBetter', { san: toFigurine(loss.best) })}`
+        : '';
       const piece = loss.lostPiece
         ? ` · ${t('storyLostPiece', {
             what: loss.lostPiece === 'exchange' ? t('lossExchange') : t(`missed${loss.lostPiece.toUpperCase()}` as 'missedN'),
@@ -1785,6 +1789,7 @@ export function mountApp(root: HTMLElement): void {
           state.plies[ply]!.fenAfter,
           analyses[ply + 1]!.lines[0]?.pv ?? [],
         ),
+        drawnByChecks(state.plies[ply]!.fenBefore, verdict.bestLine, verdict.winPercentBefore),
       );
     }
     /*
@@ -2743,6 +2748,7 @@ export function mountApp(root: HTMLElement): void {
       verdict.winPercentBefore,
       gap,
       pieceGiven(pending.fenBefore, verdict.bestLine, pending.fenAfter, after.lines[0]?.pv ?? []),
+      drawnByChecks(pending.fenBefore, verdict.bestLine, verdict.winPercentBefore),
     );
     if (stopsOn(verdict)) {
       // La confutazione e' il seguito previsto dopo la mossa giocata: e' la risposta
@@ -3188,6 +3194,14 @@ export function mountApp(root: HTMLElement): void {
 
   /** Traduce la mossa migliore da UCI a SAN, nella posizione in cui andava giocata. */
   /**
+   * La mossa migliore teneva la patta a forza di scacchi: la linea finisce in scacchi e
+   * vale una patta (fra il 40 e il 60% di aspettativa per chi muove).
+   */
+  function drawnByChecks(fen: string, bestLine: readonly string[], expectation: number): boolean {
+    return expectation >= 40 && expectation <= 60 && perpetualIn(fen, bestLine);
+  }
+
+  /**
    * Annota quanto e' costata la mossa alla semi-mossa `ply`.
    *
    * Sostituisce invece di accumulare: rigiocando la stessa posizione dopo un ritorno
@@ -3201,6 +3215,7 @@ export function mountApp(root: HTMLElement): void {
     before: number,
     gap: number,
     lostPiece: PieceGiven | null,
+    perpetual = false,
   ): void {
     const san = state.plies[ply]?.san;
     if (!san) return;
@@ -3213,6 +3228,7 @@ export function mountApp(root: HTMLElement): void {
       gap,
       best: (bestMove ? sanAt(ply, bestMove) : null) ?? '',
       ...(lostPiece ? { lostPiece } : {}),
+      ...(perpetual ? { perpetual } : {}),
     };
     const existing = losses.findIndex((loss) => loss.ply === ply);
     if (existing === -1) losses.push(entry);

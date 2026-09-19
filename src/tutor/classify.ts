@@ -614,6 +614,34 @@ function againstBest(
   return { points, net, played };
 }
 
+/**
+ * Vero se la linea migliore finisce in uno scacco perpetuo di chi muove: le sue ultime
+ * mosse della variante (almeno due) sono scacchi. Da sola la regola e' larga: chi
+ * la usa chiede anche che la linea valga una patta.
+ *
+ * Il motore la mostra come una variante qualunque che vale zero, e il racconto diceva
+ * solo "c'era Qe2": chi l'ha letta non poteva capire che cosa ci fosse di buono, visto
+ * che la Torre si perdeva lo stesso. Segnalato leggendo una partita vera.
+ */
+export function perpetualIn(fenBefore: string, bestLine: readonly string[]): boolean {
+  const chess = new Chess(fenBefore);
+  const mover = chess.turn();
+  const checks: boolean[] = [];
+  for (const uci of bestLine) {
+    let move;
+    try {
+      move = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}) });
+    } catch {
+      return false;
+    }
+    if (move.color === mover) checks.push(chess.inCheck());
+  }
+  if (chess.isCheckmate()) return false;
+  let run = 0;
+  for (let i = checks.length - 1; i >= 0 && checks[i]; i--) run++;
+  return run >= 2;
+}
+
 /** Che cosa ha lasciato andare una mossa, detto con un nome: un pezzo o la qualita'. */
 export type PieceGiven = 'n' | 'b' | 'r' | 'q' | 'exchange';
 

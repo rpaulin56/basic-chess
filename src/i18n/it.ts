@@ -102,6 +102,7 @@ export const it = {
   whyUnits:
     'I punti sono di aspettativa di vittoria: su cento partite giocate da quella posizione, quante ne porteresti a casa. Perderne dieci in una mossa sola è tanto.',
   whyBetter: 'c’era {san}',
+  whyBetterPerpetual: 'c’era {san}, con lo scacco perpetuo',
   timeOneSecond: 'un secondo',
   timeSeconds: '{n} secondi',
   timeOneMinute: 'un minuto',

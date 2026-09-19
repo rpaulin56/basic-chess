@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Chess } from 'chess.js';
-import { classifyConsequence, transportArrows, classifyAgainstBest } from './classify.js';
+import { classifyConsequence, transportArrows, classifyAgainstBest, perpetualIn } from './classify.js';
 
 /**
  * I casi di prova vengono da una partita vera dell'utente (quella con il pedone in
@@ -311,5 +311,19 @@ describe('scambio in corso prima della perdita', () => {
     );
     expect(result!.manifestAt).toBe(5);
     expect(result!.lost.map((piece) => `${piece.type}${piece.square}`)).toEqual(['pc5']);
+  });
+});
+
+describe('perpetualIn', () => {
+  // Da una partita vera: 19...Qe2! perde la Torre in b2 ma tiene la patta a scacchi.
+  const fen = '4r1k1/p1p1np1p/5p2/2p1p2Q/2P1P3/6P1/Pr1q1P1P/R2N1RK1 b - - 3 19';
+
+  it('riconosce la linea che finisce in scacchi', () => {
+    const line = 'd2e2 h5h4 e2f3 d1b2 e7g6 h4h6 g6f4 g3f4 f3g4 g1h1 g4f3'.split(' ');
+    expect(perpetualIn(fen, line)).toBe(true);
+  });
+
+  it('non vede perpetui in una linea tranquilla', () => {
+    expect(perpetualIn(fen, 'd2e2 h5h4 e2f3 d1b2'.split(' '))).toBe(false);
   });
 });

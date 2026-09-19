@@ -104,6 +104,7 @@ export const en: Record<keyof typeof it, string> = {
   whyUnits:
     'The points are win expectancy: out of a hundred games from that position, how many you would come away with. Losing ten in a single move is a lot.',
   whyBetter: 'there was {san}',
+  whyBetterPerpetual: 'there was {san}, with perpetual check',
   timeOneSecond: 'one second',
   timeSeconds: '{n} seconds',
   timeOneMinute: 'one minute',
