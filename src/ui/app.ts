@@ -411,6 +411,27 @@ interface MoveLoss {
    * nessun merito, che e' meglio che dichiararne uno falso.
    */
   gap: number;
+  /**
+   * Il pezzo (non il pedone) che la mossa ha lasciato andare, se ne ha lasciato uno.
+   *
+   * Lo scarto da solo non basta a dirlo: in una partita vera un Alfiere se n'e' andato
+   * in tre mosse da dieci punti l'una, tutte "imprecisioni", e chi giocava si e' trovato
+   * con un pezzo in meno senza capire dove. Il pezzo perso e' la prima cosa che un
+   * principiante nota, e il racconto deve nominarlo anche sotto le soglie.
+   */
+  lostPiece?: 'n' | 'b' | 'r' | 'q';
+}
+
+/** Il pezzo piu' pesante perso secondo la conseguenza, pedoni esclusi (vedi `lostPiece`). */
+function lostPieceOf(consequence: Consequence | null): MoveLoss['lostPiece'] {
+  if (!consequence || consequence.matesIn !== null) return undefined;
+  const heavy = ['q', 'r', 'b', 'n'] as const;
+  if (consequence.lossKind === 'named' && consequence.materialLoss >= 2) {
+    const found = heavy.find((type) => consequence.lost.some((piece) => piece.type === type));
+    if (found) return found;
+  }
+  const missed = consequence.missed?.piece;
+  return missed && missed !== 'p' ? missed : undefined;
 }
 
 /**
@@ -1313,12 +1334,22 @@ export function mountApp(root: HTMLElement): void {
     // fra le tre peggiori: e' l'unico posto dove dirlo.
     const costly = [...worst];
     if (moment && !costly.some((loss) => loss.ply === moment.move.ply)) costly.push(moment.move);
+    // E ogni mossa che ha lasciato andare un pezzo, anche sotto le soglie: e' la cosa che
+    // si vede sulla scacchiera, e il racconto non puo' tacerla.
+    for (const loss of losses) {
+      if (loss.lostPiece && inPlay(loss) && Math.round(loss.drop) >= 1 && !costly.some((c) => c.ply === loss.ply)) {
+        costly.push(loss);
+      }
+    }
     for (const loss of costly) {
       if (rethinks.some((rethink) => rethink.ply === loss.ply)) continue; // gia' detto dal ripensamento
       const note = moment && moment.move.ply === loss.ply ? `; ${hasteNote(moment.ms, moment.median)}` : '';
       const better = loss.best ? ` · ${t('whyBetter', { san: toFigurine(loss.best) })}` : '';
+      const piece = loss.lostPiece
+        ? ` · ${t('storyLostPiece', { what: t(`missed${loss.lostPiece.toUpperCase()}` as 'missedN') })}`
+        : '';
       row(loss.ply).parts.push(
-        t('storyLoss', { verdict: lossVerdict(loss), drop: Math.round(loss.drop), note }) + better,
+        t('storyLoss', { verdict: lossVerdict(loss), drop: Math.round(loss.drop), note }) + piece + better,
       );
     }
 
@@ -1758,6 +1789,12 @@ export function mountApp(root: HTMLElement): void {
         verdict.bestMove,
         verdict.winPercentBefore,
         first && second ? winPercentOf(first) - winPercentOf(second) : 0,
+        classifyAgainstBest(
+          state.plies[ply]!.fenBefore,
+          verdict.bestLine,
+          state.plies[ply]!.fenAfter,
+          analyses[ply + 1]!.lines[0]?.pv ?? [],
+        ),
       );
     }
     /*
@@ -2715,6 +2752,7 @@ export function mountApp(root: HTMLElement): void {
       verdict.bestMove,
       verdict.winPercentBefore,
       gap,
+      classifyAgainstBest(pending.fenBefore, verdict.bestLine, pending.fenAfter, after.lines[0]?.pv ?? []),
     );
     if (stopsOn(verdict)) {
       // La confutazione e' il seguito previsto dopo la mossa giocata: e' la risposta
@@ -3172,9 +3210,11 @@ export function mountApp(root: HTMLElement): void {
     bestMove: string | null,
     before: number,
     gap: number,
+    consequence: Consequence | null,
   ): void {
     const san = state.plies[ply]?.san;
     if (!san) return;
+    const lostPiece = lostPieceOf(consequence);
     const entry: MoveLoss = {
       ply,
       number: moveNumberOf(state, ply),
@@ -3183,6 +3223,7 @@ export function mountApp(root: HTMLElement): void {
       before,
       gap,
       best: (bestMove ? sanAt(ply, bestMove) : null) ?? '',
+      ...(lostPiece ? { lostPiece } : {}),
     };
     const existing = losses.findIndex((loss) => loss.ply === ply);
     if (existing === -1) losses.push(entry);
