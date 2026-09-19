@@ -1,6 +1,5 @@
 import { createBrowserTransport } from '../engine/browserTransport.js';
 import { createEngine } from '../engine/uci.js';
-import { noteEngine } from '../engine/diagnostics.js';
 import type { Analysis, AnalyseOptions, Engine, UciTransport } from '../engine/types.js';
 
 /**
@@ -45,21 +44,17 @@ export function createEngineSession(onStateChange: () => void): EngineSession {
   function start(): Promise<Engine> {
     isLoading = true;
     onStateChange();
-    const startedAt = performance.now();
-    noteEngine({ kind: 'start' });
     transport = createBrowserTransport();
     const promise = createEngine(transport, { hashMb: 32 });
     promise.then(
       () => {
         isLoading = false;
         failure = null;
-        noteEngine({ kind: 'ready', ms: Math.round(performance.now() - startedAt) });
         onStateChange();
       },
       (error: unknown) => {
         isLoading = false;
         failure = error instanceof Error ? error.message : String(error);
-        noteEngine({ kind: 'failure', message: failure });
         onStateChange();
       },
     );
@@ -86,15 +81,7 @@ export function createEngineSession(onStateChange: () => void): EngineSession {
       if (restarts > MAX_RESTARTS) return null;
       engine ??= start();
       try {
-        const searchedAt = performance.now();
         const result = await (await engine).analyse(fen, options);
-        noteEngine({
-          kind: 'search',
-          depth: options.depth,
-          reached: result.depth,
-          multiPV: options.multiPV,
-          ms: Math.round(performance.now() - searchedAt),
-        });
         // Una risposta buona chiude l'incidente: il contatore riparte da zero, cosi'
         // un guasto isolato non consuma il credito di riavvii per tutta la sessione.
         if (failure) {
@@ -104,7 +91,6 @@ export function createEngineSession(onStateChange: () => void): EngineSession {
         restarts = 0;
         return result;
       } catch (error) {
-        noteEngine({ kind: 'failure', message: error instanceof Error ? error.message : String(error) });
         discard(error);
         return null;
       }

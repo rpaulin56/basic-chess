@@ -156,6 +156,32 @@ export function createCredits(): HTMLElement {
     return block;
   };
 
+  /**
+   * Niente account, niente dati personali: che cosa resta sul dispositivo e come
+   * cancellarlo. Chi tiene alla riservatezza deve poterlo sapere e poterlo fare, dallo
+   * stesso posto in cui glielo si dice.
+   */
+  const privacySection = (): HTMLElement => {
+    const block = section('aboutPrivacyTitle', ['aboutPrivacy', 'aboutPrivacyStored']);
+    const erase = document.createElement('button');
+    erase.type = 'button';
+    erase.className = 'about-write';
+    erase.textContent = t('aboutErase');
+    erase.addEventListener('click', () => {
+      if (!confirm(t('aboutEraseConfirm'))) return;
+      try {
+        for (const key of Object.keys(localStorage)) {
+          if (key.startsWith('basic-chess:')) localStorage.removeItem(key);
+        }
+      } catch {
+        // Memoria non disponibile: non c'e' niente da cancellare.
+      }
+      location.reload();
+    });
+    block.append(erase);
+    return block;
+  };
+
   // "Che cos'e'" resta in chiaro: e' la risposta alla domanda che porta qui.
   const lead = document.createElement('p');
   lead.textContent = t('aboutDoes');
@@ -173,7 +199,7 @@ export function createCredits(): HTMLElement {
   about.append(more);
   about.append(
     section('aboutNotTitle', ['aboutNotTime', 'aboutNotElse']),
-    section('aboutPrivacyTitle', ['aboutPrivacy']),
+    privacySection(),
   );
   // Il numero di versione, per sapere quale si ha davanti quando qualcosa non va: lo
   // incrementa deploy/publish.sh a ogni pubblicazione.

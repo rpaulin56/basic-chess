@@ -26,7 +26,10 @@ export const it = {
     'NON HA L’OROLOGIO, per scelta. Qui puoi pensare quanto vuoi, e questo cambia tutto: l’Elo di un giocatore misura la sua forza a tempi confrontabili, quindi il livello che batti qui non è il livello che batteresti in torneo. Pensare in fretta è un’abilità a sé, e non è la Nonna che te la insegna.',
   aboutNotElse:
     'Non ti fa giocare contro altre persone, non ti dà un tuo punteggio, non ti allena la tattica con migliaia di esercizi e non ti costruisce un repertorio di aperture. Per diventare un giocatore vero ti serviranno un orologio, avversari in carne e ossa e un circolo: GrandmaChess è il posto dove capire con calma i tuoi errori, non dove perfezionarti per diventare Maestro.',
-  aboutPrivacy: 'Non chiede un account e non raccoglie nessun dato personale: il motore scacchistico gira dentro il tuo browser, le partite restano sul tuo dispositivo e, una volta caricata la pagina, non viene mandato niente a nessuno.',
+  aboutPrivacy: 'Non chiede un account e non raccoglie nessun dato personale: il motore scacchistico gira dentro il tuo browser e, una volta caricata la pagina, non viene mandato niente a nessuno.',
+  aboutPrivacyStored: 'Sul tuo dispositivo restano solo la partita in corso, per poterla riprendere, e le tue scelte (livello, lingua, come ti aiuta la Nonna). Puoi cancellare tutto quando vuoi.',
+  aboutErase: 'Cancella i dati salvati',
+  aboutEraseConfirm: 'Cancello la partita in corso e le tue scelte? La pagina ripartirà da zero.',
   creditsAuthorLabel: 'Concept e progetto software',
   creditsAuthorName: 'Riccardo Paulin',
   creditsCodeLabel: 'Scrittura del codice',

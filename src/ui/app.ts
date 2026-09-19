@@ -435,6 +435,24 @@ type StopLevel = 'never' | 'blunders' | 'mistakes' | 'inaccuracies';
 const STOP_LEVELS: readonly StopLevel[] = ['never', 'blunders', 'mistakes', 'inaccuracies'];
 const STOPS_KEY = 'basic-chess:stops';
 
+/**
+ * Cancella i dati che le versioni precedenti salvavano e che non servono piu': il diario
+ * del motore (serviva al pulsante di diagnostica, tolto), le scelte del numero e della
+ * profondita' (tolte), il vecchio "Aiuto attivo" (diventato "Quando ti ferma"). Sul
+ * dispositivo resta solo cio' che ha uno scopo, com'e' scritto in Informazioni.
+ */
+function forgetOldData(): void {
+  try {
+    const tutor = localStorage.getItem('basic-chess:tutor');
+    if (tutor !== null && localStorage.getItem(STOPS_KEY) === null) {
+      localStorage.setItem(STOPS_KEY, tutor === 'off' ? 'never' : 'mistakes');
+    }
+    for (const key of ['engine-log', 'eval', 'depth', 'tutor']) localStorage.removeItem(`basic-chess:${key}`);
+  } catch {
+    // Memoria non disponibile: non c'e' niente da cancellare.
+  }
+}
+
 /** La scelta salvata; chi aveva spento il vecchio "Aiuto attivo" ritrova "Mai". */
 function loadStops(): StopLevel {
   try {
@@ -563,6 +581,7 @@ export function mountApp(root: HTMLElement): void {
    * lasciarti rimediare era solo una sgridata, e l'errore lo dice gia' la barra.
    */
   let stops: StopLevel = loadStops();
+  forgetOldData();
   /**
    * Se mostrare la barra verticale accanto alla scacchiera.
    *
@@ -3543,6 +3562,15 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function commit(from: Square, to: Square, promotion?: Promotion): void {
+    // Alla tua prima mossa "Riprendi la partita di prima" sparisce: con lui se ne va anche
+    // la copia, che altrimenti restava salvata senza che nessuno potesse piu' usarla.
+    if (positionAt(state).turn() === humanColor) {
+      try {
+        localStorage.removeItem(PREVIOUS_KEY);
+      } catch {
+        // Memoria non disponibile.
+      }
+    }
     // L'offerta di patta in attesa parte con la mossa di chi la fa.
     drawOffered = offer?.waiting === true && positionAt(state).turn() === humanColor;
     outcome = null;
