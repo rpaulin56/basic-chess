@@ -627,11 +627,11 @@ select {
 
 /* La tabella dei livelli nel dialogo del "?": il posto in cui l'Elo serve, perche'
    li' si vedono le distanze fra i livelli invece di un numero isolato. */
-.level-table { border-collapse: collapse; margin: 4px 0 12px; font-size: 13px; }
-.level-table th, .level-table td { padding: 3px 12px 3px 0; text-align: left; font-weight: 400; }
-.level-table tr:first-child th { color: var(--ink-soft); font-size: 12px; }
-.level-table td { font-variant-numeric: tabular-nums; }
-.level-table tr.current { font-weight: 600; color: var(--accent); }
+.level-table { border-collapse: collapse; margin: 4px 0 12px; font-size: 12px; }
+.level-table th, .level-table td { padding: 3px 8px 3px 0; text-align: left; font-weight: 400; vertical-align: top; }
+.level-table tr:first-child th { color: var(--ink-soft); }
+.level-table td { font-variant-numeric: tabular-nums; white-space: pre-line; }
+.level-table .current { font-weight: 600; color: var(--accent); }
 .settings-dialog .check-row:has(input:disabled) { color: var(--ink-soft); cursor: default; }
 .settings-dialog .check-row {
   display: flex;
