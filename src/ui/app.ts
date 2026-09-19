@@ -373,6 +373,11 @@ interface Gift {
   color: Color;
   san: string;
   seen: boolean;
+  /**
+   * La mossa che avrebbe approfittato dell'errore, in SAN. "Non l'hai visto" senza dire
+   * che cosa c'era da vedere non insegnava niente (segnalato leggendo un'analisi vera).
+   */
+  punish?: string;
 }
 
 interface MoveLoss {
@@ -1290,7 +1295,13 @@ export function mountApp(root: HTMLElement): void {
       row(proposal.ply).parts.push(t('storyDrawProposed'));
     }
     for (const gift of [...gifts].sort((a, b) => a.ply - b.ply).slice(0, 3)) {
-      row(gift.ply).parts.push(t(gift.seen ? 'storyGiftSeen' : 'storyGiftMissed'));
+      row(gift.ply).parts.push(
+        gift.seen
+          ? t('storyGiftSeen')
+          : gift.punish
+            ? t('storyGiftMissedWith', { move: toFigurine(gift.punish) })
+            : t('storyGiftMissed'),
+      );
     }
     // Gli aiuti, uno per tipo per mossa: due consigli nella stessa posizione sono una
     // cosa sola da raccontare.
@@ -1732,7 +1743,9 @@ export function mountApp(root: HTMLElement): void {
       const verdict = detectMistake(analyses[ply]!, analyses[ply + 1]!);
       if (!isImportant(verdict)) continue;
       const reply = analyses[ply + 2];
+      const punish = sanOf(state.plies[ply]!.fenAfter, analyses[ply + 1]!.lines[0]?.pv[0]);
       gifts.push({
+        ...(punish ? { punish } : {}),
         ply,
         number: moveNumberOf(state, ply),
         color: state.plies[ply]!.color,
@@ -2626,7 +2639,9 @@ export function mountApp(root: HTMLElement): void {
      */
     if (afterOpponentError && botPly) {
       const ply = state.plies.length - 2;
+      const punish = sanOf(pending.fenBefore, before.lines[0]?.pv[0]);
       gifts.push({
+        ...(punish ? { punish } : {}),
         ply,
         number: moveNumberOf(state, ply),
         color: botPly.color,
@@ -3176,6 +3191,20 @@ export function mountApp(root: HTMLElement): void {
       }).san;
     } catch {
       return null;
+    }
+  }
+
+  /** Una mossa UCI in SAN nella posizione data, o undefined se non si puo' giocare. */
+  function sanOf(fen: string, uci: string | undefined): string | undefined {
+    if (!uci) return undefined;
+    try {
+      return new Chess(fen).move({
+        from: uci.slice(0, 2),
+        to: uci.slice(2, 4),
+        ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
+      }).san;
+    } catch {
+      return undefined;
     }
   }
 

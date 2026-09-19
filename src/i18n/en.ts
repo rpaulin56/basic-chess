@@ -78,6 +78,7 @@ export const en: Record<keyof typeof it, string> = {
   storyGood: 'there was only one good move here, and you found it',
   storyGiftSeen: 'here I made a mistake, and you saw it',
   storyGiftMissed: 'here I made a mistake, and you did not see it',
+  storyGiftMissedWith: 'here I made a mistake, and you did not see it: you had {move}',
   storyHint: 'you asked me for a hint',
   storyAnswer: 'I showed you the good moves',
   storyAverage: 'you took {time} per move on average',

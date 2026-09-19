@@ -76,6 +76,7 @@ export const it = {
   storyGood: 'qui c’era una sola mossa buona, e tu l’hai trovata',
   storyGiftSeen: 'qui ho sbagliato io, e tu l’hai visto',
   storyGiftMissed: 'qui ho sbagliato io, e non l’hai visto',
+  storyGiftMissedWith: 'qui ho sbagliato io, e non l’hai visto: avevi {move}',
   storyHint: 'mi hai chiesto un consiglio',
   storyAnswer: 'ti ho mostrato le mosse buone',
   storyAverage: 'in media hai pensato {time} a mossa',
