@@ -431,6 +431,21 @@ interface Outcome {
   readonly resignedFrom?: 'winning' | 'balanced' | 'worse' | 'hopeless';
 }
 
+type StopLevel = 'never' | 'blunders' | 'mistakes' | 'inaccuracies';
+const STOP_LEVELS: readonly StopLevel[] = ['never', 'blunders', 'mistakes', 'inaccuracies'];
+const STOPS_KEY = 'basic-chess:stops';
+
+/** La scelta salvata; chi aveva spento il vecchio "Aiuto attivo" ritrova "Mai". */
+function loadStops(): StopLevel {
+  try {
+    const saved = localStorage.getItem(STOPS_KEY);
+    if (saved && (STOP_LEVELS as readonly string[]).includes(saved)) return saved as StopLevel;
+    return localStorage.getItem('basic-chess:tutor') === 'off' ? 'never' : 'mistakes';
+  } catch {
+    return 'mistakes';
+  }
+}
+
 export function mountApp(root: HTMLElement): void {
   const saved = loadGame();
   let state: GameState = saved?.state ?? newGame();
@@ -540,7 +555,14 @@ export function mountApp(root: HTMLElement): void {
    * proprio dopo un errore: e' deliberato, ed e' il prezzo della coerenza didattica.
    */
   let forcedLine: { startFen: string; moves: readonly string[] } | null = null;
-  let tutorEnabled = localStorage.getItem('basic-chess:tutor') !== 'off';
+  /**
+   * Quando la Nonna ti ferma: mai, solo per gli errori gravi, per gli errori (come e' sempre
+   * stato), o anche per le imprecisioni. Era un interruttore, "Aiuto attivo", che quasi
+   * nessuno toccava; ora e' la prima scelta di "Come ti aiuta la Nonna". Ti ferma solo
+   * finche' puoi rigiocare: a perdoni finiti tace (vedi stopsOn), perche' fermarti senza
+   * lasciarti rimediare era solo una sgridata, e l'errore lo dice gia' la barra.
+   */
+  let stops: StopLevel = loadStops();
   /**
    * Se mostrare la barra verticale accanto alla scacchiera.
    *
@@ -714,14 +736,6 @@ export function mountApp(root: HTMLElement): void {
    * valuta prima di rispondere, nella posizione che ha davanti (vedi answerDraw).
    */
   let drawOffered = false;
-  /**
-   * La nota della Nonna quando non ti puo' piu' perdonare: la mossa costa, ma non si puo'
-   * rimediare, e fermarti per mostrarti le conseguenze sarebbe stato un rimprovero e non
-   * una lezione (segnalato giocando a zero perdoni). La partita va avanti, la nota resta
-   * finche' non muovi di nuovo, e l'errore si rivede con calma nella storia di fine
-   * partita. Vale anche con il limite "Mai", fin dall'inizio.
-   */
-  let quietNote: { ply: number; drop: number; number: number; san: string } | null = null;
   /**
    * Le patte proposte dalla Nonna in questa partita, con il materiale di quel momento:
    * una proposta rifiutata non si ripete finche' il materiale non cambia. Le semi-mosse
@@ -1030,8 +1044,6 @@ export function mountApp(root: HTMLElement): void {
       },
       },
     );
-    // Dopo il pannello del verdetto, che senza verdetto si nasconde.
-    renderQuietNote();
     void driveEngine();
   }
 
@@ -2668,7 +2680,7 @@ export function mountApp(root: HTMLElement): void {
       verdict.winPercentBefore,
       gap,
     );
-    if (isImportant(verdict)) {
+    if (stopsOn(verdict)) {
       // La confutazione e' il seguito previsto dopo la mossa giocata: e' la risposta
       // alla domanda "perche' e' un errore".
       const consequence = classifyAgainstBest(
@@ -2678,16 +2690,7 @@ export function mountApp(root: HTMLElement): void {
         after.lines[0]?.pv ?? [],
       );
       const refutation = after.lines[0]?.pv ?? [];
-      if (forgivenessState() === 'exhausted') {
-        quietNote = {
-          ply: state.plies.length - 1,
-          drop: verdict.drop,
-          number: moveNumberOf(state, state.plies.length - 1),
-          san: state.plies[state.plies.length - 1]?.san ?? '',
-        };
-        // La Nonna gioca comunque la confutazione: l'errore si paga come annunciato.
-        if (refutation.length > 0) forcedLine = { startFen: pending.fenAfter, moves: refutation };
-      } else review = {
+      review = {
         verdict,
         consequence,
         refutation,
@@ -3419,7 +3422,7 @@ export function mountApp(root: HTMLElement): void {
    * cio' che succedeva prima, mai a qualcosa di peggio.
    */
   async function deepenForReview(fen: string): Promise<void> {
-    if (!tutorEnabled || deepAnalysis?.fen === fen) return;
+    if (stops === 'never' || deepAnalysis?.fen === fen) return;
     if (state.cursor !== state.plies.length || gameOver(state) !== null) return;
     if (positionAt(state).turn() !== humanColor) return;
     const deep = await engine.analyse(fen, { depth: REVIEW_DEPTH, multiPV: ANALYSIS_MULTIPV });
@@ -3539,8 +3542,6 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function commit(from: Square, to: Square, promotion?: Promotion): void {
-    // Una mossa nuova tua chiude la nota sulla precedente.
-    if (positionAt(state).turn() === humanColor) quietNote = null;
     // L'offerta di patta in attesa parte con la mossa di chi la fa.
     drawOffered = offer?.waiting === true && positionAt(state).turn() === humanColor;
     outcome = null;
@@ -3575,7 +3576,7 @@ export function mountApp(root: HTMLElement): void {
      * un'altra cosa: se e' una svista, e' proprio il momento in cui serve sentirselo dire.
      */
     const theoryMove = studying && theoryMoves.has(`${from}${to}${promotion ?? ''}`);
-    const judgeable = tutorEnabled && !theoryMove && mover === humanColor;
+    const judgeable = !theoryMove && mover === humanColor;
     const before =
       deepAnalysis?.fen === fenBefore ? deepAnalysis : lastAnalysis?.fen === fenBefore ? lastAnalysis : null;
     state = next;
@@ -3818,13 +3819,15 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     // Con chi si gioca, in chiaro: l'icona del bilanciere non lo dice piu'.
+    // E l'ultimo perdono, quando resta quello: da li' la Nonna non ti fermera' piu'.
+    const last = forgivenessState() === 'last' ? ` · ${t('statusLastForgiveness')}` : '';
     statusEl.textContent = `${positionAt(state).turn() === 'w' ? t('turnWhite') : t('turnBlack')} · ${t(
       'statusOpponent',
       {
         n: BOT_LEVELS.indexOf(level) + 1,
         attention: t(distraction.id === 'attento' ? 'distractionCareful' : 'distractionSloppy'),
       },
-    )}`;
+    )}${last}`;
   }
 
   function renderEnginePanel(): void {
@@ -3943,26 +3946,6 @@ export function mountApp(root: HTMLElement): void {
           orientation = orientation === 'white' ? 'black' : 'white';
           refresh();
         }),
-        // La barra della valutazione, accesa o spenta. Prima c'era un pannello di
-        // impostazioni con tre caselle; il numero e la profondita' se ne sono andati
-        // (numeri mostrati perche' li avevamo, non perche' insegnassero qualcosa), e per
-        // una casella sola un pannello era un passaggio in piu'.
-        iconButton(
-          'evalBar',
-          t('showBar'),
-          false,
-          () => {
-            showBar = !showBar;
-            try {
-              localStorage.setItem('basic-chess:evalBar', showBar ? 'on' : 'off');
-            } catch {
-              // Memoria non disponibile: vale per questa sessione.
-            }
-            renderEnginePanel();
-            renderControls();
-          },
-          showBar,
-        ),
       ),
       separator(),
       // Un'icona sola per tutto cio' che riguarda far entrare e uscire posizioni.
@@ -3994,22 +3977,9 @@ export function mountApp(root: HTMLElement): void {
       // decide come gioca, e solo dopo viene cosa dice.
       group(
         strengthButton(),
-        iconButton(
-          tutorEnabled ? 'tutor' : 'tutorOff',
-          tutorEnabled ? t('tutorOn') : t('tutorOff'),
-          // Spento mentre la Nonna aspetta una decisione. Spegnerla li' TENEVA la mossa
-          // senza dirlo — lei spariva e la partita andava avanti — e il fumetto sta
-          // proprio accanto a "E adesso?", che in quel momento e' spento: il dito che
-          // cerca l'uno trova l'altro. La decisione deve essere esplicita.
-          review !== null,
-          () => {
-            tutorEnabled = !tutorEnabled;
-            localStorage.setItem('basic-chess:tutor', tutorEnabled ? 'on' : 'off');
-            if (!tutorEnabled) review = null;
-            refresh();
-          },
-          tutorEnabled,
-        ),
+        // Apre "Come ti aiuta la Nonna". Spento mentre la Nonna aspetta una decisione:
+        // cambiare li' come ti aiuta lasciava la mossa in sospeso senza dirlo.
+        iconButton(stops === 'never' ? 'tutorOff' : 'tutor', t('helpTitle'), review !== null, openHelp),
         // Il suggerimento sta accanto al tutor perche' e' la stessa voce, ma e' un
         // pulsante e non un interruttore: parla solo se glielo si chiede, ed e'
         // deliberato. Un tutor che si offre da solo quando le mosse buone sono molte
@@ -4352,6 +4322,8 @@ export function mountApp(root: HTMLElement): void {
       // solo quello che hai giocato.
       ...(studied ? { Study: '1' } : {}),
       ...(answersSeen > 0 ? { Answers: String(answersSeen) } : {}),
+      // Quando la Nonna ti fermava: cambia molto il senso degli errori rimasti.
+      Stops: stops,
       // Con il limite accanto, cosi' chi rilegge sa con quale regola si e' giocato.
       ...(takeBacks > 0 || takebackLimit !== DEFAULT_TAKEBACK_LIMIT
         ? {
@@ -4501,8 +4473,28 @@ export function mountApp(root: HTMLElement): void {
    * posti diversi, e questo e' esattamente il genere di cosa che si dimentica.
    * Ricavarlo dalla posizione toglie di mezzo la domanda.
    */
+  /**
+   * Se la Nonna ti ferma per questo errore: secondo "Quando ti ferma", e solo se puoi
+   * ancora rigiocare. Il costo si registra comunque, per la storia di fine partita.
+   */
+  function stopsOn(verdict: MistakeVerdict): boolean {
+    if (forgivenessState() === 'exhausted') return false;
+    switch (stops) {
+      case 'never':
+        return false;
+      case 'blunders':
+        return verdict.severity === 'blunder';
+      case 'mistakes':
+        return isImportant(verdict);
+      case 'inaccuracies':
+        return verdict.severity !== 'none';
+    }
+  }
+
   /** Quanti errori sono gia' stati perdonati in questa partita, rispetto al limite. */
   function forgivenessState(): 'available' | 'last' | 'exhausted' {
+    // Se non ti ferma mai, non ti lascia nemmeno rigiocare: una partita vera.
+    if (stops === 'never') return 'exhausted';
     // Tutti i ripensamenti, non solo gli errori segnalati: vedi TAKEBACK_LIMITS.
     if (takebackLimit === null) return 'available';
     if (takeBacks >= takebackLimit) return 'exhausted';
@@ -4537,6 +4529,15 @@ export function mountApp(root: HTMLElement): void {
     }
     // "3/5": tre ripensamenti con limite cinque. Un numero solo: senza limite. Nessun tag:
     // il limite di serie (il tag si omette proprio in quel caso, vedi pgnTags).
+    const stopTag = tags['Stops'];
+    if (stopTag && (STOP_LEVELS as readonly string[]).includes(stopTag)) {
+      stops = stopTag as StopLevel;
+      try {
+        localStorage.setItem(STOPS_KEY, stops);
+      } catch {
+        // Memoria non disponibile.
+      }
+    }
     const takebacks = tags['Takebacks'];
     if (takebacks === undefined) takebackLimit = DEFAULT_TAKEBACK_LIMIT;
     else {
@@ -4848,7 +4849,6 @@ export function mountApp(root: HTMLElement): void {
       for (const [titleKey, control] of [
         ['sectionLevel', levelSelect(fill)],
         ['sectionAttention', distractionSelect(fill)],
-        ['sectionForgiveness', takebackSelect(fill)],
       ] as const) {
         const choice = document.createElement('label');
         choice.className = 'choice';
@@ -4870,11 +4870,6 @@ export function mountApp(root: HTMLElement): void {
 
       section('sectionLevel', null, help('opponentHelpLevel'));
       section('sectionAttention', null, help('opponentHelpCareful'), help('opponentHelpSloppy'));
-      // Il limite non cambia la partita gia' cominciata: se la scelta e' diversa da quella
-      // con cui si gioca, lo si dice qui, invece di lasciar credere che valga adesso.
-      const forgiveness = [help('opponentHelpTakebacks')];
-      if (preferredTakebackLimit() !== takebackLimit) forgiveness.push(help('takebacksNextGame'));
-      section('sectionForgiveness', null, ...forgiveness);
       // In FONDO: la tabella incrocia livello e attenzione, e riguarda anche il perdono,
       // perche' un Elo vale per chi non riprende le mosse.
       section('sectionElo', null, table, help('opponentHelpEloTakebacks'));
@@ -4886,6 +4881,126 @@ export function mountApp(root: HTMLElement): void {
       // La riga sotto la scacchiera e la scacchiera stessa dipendono da cio' che si e'
       // scelto qui: si ridisegna alla chiusura, non ad ogni cambio, per non far
       // lampeggiare la pagina sotto la finestra aperta.
+      refresh();
+    });
+    document.body.append(dialog);
+    dialog.showModal();
+  }
+
+  /**
+   * "Come ti aiuta la Nonna": quando ti ferma, quante volte ti lascia rigiocare, la barra.
+   *
+   * Le tre cose stanno insieme perche' sono tutte aiuto, e perche' dipendono l'una
+   * dall'altra: ti ferma solo se puoi rigiocare, e se non ti ferma mai non ti lascia
+   * nemmeno rigiocare. Stessa impaginazione del riquadro della forza: le scelte in cima,
+   * "Chiudi", poi le spiegazioni.
+   */
+  function openHelp(): void {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'settings-dialog';
+
+    const fill = (): void => {
+      dialog.replaceChildren();
+      const help = (key: string): HTMLElement => {
+        const paragraph = document.createElement('p');
+        paragraph.className = 'help-line';
+        paragraph.textContent = t(key);
+        return paragraph;
+      };
+      const section = (titleKey: string, ...lines: HTMLElement[]): void => {
+        const block = document.createElement('div');
+        block.className = 'section';
+        const heading = document.createElement('h3');
+        heading.className = 'section-title';
+        heading.textContent = t(titleKey);
+        block.append(heading, ...lines);
+        dialog.append(block);
+      };
+
+      const stopsChoice = document.createElement('select');
+      for (const level of STOP_LEVELS) {
+        const option = document.createElement('option');
+        option.value = level;
+        option.textContent = t(`stops_${level}`);
+        option.selected = level === stops;
+        stopsChoice.append(option);
+      }
+      stopsChoice.addEventListener('change', () => {
+        stops = stopsChoice.value as StopLevel;
+        try {
+          localStorage.setItem(STOPS_KEY, stops);
+        } catch {
+          // Memoria non disponibile: vale per questa sessione.
+        }
+        if (stops === 'never') review = null;
+        fill();
+      });
+
+      const replay = takebackSelect(fill);
+      // Se non ti ferma mai non ti lascia nemmeno rigiocare: il menu dice "Mai" e non si tocca.
+      if (stops === 'never') {
+        const select = replay as HTMLSelectElement;
+        select.value = '0';
+        select.disabled = true;
+      }
+
+      const bar = document.createElement('select');
+      for (const [value, key] of [
+        ['on', 'barOn'],
+        ['off', 'barOff'],
+      ] as const) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = t(key);
+        option.selected = (value === 'on') === showBar;
+        bar.append(option);
+      }
+      bar.addEventListener('change', () => {
+        showBar = bar.value === 'on';
+        try {
+          localStorage.setItem('basic-chess:evalBar', showBar ? 'on' : 'off');
+        } catch {
+          // Memoria non disponibile: vale per questa sessione.
+        }
+        renderEnginePanel();
+      });
+
+      const choices = document.createElement('div');
+      choices.className = 'choices';
+      for (const [titleKey, control] of [
+        ['stopsTitle', stopsChoice],
+        ['replayTitle', replay],
+        ['showBar', bar],
+      ] as const) {
+        const choice = document.createElement('label');
+        choice.className = 'choice';
+        const name = document.createElement('span');
+        name.className = 'choice-name';
+        name.textContent = t(titleKey);
+        choice.append(name, control);
+        choices.append(choice);
+      }
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'settings-close';
+      close.textContent = t('settingsClose');
+      close.addEventListener('click', () => dialog.close());
+      const title = document.createElement('h2');
+      title.textContent = t('opponentHelpTitle');
+      const heading = document.createElement('h2');
+      heading.textContent = t('helpTitle');
+      dialog.append(heading, choices, close, document.createElement('hr'), title);
+
+      section('stopsTitle', help('helpStops'), help('helpStopsAfter'));
+      const replayLines = [help('opponentHelpTakebacks')];
+      if (preferredTakebackLimit() !== takebackLimit) replayLines.push(help('takebacksNextGame'));
+      section('replayTitle', ...replayLines);
+      section('showBar', help('helpBar'));
+    };
+
+    fill();
+    dialog.addEventListener('close', () => {
+      dialog.remove();
       refresh();
     });
     document.body.append(dialog);
@@ -5024,24 +5139,6 @@ export function mountApp(root: HTMLElement): void {
    * Esc e la trappola del focus le fa il browser, e sono esattamente le tre cose che
    * si sbagliano riscrivendole a mano.
    */
-  /** La nota della Nonna a perdoni finiti (vedi quietNote), al posto del verdetto. */
-  function renderQuietNote(): void {
-    if (review || !quietNote || finished()) return;
-    tutorEl.replaceChildren();
-    tutorEl.hidden = false;
-    // La mossa si nomina nel testo, e la freccia non c'e': dopo la risposta della Nonna
-    // una freccia sulla mossa di prima faceva sembrare la partita ancora ferma li', e
-    // non si capiva che toccava di nuovo a te (segnalato giocando).
-    const note = document.createElement('p');
-    const yourTurn = positionAt(state).turn() === humanColor && state.cursor === state.plies.length;
-    note.textContent =
-      t('tutorQuiet', {
-        move: `${moveLabel(quietNote.number, humanColor)} ${toFigurine(quietNote.san)}`,
-        drop: Math.round(quietNote.drop),
-      }) + (yourTurn ? ` ${t('tutorQuietYourTurn')}` : '');
-    tutorEl.append(note);
-  }
-
   /** La riga "Qualcosa non torna? Segnala" in fondo al riquadro della Nonna. */
   function renderReport(): void {
     const link = document.createElement('button');
@@ -5157,7 +5254,6 @@ export function mountApp(root: HTMLElement): void {
   function clearTutor(): void {
     outcome = null;
     offer = null;
-    quietNote = null;
     drawOffered = false;
     drawProposals.length = 0;
     // Anche i finali gia' visti: appartengono alla partita, non alla sessione.
