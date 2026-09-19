@@ -4846,29 +4846,22 @@ export function mountApp(root: HTMLElement): void {
       // Mostra anche, senza doverlo spiegare, quanto pesa la distrazione.
       const table = document.createElement('table');
       table.className = 'level-table';
-      // Trasposta: i livelli in colonna, l'attenzione in riga. Cinque colonne strette al
-      // posto di cinque righe, e ogni intervallo su due righe (da / a): sta in larghezza
-      // anche sul telefono ed e' piu' compatta (chiesto usandola).
       const head = document.createElement('tr');
-      const corner = document.createElement('th');
-      corner.textContent = t('sectionLevel');
-      head.append(corner);
-      for (const [index, option] of BOT_LEVELS.entries()) {
+      for (const label of ['', t('distractionCareful'), t('distractionSloppy')]) {
         const cell = document.createElement('th');
-        cell.textContent = String(index + 1);
-        if (option.id === level.id) cell.className = 'current';
+        cell.textContent = label;
         head.append(cell);
       }
       table.append(head);
-      for (const id of ['attento', 'distratto'] as const) {
+      for (const [index, option] of BOT_LEVELS.entries()) {
         const row = document.createElement('tr');
+        if (option.id === level.id) row.className = 'current';
         const name = document.createElement('th');
-        name.textContent = t(id === 'attento' ? 'distractionCareful' : 'distractionSloppy');
+        name.textContent = t('levelName', { n: index + 1 });
         row.append(name);
-        for (const option of BOT_LEVELS) {
+        for (const id of ['attento', 'distratto'] as const) {
           const cell = document.createElement('td');
-          cell.textContent = eloText(option, id).replace('-', '–\n');
-          if (option.id === level.id) cell.className = 'current';
+          cell.textContent = eloText(option, id);
           row.append(cell);
         }
         table.append(row);
