@@ -5014,7 +5014,7 @@ export function mountApp(root: HTMLElement): void {
         if (titleKey === 'replayTitle' && stops !== 'never' && takebackLimit !== null) {
           const left = document.createElement('span');
           left.className = 'choice-note';
-          left.textContent = t('replayLeft', { left: Math.max(0, takebackLimit - takeBacks), limit: takebackLimit });
+          left.textContent = t('replayLeft', { left: Math.max(0, takebackLimit - takeBacks) });
           choice.append(left);
         }
         choices.append(choice);

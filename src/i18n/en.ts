@@ -197,7 +197,7 @@ export const en: Record<keyof typeof it, string> = {
   helpStops: 'WHEN SHE STOPS YOU decides whether Grandma interrupts the game when you go wrong, to show you what happens and let you replay the move. She only stops you while you can still replay: once the second chances are used up, she lets it go.',
   helpStopsAfter: 'Either way, after the game she walks you through it and the moments worth a look.',
   helpBar: 'THE BAR shows beside the board who is doing better: it drops when you go wrong, even when Grandma says nothing.',
-  replayLeft: '{left} of {limit} left in this game',
+  replayLeft: '{left} left in this game',
   recapCorrected: 'taken back',
   recapKept: 'kept',
   newGameConfirm: 'Start a new game? The current one will be lost.',
