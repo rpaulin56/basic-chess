@@ -101,6 +101,8 @@ export const fr: Record<keyof typeof it, string> = {
   storyRethinkOpen: 'puis remplacé',
   storyGood: 'ici il n’y avait qu’un seul bon coup, et tu l’as trouvé',
   storyGiftSeen: 'ici je me suis trompée, et tu l’as vu',
+  storyGiftSeenWith: `ici je me suis trompée, et tu l’as vu${NB}: {move}`,
+  storyRethinkWorse: `${NB}: c’était pire`,
   storyGiftMissed: 'ici je me suis trompée, et tu ne l’as pas vu',
   storyGiftMissedWith: `ici je me suis trompée, et tu ne l’as pas vu${NB}: tu avais {move}`,
   storyHint: 'tu m’as demandé un conseil',

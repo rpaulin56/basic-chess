@@ -1253,6 +1253,11 @@ export function mountApp(root: HTMLElement): void {
       /** Tra testa e parti: ", " dopo un ripensamento ("…, cambiata in d5"), " — " altrimenti. */
       joiner: string;
       parts: string[];
+      /**
+       * Dove porta il tocco. Di solito la posizione PRIMA della mossa, quella in cui si
+       * sceglieva; per un errore della Nonna quella DOPO, in cui toccava a te approfittarne.
+       */
+      seekTo?: number;
     }
     const rows = new Map<number, Row>();
     const head = (ply: number): string => {
@@ -1288,12 +1293,18 @@ export function mountApp(root: HTMLElement): void {
       if (kept && replacement && Math.round(replacement.drop) >= 1) {
         after.push(t('whyRethinkPoints', { drop: Math.round(replacement.drop) }));
       }
+      // Cambiata IN PEGGIO: e' la cosa da dire, e la fretta della prima diventa un dettaglio
+      // che confonde (segnalato leggendo un'analisi vera: sembrava un buon ripensamento).
+      const worse =
+        kept && replacement !== undefined && rethink.drop !== null && replacement.drop > rethink.drop + 1;
+      if (worse) before.length = Math.round(rethink.drop ?? 0) >= 1 ? 1 : 0;
       const target = row(rethink.ply);
       target.head = `${moveLabel(rethink.number, humanColor)} ${toFigurine(rethink.san)}${note(before)}`;
       target.joiner = ', ';
       target.parts.unshift(
         rethink.newSan
-          ? t('storyRethink', { newSan: toFigurine(rethink.newSan), after: note(after) })
+          ? t('storyRethink', { newSan: toFigurine(rethink.newSan), after: note(after) }) +
+              (worse ? t('storyRethinkWorse') : '')
           : t('storyRethinkOpen'),
       );
     }
@@ -1319,9 +1330,14 @@ export function mountApp(root: HTMLElement): void {
       row(proposal.ply).parts.push(t('storyDrawProposed'));
     }
     for (const gift of [...gifts].sort((a, b) => a.ply - b.ply).slice(0, 3)) {
-      row(gift.ply).parts.push(
+      const giftRow = row(gift.ply);
+      giftRow.seekTo = gift.ply + 1;
+      const reply = state.plies[gift.ply + 1];
+      giftRow.parts.push(
         gift.seen
-          ? t('storyGiftSeen')
+          ? reply
+            ? t('storyGiftSeenWith', { move: toFigurine(reply.san) })
+            : t('storyGiftSeen')
           : gift.punish
             ? t('storyGiftMissedWith', { move: toFigurine(gift.punish) })
             : t('storyGiftMissed'),
@@ -1349,7 +1365,7 @@ export function mountApp(root: HTMLElement): void {
       item.textContent = `${entry.head}${entry.joiner}${tail}`;
       // Alla posizione PRIMA della mossa: quella in cui si doveva scegliere.
       const go = (): void => {
-        seek(Math.min(entry.ply, state.plies.length));
+        seek(Math.min(entry.seekTo ?? entry.ply, state.plies.length));
         revealBoard();
       };
       item.addEventListener('click', go);

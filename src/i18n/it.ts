@@ -78,6 +78,8 @@ export const it = {
   storyRethinkOpen: 'poi cambiata',
   storyGood: 'qui c’era una sola mossa buona, e tu l’hai trovata',
   storyGiftSeen: 'qui ho sbagliato io, e tu l’hai visto',
+  storyGiftSeenWith: 'qui ho sbagliato io, e tu l’hai visto: {move}',
+  storyRethinkWorse: ': è andata peggio',
   storyGiftMissed: 'qui ho sbagliato io, e non l’hai visto',
   storyGiftMissedWith: 'qui ho sbagliato io, e non l’hai visto: avevi {move}',
   storyHint: 'mi hai chiesto un consiglio',

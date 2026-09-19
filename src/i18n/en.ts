@@ -80,6 +80,8 @@ export const en: Record<keyof typeof it, string> = {
   storyRethinkOpen: 'then changed',
   storyGood: 'there was only one good move here, and you found it',
   storyGiftSeen: 'here I made a mistake, and you saw it',
+  storyGiftSeenWith: 'here I made a mistake, and you saw it: {move}',
+  storyRethinkWorse: ': it got worse',
   storyGiftMissed: 'here I made a mistake, and you did not see it',
   storyGiftMissedWith: 'here I made a mistake, and you did not see it: you had {move}',
   storyHint: 'you asked me for a hint',
