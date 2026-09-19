@@ -86,7 +86,6 @@ export const it = {
   storyAnswersOne: '1 volta le mosse buone',
   storyAnswers: '{count} volte le mosse buone',
   storyTakeBacks: '{count} ripensamenti',
-  storyTakeBacksOf: '{count} ripensamenti su {limit}',
   whyClean:
     "Hai tenuto bene e non hai fatto grandi errori. Ma alla lunga tanti piccoli errori fanno perdere lo stesso: te ne mostro qualcuno, per darti un'idea.",
   whyVerdictThrown: 'Hai buttato via la partita',
@@ -288,7 +287,6 @@ export const it = {
   reportSubjectStart: 'GrandmaChess {version} – segnalazione',
   reportBody: 'Incolla qui la partita:\n\n\nChe cosa è successo:\n\n\nChe cosa ti aspettavi:\n\n',
   recapTakeBacks: 'Ripensamenti in questa partita: {count}.',
-  recapTakeBacksOf: 'Ripensamenti in questa partita: {count} su {limit}.',
   takebackRefused: 'Ti ho già lasciato cambiare {count} mosse: da qui puoi solo guardare.',
   takebackRefusedOne: 'Ti ho già lasciato cambiare una mossa: da qui puoi solo guardare.',
   takebackRefusedNone: 'In questa partita le mosse non si cambiano: da qui puoi solo guardare.',
@@ -305,7 +303,6 @@ export const it = {
   takebacksOne: 'Max 1 volta',
   takebacksMany: 'Max {n} volte',
   takebacksUnlimited: 'Senza limite',
-  takebacksNextGame: 'Vale dalla prossima partita.',
   opponentHelpTakebacks:
     'Ogni mossa cambiata è una concessione della Nonna: le regole non lo permetterebbero. È giusto mettere un limite ai cambi fatti dopo un avviso o di tua iniziativa.',
   sectionStudy: 'Studia aperture',

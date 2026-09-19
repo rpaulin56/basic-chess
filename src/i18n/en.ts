@@ -88,7 +88,6 @@ export const en: Record<keyof typeof it, string> = {
   storyAnswersOne: 'good moves shown once',
   storyAnswers: 'good moves shown {count} times',
   storyTakeBacks: '{count} second thoughts',
-  storyTakeBacksOf: '{count} of {limit} second thoughts',
   whyClean:
     'You held your ground and made no serious mistake. But a lot of small errors lose a game just as surely: let me show you a few, to give you the idea.',
   whyVerdictThrown: 'You threw the game away',
@@ -289,7 +288,6 @@ export const en: Record<keyof typeof it, string> = {
   reportSubjectStart: 'GrandmaChess {version} – report',
   reportBody: 'Paste the game here:\n\n\nWhat happened:\n\n\nWhat you expected:\n\n',
   recapTakeBacks: 'Second thoughts in this game: {count}.',
-  recapTakeBacksOf: 'Second thoughts in this game: {count} of {limit}.',
   takebackRefused: 'I have already let you change {count} moves: from here you can only look.',
   takebackRefusedOne: 'I have already let you change one move: from here you can only look.',
   takebackRefusedNone: 'In this game moves cannot be changed: from here you can only look.',
@@ -306,7 +304,6 @@ export const en: Record<keyof typeof it, string> = {
   takebacksOne: 'Max 1 time',
   takebacksMany: 'Max {n} times',
   takebacksUnlimited: 'No limit',
-  takebacksNextGame: 'Applies from the next game.',
   opponentHelpTakebacks:
     'Every move you change is a concession from Grandma: the rules would not allow it. It is fair to put a limit on changes made after a warning or on your own initiative.',
   sectionStudy: 'Study openings',

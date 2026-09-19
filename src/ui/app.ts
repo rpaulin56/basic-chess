@@ -1099,14 +1099,7 @@ export function mountApp(root: HTMLElement): void {
     if (answersSeen > 0) recapEl.append(text(helpLine('recapAnswers', 'answer', answersSeen), 'recap-hints'));
     if (studied) recapEl.append(text(t('recapStudy'), 'recap-hints'));
     if (takeBacks > 0) {
-      recapEl.append(
-        text(
-          takebackLimit === null
-            ? t('recapTakeBacks', { count: takeBacks })
-            : t('recapTakeBacksOf', { count: takeBacks, limit: takebackLimit }),
-          'recap-hints',
-        ),
-      );
+      recapEl.append(text(t('recapTakeBacks', { count: takeBacks }), 'recap-hints'));
     }
   }
 
@@ -1363,11 +1356,7 @@ export function mountApp(root: HTMLElement): void {
       parts.push(t(answersSeen === 1 ? 'storyAnswersOne' : 'storyAnswers', { count: answersSeen }));
     }
     if (takeBacks > 0) {
-      parts.push(
-        takebackLimit === null
-          ? t('storyTakeBacks', { count: takeBacks })
-          : t('storyTakeBacksOf', { count: takeBacks, limit: takebackLimit }),
-      );
+      parts.push(t('storyTakeBacks', { count: takeBacks }));
     }
     if (parts.length === 0) return null;
     const line = parts.join(' · ');
@@ -4348,13 +4337,9 @@ export function mountApp(root: HTMLElement): void {
       ...(answersSeen > 0 ? { Answers: String(answersSeen) } : {}),
       // Quando la Nonna ti fermava: cambia molto il senso degli errori rimasti.
       Stops: stops,
-      // Con il limite accanto, cosi' chi rilegge sa con quale regola si e' giocato.
-      ...(takeBacks > 0 || takebackLimit !== DEFAULT_TAKEBACK_LIMIT
-        ? {
-            Takebacks:
-              takebackLimit === null ? String(takeBacks) : `${takeBacks}/${takebackLimit}`,
-          }
-        : {}),
+      // Quante mosse si sono davvero rigiocate: e' un fatto della partita. Il limite no, e'
+      // un'impostazione di chi gioca, e non descrive la partita.
+      ...(takeBacks > 0 ? { Takebacks: String(takeBacks) } : {}),
     };
     // ECO e Opening sono tag standard di fatto (li scrivono ChessBase, SCID, Lichess):
     // e' li' che il nome dell'apertura va a vivere quando sparisce dallo schermo, e da
@@ -4551,8 +4536,6 @@ export function mountApp(root: HTMLElement): void {
       localStorage.setItem('basic-chess:level', level.id);
       localStorage.setItem('basic-chess:distraction', distraction.id);
     }
-    // "3/5": tre ripensamenti con limite cinque. Un numero solo: senza limite. Nessun tag:
-    // il limite di serie (il tag si omette proprio in quel caso, vedi pgnTags).
     const stopTag = tags['Stops'];
     if (stopTag && (STOP_LEVELS as readonly string[]).includes(stopTag)) {
       stops = stopTag as StopLevel;
@@ -4561,12 +4544,6 @@ export function mountApp(root: HTMLElement): void {
       } catch {
         // Memoria non disponibile.
       }
-    }
-    const takebacks = tags['Takebacks'];
-    if (takebacks === undefined) takebackLimit = DEFAULT_TAKEBACK_LIMIT;
-    else {
-      const [, limit] = takebacks.split('/');
-      takebackLimit = limit === undefined ? null : Number(limit);
     }
     updateStrengthButton();
   }
@@ -4770,12 +4747,11 @@ export function mountApp(root: HTMLElement): void {
       } catch {
         // Memoria negata: la scelta vale finche' la pagina resta aperta, cioe' per niente.
       }
-      // Prima della tua prima mossa la partita non e' ancora cominciata per te: il limite
-      // vale subito. Dopo, resta quello con cui hai cominciato (vedi TAKEBACK_LIMITS).
-      if (!hasPlayed()) {
-        takebackLimit = select.value === 'unlimited' ? null : Number(select.value);
-        saveGame();
-      }
+      // Vale subito, anche a partita cominciata: il limite e' una disciplina di chi gioca,
+      // non una regola della partita, e la Nonna non fa l'arbitro. Nel PGN va solo quante
+      // mosse si sono davvero rigiocate (deciso parlandone).
+      takebackLimit = select.value === 'unlimited' ? null : Number(select.value);
+      saveGame();
       onChange();
     });
     return select;
@@ -5027,9 +5003,7 @@ export function mountApp(root: HTMLElement): void {
       dialog.append(heading, choices, close, document.createElement('hr'), title);
 
       section('stopsTitle', help('helpStops'), help('helpStopsAfter'));
-      const replayLines = [help('opponentHelpTakebacks')];
-      if (preferredTakebackLimit() !== takebackLimit) replayLines.push(help('takebacksNextGame'));
-      section('replayTitle', ...replayLines);
+      section('replayTitle', help('opponentHelpTakebacks'));
       section('showBar', help('helpBar'));
     };
 
