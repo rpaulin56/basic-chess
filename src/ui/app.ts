@@ -4083,7 +4083,7 @@ export function mountApp(root: HTMLElement): void {
          * perche' li' e' un aiuto vero.
          */
         iconButton(
-          'arrows',
+          'hint',
           // Un nome solo, qualunque cosa la Nonna possa offrire qui: che cosa, lo dice lei
           // nel riquadro (vedi la scelta sotto).
           t('askHeading'),
@@ -5092,7 +5092,7 @@ export function mountApp(root: HTMLElement): void {
       ask.className = 'help-always help-ask';
       const askText = document.createElement('span');
       askText.textContent = t('helpAsk');
-      ask.append(createIcon('arrows'), askText);
+      ask.append(createIcon('hint'), askText);
       const choices = document.createElement('div');
       choices.className = 'choices';
       choices.append(choice('replayTitle', replay, left), choice('stopsTitle', stopsChoice, stopsNote));
