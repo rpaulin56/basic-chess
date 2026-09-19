@@ -39,7 +39,7 @@ import { chooseBotMove } from '../bot/play.js';
 import { winPercentOf } from '../engine/winProb.js';
 import type { AnalyseOptions, Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
-import { transportArrows, type Arrow, type Consequence, classifyAgainstBest } from '../tutor/classify.js';
+import { transportArrows, type Arrow, type Consequence, classifyAgainstBest, pieceGiven, type PieceGiven } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
 import { arrowMoves, bookLoaded, bookMoves, brushFor } from '../openings/book.js';
@@ -419,19 +419,7 @@ interface MoveLoss {
    * con un pezzo in meno senza capire dove. Il pezzo perso e' la prima cosa che un
    * principiante nota, e il racconto deve nominarlo anche sotto le soglie.
    */
-  lostPiece?: 'n' | 'b' | 'r' | 'q';
-}
-
-/** Il pezzo piu' pesante perso secondo la conseguenza, pedoni esclusi (vedi `lostPiece`). */
-function lostPieceOf(consequence: Consequence | null): MoveLoss['lostPiece'] {
-  if (!consequence || consequence.matesIn !== null) return undefined;
-  const heavy = ['q', 'r', 'b', 'n'] as const;
-  if (consequence.lossKind === 'named' && consequence.materialLoss >= 2) {
-    const found = heavy.find((type) => consequence.lost.some((piece) => piece.type === type));
-    if (found) return found;
-  }
-  const missed = consequence.missed?.piece;
-  return missed && missed !== 'p' ? missed : undefined;
+  lostPiece?: PieceGiven;
 }
 
 /**
@@ -1346,7 +1334,9 @@ export function mountApp(root: HTMLElement): void {
       const note = moment && moment.move.ply === loss.ply ? `; ${hasteNote(moment.ms, moment.median)}` : '';
       const better = loss.best ? ` · ${t('whyBetter', { san: toFigurine(loss.best) })}` : '';
       const piece = loss.lostPiece
-        ? ` · ${t('storyLostPiece', { what: t(`missed${loss.lostPiece.toUpperCase()}` as 'missedN') })}`
+        ? ` · ${t('storyLostPiece', {
+            what: loss.lostPiece === 'exchange' ? t('lossExchange') : t(`missed${loss.lostPiece.toUpperCase()}` as 'missedN'),
+          })}`
         : '';
       row(loss.ply).parts.push(
         t('storyLoss', { verdict: lossVerdict(loss), drop: Math.round(loss.drop), note }) + piece + better,
@@ -1789,7 +1779,7 @@ export function mountApp(root: HTMLElement): void {
         verdict.bestMove,
         verdict.winPercentBefore,
         first && second ? winPercentOf(first) - winPercentOf(second) : 0,
-        classifyAgainstBest(
+        pieceGiven(
           state.plies[ply]!.fenBefore,
           verdict.bestLine,
           state.plies[ply]!.fenAfter,
@@ -2752,7 +2742,7 @@ export function mountApp(root: HTMLElement): void {
       verdict.bestMove,
       verdict.winPercentBefore,
       gap,
-      classifyAgainstBest(pending.fenBefore, verdict.bestLine, pending.fenAfter, after.lines[0]?.pv ?? []),
+      pieceGiven(pending.fenBefore, verdict.bestLine, pending.fenAfter, after.lines[0]?.pv ?? []),
     );
     if (stopsOn(verdict)) {
       // La confutazione e' il seguito previsto dopo la mossa giocata: e' la risposta
@@ -3210,11 +3200,10 @@ export function mountApp(root: HTMLElement): void {
     bestMove: string | null,
     before: number,
     gap: number,
-    consequence: Consequence | null,
+    lostPiece: PieceGiven | null,
   ): void {
     const san = state.plies[ply]?.san;
     if (!san) return;
-    const lostPiece = lostPieceOf(consequence);
     const entry: MoveLoss = {
       ply,
       number: moveNumberOf(state, ply),

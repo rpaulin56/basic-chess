@@ -570,13 +570,36 @@ export function classifyAgainstBest(
 ): Consequence | null {
   const base = classifyConsequence(fenAfterMistake, refutation);
   if (!base || base.category !== 'strategico' || base.matesIn !== null || bestLine.length === 0) return base;
+  const { points, net, played } = againstBest(fenBefore, bestLine, fenAfterMistake, refutation);
+  if (points < MATERIAL_THRESHOLD) return base;
+  // Il pezzo piu' pesante che manca, se quello che resta oltre lui vale meno di un pezzo
+  // leggero: "un Cavallo in meno", anche se per strada si e' preso un pedone.
+  const heaviest = (['q', 'r', 'b', 'n', 'p'] as const).find((type) => net[type] > 0) ?? null;
+  const piece =
+    heaviest !== null && Math.abs(points - (VALUE[heaviest] ?? 0)) < RECOVERY_THAT_COUNTS ? heaviest : null;
+  const missed: MissedMaterial = { piece, points, behind: played.balance < 0 };
+
+  const shown =
+    played.lastCapture > 0 ? (classifyConsequence(fenAfterMistake, refutation.slice(0, played.lastCapture)) ?? base) : base;
+  return { ...shown, category: 'tattico', missed };
+}
+
+/**
+ * Il materiale che la mossa giocata lascia andare rispetto alla migliore: il saldo in
+ * pedoni e, per tipo, i pezzi che mancano alla fine (positivo = manca a chi ha mosso).
+ */
+function againstBest(
+  fenBefore: string,
+  bestLine: readonly string[],
+  fenAfterMistake: string,
+  refutation: readonly string[],
+): { points: number; net: Record<PieceType, number>; played: ReturnType<typeof settleLine> } {
   const mover = new Chess(fenBefore).turn();
   const opponent = mover === 'w' ? 'b' : 'w';
   const start = materialBalance(new Chess(fenBefore), mover);
   const best = settleLine(fenBefore, bestLine, mover);
   const played = settleLine(fenAfterMistake, refutation, mover);
   const points = best.balance - start - (played.balance - start);
-  if (points < MATERIAL_THRESHOLD) return base;
 
   // Cosa manca, per tipo: quello che la linea migliore teneva al netto di quella giocata,
   // contando anche il pezzo preso dalla mossa sbagliata stessa.
@@ -588,14 +611,32 @@ export function classifyAgainstBest(
   for (const type of ['p', 'n', 'b', 'r', 'q'] as const) net[type] -= beforeCounts[type] - afterCounts[type];
   for (const type of played.won) net[type]--;
   for (const type of played.lost) net[type]++;
-  // Il pezzo piu' pesante che manca, se quello che resta oltre lui vale meno di un pezzo
-  // leggero: "un Cavallo in meno", anche se per strada si e' preso un pedone.
-  const heaviest = (['q', 'r', 'b', 'n', 'p'] as const).find((type) => net[type] > 0) ?? null;
-  const piece =
-    heaviest !== null && Math.abs(points - (VALUE[heaviest] ?? 0)) < RECOVERY_THAT_COUNTS ? heaviest : null;
-  const missed: MissedMaterial = { piece, points, behind: played.balance < 0 };
+  return { points, net, played };
+}
 
-  const shown =
-    played.lastCapture > 0 ? (classifyConsequence(fenAfterMistake, refutation.slice(0, played.lastCapture)) ?? base) : base;
-  return { ...shown, category: 'tattico', missed };
+/** Che cosa ha lasciato andare una mossa, detto con un nome: un pezzo o la qualita'. */
+export type PieceGiven = 'n' | 'b' | 'r' | 'q' | 'exchange';
+
+/**
+ * Il pezzo (non il pedone) che la mossa giocata ha lasciato andare e la MIGLIORE no.
+ *
+ * Il confronto con la migliore e' tutto. Contare solo cio' che si perde dopo la mossa
+ * diceva "ci perdi un Alfiere" per 15...Bxe4, che l'Alfiere lo prendeva prima di
+ * perderlo (un cambio alla pari), e per 37...a6, con un Cavallo gia' perso due mosse
+ * prima e perso anche con la mossa migliore. Segnalati leggendo una partita vera.
+ */
+export function pieceGiven(
+  fenBefore: string,
+  bestLine: readonly string[],
+  fenAfterMistake: string,
+  refutation: readonly string[],
+): PieceGiven | null {
+  if (bestLine.length === 0 || refutation.length === 0) return null;
+  const { points, net } = againstBest(fenBefore, bestLine, fenAfterMistake, refutation);
+  if (points < 2) return null;
+  // Torre per pezzo leggero: la qualita', col suo nome.
+  if (net.r > 0 && net.n + net.b < 0 && Math.abs(points - 2) < 1.5) return 'exchange';
+  const heaviest = (['q', 'r', 'b', 'n'] as const).find((type) => net[type] > 0) ?? null;
+  if (heaviest === null || Math.abs(points - VALUE[heaviest]!) >= RECOVERY_THAT_COUNTS) return null;
+  return heaviest;
 }
