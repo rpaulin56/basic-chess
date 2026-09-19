@@ -203,6 +203,7 @@ export const en: Record<keyof typeof it, string> = {
   replayLeft: '{left} left for this game',
   replayLeftOne: '1 left for this game',
   helpAlways: 'After the game Grandma always goes through it with you: where you went wrong and where you played well.',
+  helpAsk: 'During the game you can always ask her for a hint with this button.',
   showBarCheck: 'Show the evaluation bar',
   replayLeftNone: 'None left for this game',
   stopsNoReplay: 'Without replays Grandma does not stop you: you could not take the move back.',

@@ -5087,6 +5087,12 @@ export function mountApp(root: HTMLElement): void {
       const always = document.createElement('p');
       always.className = 'help-always';
       always.textContent = t('helpAlways');
+      // Anche il consiglio a richiesta c'e' sempre: si dice qui, con l'icona del tasto.
+      const ask = document.createElement('p');
+      ask.className = 'help-always help-ask';
+      const askText = document.createElement('span');
+      askText.textContent = t('helpAsk');
+      ask.append(createIcon('arrows'), askText);
       const choices = document.createElement('div');
       choices.className = 'choices';
       choices.append(choice('replayTitle', replay, left), choice('stopsTitle', stopsChoice, stopsNote));
@@ -5099,7 +5105,7 @@ export function mountApp(root: HTMLElement): void {
       title.textContent = t('opponentHelpTitle');
       const heading = document.createElement('h2');
       heading.textContent = t('helpTitle');
-      dialog.append(heading, always, barLine, choices, close, document.createElement('hr'), title);
+      dialog.append(heading, always, ask, barLine, choices, close, document.createElement('hr'), title);
 
       section('showBar', help('helpBar'));
       section('replayTitle', help('opponentHelpTakebacks'));

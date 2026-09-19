@@ -202,6 +202,7 @@ export const it = {
   replayLeft: '{left} rimaste per la partita',
   replayLeftOne: '1 rimasta per la partita',
   helpAlways: 'A fine partita la Nonna la ripercorre sempre con te: dove hai sbagliato e dove hai giocato bene.',
+  helpAsk: 'Durante la partita puoi sempre chiederle un consiglio con questo tasto.',
   showBarCheck: 'Mostra la barra della valutazione',
   replayLeftNone: 'Nessuna rimasta per la partita',
   stopsNoReplay: 'Senza rigiochi la Nonna non ti ferma: non potresti rifare la mossa.',

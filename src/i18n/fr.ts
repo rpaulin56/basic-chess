@@ -219,6 +219,7 @@ export const fr: Record<keyof typeof it, string> = {
   replayLeft: '{left} restantes pour la partie',
   replayLeftOne: '1 restante pour la partie',
   helpAlways: `À la fin de la partie, Mamie la reprend toujours avec toi${NB}: tes erreurs et tes bons coups.`,
+  helpAsk: 'Pendant la partie, tu peux toujours lui demander un conseil avec ce bouton.',
   showBarCheck: 'Montrer la barre d’évaluation',
   replayLeftNone: 'Aucune restante pour la partie',
   stopsNoReplay: `Sans coups à rejouer, Mamie ne t’arrête pas${NB}: tu ne pourrais pas refaire le coup.`,
