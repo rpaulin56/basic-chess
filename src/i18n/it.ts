@@ -194,7 +194,7 @@ export const it = {
   helpStops: 'QUANDO TI FERMA decide se la Nonna interrompe la partita quando sbagli, per mostrarti che cosa succede e lasciarti rigiocare la mossa. Ti ferma solo finché puoi rigiocare: finiti i perdoni, la lascia andare.',
   helpStopsAfter: 'In ogni caso, a fine partita ti racconta la partita con i momenti da rivedere.',
   helpBar: 'LA BARRA mostra accanto alla scacchiera chi sta meglio: si abbassa quando sbagli, anche quando la Nonna non dice niente.',
-  statusLastForgiveness: 'ultimo perdono',
+  replayLeft: 'In questa partita te ne restano {left} su {limit}',
   recapCorrected: 'annullata',
   recapKept: 'mantenuta',
   newGameConfirm: 'Vuoi davvero ricominciare? La partita in corso va persa.',

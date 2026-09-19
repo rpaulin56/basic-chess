@@ -3831,15 +3831,13 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     // Con chi si gioca, in chiaro: l'icona del bilanciere non lo dice piu'.
-    // E l'ultimo perdono, quando resta quello: da li' la Nonna non ti fermera' piu'.
-    const last = forgivenessState() === 'last' ? ` · ${t('statusLastForgiveness')}` : '';
     statusEl.textContent = `${positionAt(state).turn() === 'w' ? t('turnWhite') : t('turnBlack')} · ${t(
       'statusOpponent',
       {
         n: BOT_LEVELS.indexOf(level) + 1,
         attention: t(distraction.id === 'attento' ? 'distractionCareful' : 'distractionSloppy'),
       },
-    )}${last}`;
+    )}`;
   }
 
   function renderEnginePanel(): void {
@@ -5007,6 +5005,14 @@ export function mountApp(root: HTMLElement): void {
         name.className = 'choice-name';
         name.textContent = t(titleKey);
         choice.append(name, control);
+        // Sotto i rigiochi, quanti ne restano in questa partita: l'informazione c'e' per chi
+        // la cerca, invece di stare nella riga di stato dove con "Max 1" non diceva niente.
+        if (titleKey === 'replayTitle' && stops !== 'never' && takebackLimit !== null) {
+          const left = document.createElement('span');
+          left.className = 'choice-note';
+          left.textContent = t('replayLeft', { left: Math.max(0, takebackLimit - takeBacks), limit: takebackLimit });
+          choice.append(left);
+        }
         choices.append(choice);
       }
       const close = document.createElement('button');

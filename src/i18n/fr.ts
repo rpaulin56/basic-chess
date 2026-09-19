@@ -211,7 +211,7 @@ export const fr: Record<keyof typeof it, string> = {
   helpStops: `QUAND ELLE T’ARRÊTE décide si Mamie interrompt la partie quand tu te trompes, pour te montrer ce qui se passe et te laisser rejouer le coup. Elle ne t’arrête que tant que tu peux rejouer${NB}: une fois les pardons épuisés, elle laisse faire.`,
   helpStopsAfter: 'Dans tous les cas, à la fin de la partie elle te la raconte avec les moments à revoir.',
   helpBar: `LA BARRE montre à côté de l’échiquier qui est mieux${NB}: elle baisse quand tu te trompes, même quand Mamie ne dit rien.`,
-  statusLastForgiveness: 'dernier pardon',
+  replayLeft: 'Il t’en reste {left} sur {limit} dans cette partie',
   recapCorrected: 'annulé',
   recapKept: 'gardé',
   newGameConfirm: `Tu veux vraiment recommencer${NB}? La partie en cours sera perdue.`,
