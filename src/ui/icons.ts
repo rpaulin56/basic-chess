@@ -72,7 +72,12 @@ const PATHS: Record<IconName, string> = {
   // circolare si confondesse con "ricarica la pagina" — timore ragionevole allora,
   // infondato adesso: in tutta la barra non c'e' nessun comando di ricarica con cui
   // confondersi, e "su e giu'" dice "scambia due cose", che non e' quello che succede.
+  // Dentro le frecce i due colori, uno sopra l'altro come sulla scacchiera: da sole le
+  // frecce in cerchio dicono "aggiorna la pagina". Il bianco e' un anello, e il suo bordo
+  // sta DENTRO il raggio del nero: fuori misura uguale, altrimenti il bordo lo ingrandisce.
   flip:
+    '<circle cx="12" cy="9" r="2.3" fill="currentColor" stroke="none" />' +
+    '<circle cx="12" cy="15" r="1.6" stroke-width="1.4" />' +
     '<path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3" /><path d="M17.5 3.4v3.8h-3.8" />' +
     '<path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3" /><path d="M6.5 20.6V16.8h3.8" />',
   // Quando la Nonna tace il fumetto e' sbarrato: lo stato si legge dal DISEGNO e non
