@@ -111,11 +111,13 @@ const PATHS: Record<IconName, string> = {
   // La traslazione centra la figura nel riquadro: ruotando attorno alla base il pezzo
   // finisce in basso a sinistra, e senza correzione l'icona pende da una parte.
   resign:
-    '<g transform="translate(6 -7) rotate(-90 13 19)">' +
-    '<path d="M10 19h6" />' +
-    '<path d="M10.8 19 12 12.6h2L15.2 19z" />' +
-    '<circle cx="13" cy="11" r="1.6" />' +
-    '<path d="M13 6.6v2.2M11.7 7.7h2.6" />' +
+    // Pieno e lungo quasi quanto il riquadro: a ventidue pixel un Re a contorno, alto la
+    // meta', non si leggeva come un Re (segnalato da chi gioca).
+    '<g transform="rotate(-90 12 12)">' +
+    '<path d="M7 21h10" />' +
+    '<path d="M8.6 19.5 10.3 12h3.4l1.7 7.5z" fill="currentColor" />' +
+    '<circle cx="12" cy="9.2" r="2.3" fill="currentColor" />' +
+    '<path d="M12 2.4v4.2M10 4.4h4" stroke-width="2" />' +
     '</g>',
   // Il mezzo punto, scritto. E' il modo in cui la patta si segna sul tabellone da
   // sempre: chi gioca a scacchi lo riconosce senza pensarci, e chi non lo riconosce
