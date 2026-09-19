@@ -76,10 +76,13 @@ const PATHS: Record<IconName, string> = {
   // frecce in cerchio dicono "aggiorna la pagina". Il bianco e' un anello, e il suo bordo
   // sta DENTRO il raggio del nero: fuori misura uguale, altrimenti il bordo lo ingrandisce.
   flip:
-    '<circle cx="12" cy="9" r="2.3" fill="currentColor" stroke="none" />' +
-    '<circle cx="12" cy="15" r="1.6" stroke-width="1.4" />' +
+    '<circle cx="12" cy="9.5" r="2" fill="currentColor" stroke="none" />' +
+    '<circle cx="12" cy="14.5" r="1.35" stroke-width="1.3" />' +
+    // Le frecce un po' piu' larghe, perche' non tocchino i pallini.
+    '<g transform="translate(12 12) scale(1.13) translate(-12 -12)" stroke-width="1.5">' +
     '<path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3" /><path d="M17.5 3.4v3.8h-3.8" />' +
-    '<path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3" /><path d="M6.5 20.6V16.8h3.8" />',
+    '<path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3" /><path d="M6.5 20.6V16.8h3.8" />' +
+    '</g>',
   // Quando la Nonna tace il fumetto e' sbarrato: lo stato si legge dal DISEGNO e non
   // solo dal colore di sfondo, che chi guarda per la prima volta non sa interpretare
   // (e che a un daltonico non dice niente).
