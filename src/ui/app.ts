@@ -1440,7 +1440,11 @@ export function mountApp(root: HTMLElement): void {
       // e poi "c'era hxg6"). Resta l'imprecisione, che e' la riga con il costo (segnalato
       // leggendo un'analisi vera).
       const alsoCostly = costly.find((loss) => loss.ply === gift.ply + 1);
-      if (!gift.seen && alsoCostly && gift.punish && alsoCostly.best === gift.punish) continue;
+      // La mossa con cui avresti punito e' gia' raccontata come imprecisione: fra un
+      // complimento e un rimprovero sulla stessa mossa resta il rimprovero, che e' quello
+      // che porta il costo (segnalato leggendo un'analisi vera). Vale anche quando l'hai
+      // punita: se quella risposta e' costata, "l'hai visto" e' un complimento di troppo.
+      if (alsoCostly && (gift.seen || (gift.punish && alsoCostly.best === gift.punish))) continue;
       const giftRow = row(gift.ply);
       giftRow.seekTo = gift.ply + 1;
       const reply = state.plies[gift.ply + 1];
