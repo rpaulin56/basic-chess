@@ -1324,7 +1324,13 @@ export function mountApp(root: HTMLElement): void {
     };
     const withArrows = (target: { arrows?: { from: Key; to: Key; brush: Brush }[] }, ...found: ({ from: Key; to: Key; brush: Brush } | null)[]) => {
       const list = found.filter((item): item is { from: Key; to: Key; brush: Brush } => item !== null);
-      if (list.length > 0) target.arrows = list;
+      // Si AGGIUNGE: una riga puo' dire due cose insieme ("ti ho mostrato le mosse buone" e
+      // l'imprecisione giocata lo stesso), e la seconda non deve cancellare le frecce della
+      // prima. Una casa gia' disegnata non si ridisegna.
+      for (const item of list) {
+        const arrows = target.arrows ?? (target.arrows = []);
+        if (!arrows.some((had) => had.from === item.from && had.to === item.to)) arrows.push(item);
+      }
     };
 
     // I ripensamenti: la testa e' la mossa RIPRESA, con il suo costo e la fretta; poi
