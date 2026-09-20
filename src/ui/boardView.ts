@@ -227,6 +227,11 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
             : { orig: arrow.orig as Key, dest: arrow.dest as Key, brush: arrow.brush },
         ),
       );
+      // Chessground tiene le forme nel suo stato ma non sempre le disegna: con la misura
+      // memorizzata da `keepBounds` il suo ridisegno non parte, e le frecce restavano
+      // invisibili anche se c'erano. Un ridisegno esplicito costa poco: questa strada si
+      // percorre quando si guarda una posizione, non a ogni mossa.
+      api.redrawAll();
     },
 
     destroy() {

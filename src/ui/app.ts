@@ -1479,6 +1479,14 @@ export function mountApp(root: HTMLElement): void {
       item.textContent = `${entry.head}${entry.joiner}${tail}`;
       // Alla posizione PRIMA della mossa: quella in cui si doveva scegliere.
       const go = (): void => {
+        // Il riquadro delle conseguenze disegna le SUE forme e ha la precedenza sulla
+        // scacchiera: restando aperto teneva in piedi le sue frecce — un disco rosso su una
+        // casa qualunque, che e' il suo modo di dire "questo pezzo sparisce" — sopra ogni
+        // posizione aperta dal racconto (segnalato con uno screenshot). Chi tocca una riga
+        // vuole guardare quella posizione: il riquadro ha finito il suo compito.
+        stopPreviewAnimation();
+        preview = null;
+        bestView = null;
         seek(Math.min(entry.seekTo ?? entry.ply, state.plies.length));
         if (entry.arrows) {
           storyArrows = entry.arrows;
