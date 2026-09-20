@@ -6033,6 +6033,25 @@ function loadGame(): LoadedGame | null {
   }
 }
 
+/**
+ * Una riga di costo come la scrive una versione PRECEDENTE.
+ *
+ * `lostPiece` era il nome del pezzo e basta ('n'); adesso porta anche se il materiale si
+ * e' perso o e' solo sfuggito. Una partita salvata prima e ripresa dopo faceva fallire il
+ * racconto, e con lui spariva la barra dei comandi (segnalato ricaricando sul telefono).
+ * Un salvataggio vecchio non deve mai rompere la pagina: nel dubbio si butta il dato.
+ */
+function migrateLoss(loss: MoveLoss): MoveLoss {
+  const piece: unknown = loss.lostPiece;
+  if (typeof piece === 'string') return { ...loss, lostPiece: { piece: piece as 'n', kind: 'lost' } };
+  if (piece === undefined) return loss;
+  if (typeof piece === 'object' && piece !== null && typeof (piece as { piece?: unknown }).piece === 'string') {
+    return loss;
+  }
+  const { lostPiece: _dropped, ...rest } = loss;
+  return rest;
+}
+
 /** Ricostruisce una partita salvata rigiocandone le mosse. */
 function loadFrom(saved: SavedGame): LoadedGame | null {
   try {
@@ -6051,7 +6070,7 @@ function loadFrom(saved: SavedGame): LoadedGame | null {
       state,
       humanColor: saved.humanColor === 'b' ? 'b' : 'w',
       mistakes: Array.isArray(saved.mistakes) ? saved.mistakes : [],
-      losses: Array.isArray(saved.losses) ? saved.losses : [],
+      losses: Array.isArray(saved.losses) ? saved.losses.map(migrateLoss) : [],
       thinkTimes: Array.isArray(saved.thinkTimes) ? saved.thinkTimes : [],
       // Le partite salvate prima che i finali si ricordassero: quelli gia' attraversati
       // contano come visti, altrimenti al primo riavvio la scheda ricomparirebbe ancora.
