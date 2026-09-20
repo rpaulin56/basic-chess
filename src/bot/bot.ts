@@ -1,5 +1,6 @@
 import type { Analysis, EngineLine } from '../engine/types.js';
 import { winPercentOf } from '../engine/winProb.js';
+import { hangsMaterial } from './hanging.js';
 
 /**
  * Il bot "addomesticato".
@@ -359,8 +360,14 @@ export function selectBotMove(
   // un avversario che le butta via non insegna niente. Vale anche a parti rovesciate,
   // perche' un bot che perde e per giunta smette di prendere i pezzi in presa e'
   // semplicemente sgradevole da guardare.
-  const decided = Math.abs(extendedCp(best)) / 100 >= (level.decidedPawns ?? DECIDED_PAWNS);
-  const temperature = decided ? level.temperature * 0.4 : level.temperature;
+  //
+  // La stretta e' GRADUALE e non piu' un gradino: fra la parita' e la soglia del "deciso"
+  // c'era terra di nessuno — a un pedone e mezzo di scarto valeva ancora il tetto largo,
+  // ed e' proprio li' che le posizioni si fanno taglienti e una mossa "un po' peggiore"
+  // diventa un pezzo regalato (segnalato giocando in vantaggio).
+  const decidedAt = level.decidedPawns ?? DECIDED_PAWNS;
+  const advantage = Math.min(1, Math.abs(extendedCp(best)) / 100 / decidedAt);
+  const temperature = level.temperature * (1 - 0.6 * advantage);
 
   // Le mosse troppo costose si scartano del tutto invece di renderle solo
   // improbabili: e' l'unico modo di far sparire il regalo di materiale, perche' il
@@ -369,8 +376,14 @@ export function selectBotMove(
   // scarto puo' voler dire una torre.
   //
   // Almeno una linea sopravvive sempre: la migliore costa zero per definizione.
-  const ceiling = decided ? DECIDED_MAX_COST : (level.maxCost ?? MAX_COST);
-  const lines = all.filter((line) => moveCost(best, line) <= ceiling);
+  const wide = level.maxCost ?? MAX_COST;
+  const ceiling = wide + (DECIDED_MAX_COST - wide) * advantage;
+  // E un controllo che il motore, alla sua profondita', non fa: la mossa che lascia un
+  // pezzo in presa si scarta comunque. La migliore resta sempre, qualunque cosa faccia.
+  const lines = all.filter(
+    (line, index) =>
+      moveCost(best, line) <= ceiling && (index === 0 || !hangsMaterial(analysis.fen, line.pv[0]!, best.pv[0]!)),
+  );
 
   // La svista: la peggiore fra le alternative CONSIDERATE, non una mossa a caso fra
   // tutte le legali. Un principiante che sbaglia gioca comunque una mossa che gli
@@ -384,6 +397,7 @@ export function selectBotMove(
   // leggibili. Il livello dice quanto lontano vede la Nonna; la distrazione dice
   // quanto spesso regala qualcosa apposta. Il campionamento non deve fare ne' l'una
   // ne' l'altra cosa.
+  const decided = advantage >= 1;
   if (!decided && rng() < distraction.blunderRate) {
     return all[all.length - 1]!.pv[0]!;
   }
