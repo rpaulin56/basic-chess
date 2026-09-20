@@ -422,6 +422,14 @@ interface MoveLoss {
    * principiante nota, e il racconto deve nominarlo anche sotto le soglie.
    */
   lostPiece?: PieceGiven;
+  /**
+   * La mossa con cui l'avversaria avrebbe preso, in SAN.
+   *
+   * Il conto sul materiale suppone la sua risposta migliore, che la Nonna spesso non
+   * trova: senza nominarla, "ci potevi rimettere un pezzo" resta una minaccia senza
+   * volto (chiesto da chi gioca).
+   */
+  risk?: string;
   /** La mossa migliore portava a uno scacco perpetuo: e' la ragione da dire (vedi `perpetualIn`). */
   perpetual?: boolean;
 }
@@ -1392,7 +1400,9 @@ export function mountApp(root: HTMLElement): void {
         ? ` · ${t(loss.perpetual ? 'whyBetterPerpetual' : 'whyBetter', { san: toFigurine(loss.best) })}`
         : '';
       const piece = loss.lostPiece
-        ? ` · ${t(loss.lostPiece.kind === 'lost' ? 'storyLostPiece' : 'storyMissedPiece', {
+        ? ` · ${t(materialKey(loss), {
+            // Con che mossa te lo prendeva: il conto suppone la sua risposta migliore.
+            move: loss.risk ? toFigurine(loss.risk) : '',
             // Cavallo e Alfiere valgono uguale, e quale dei due manchi dipende dalla
             // variante che il motore ha visto: a quella profondita' il nome puo' sbagliare,
             // il valore no. Si dice "un pezzo". Torre e Regina, che valgono cinque e nove,
@@ -1699,6 +1709,12 @@ export function mountApp(root: HTMLElement): void {
     return loss.drop >= MISTAKE_DROP ? t('whyVerdictMistake') : t('whyVerdictInaccuracy');
   }
 
+  /** Come si dice il materiale di questa riga: perso o sfuggito, con o senza la mossa. */
+  function materialKey(loss: MoveLoss): 'storyLostPieceWith' | 'storyLostPiece' | 'storyMissedPiece' {
+    if (loss.lostPiece?.kind !== 'lost') return 'storyMissedPiece';
+    return loss.risk ? 'storyLostPieceWith' : 'storyLostPiece';
+  }
+
   function inPlay(loss: MoveLoss): boolean {
     return turnAfter(loss.ply) === humanColor && loss.before <= 88 && loss.before >= 12;
   }
@@ -1898,6 +1914,7 @@ export function mountApp(root: HTMLElement): void {
           analyses[ply + 1]!.lines[0]?.pv ?? [],
           uciOf(state.plies[ply]!),
         ),
+        sanOf(state.plies[ply]!.fenAfter, analyses[ply + 1]!.lines[0]?.pv[0]),
         drawnByChecks(state.plies[ply]!.fenBefore, verdict.bestLine, verdict.winPercentBefore),
       );
     }
@@ -2863,6 +2880,7 @@ export function mountApp(root: HTMLElement): void {
         after.lines[0]?.pv ?? [],
         uciOf(state.plies[state.plies.length - 1]!),
       ),
+      sanOf(pending.fenAfter, after.lines[0]?.pv[0]),
       drawnByChecks(pending.fenBefore, verdict.bestLine, verdict.winPercentBefore),
     );
     if (stopsOn(verdict)) {
@@ -3331,6 +3349,7 @@ export function mountApp(root: HTMLElement): void {
     before: number,
     gap: number,
     lostPiece: PieceGiven | null,
+    risk: string | null | undefined,
     perpetual = false,
   ): void {
     const san = state.plies[ply]?.san;
@@ -3344,6 +3363,7 @@ export function mountApp(root: HTMLElement): void {
       gap,
       best: (bestMove ? sanAt(ply, bestMove) : null) ?? '',
       ...(lostPiece ? { lostPiece } : {}),
+      ...(lostPiece && lostPiece.kind === 'lost' && risk ? { risk } : {}),
       ...(perpetual ? { perpetual } : {}),
     };
     const existing = losses.findIndex((loss) => loss.ply === ply);

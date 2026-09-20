@@ -98,6 +98,7 @@ export const fr: Record<keyof typeof it, string> = {
   whyUnitsTitle: `Que sont les points${NB}?`,
   storyLoss: '{verdict} (-{drop} points{note})',
   storyLostPiece: 'tu pouvais y perdre {what}',
+  storyLostPieceWith: 'tu pouvais y perdre {what}, sur {move}',
   storyMissedPiece: 'tu laisses filer {what}',
   storyRethink: 'remplacé par {newSan}{after}',
   storyRethinkOpen: 'puis remplacé',
