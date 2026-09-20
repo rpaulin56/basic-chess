@@ -1425,6 +1425,12 @@ export function mountApp(root: HTMLElement): void {
       row(proposal.ply).parts.push(t('storyDrawProposed'));
     }
     for (const gift of [...gifts].sort((a, b) => a.ply - b.ply).slice(0, 3)) {
+      // Il regalo non colto e l'imprecisione che lo segue sono LO STESSO momento: due righe
+      // dicevano due volte la stessa cosa e portavano allo stesso diagramma ("avevi hxg6+"
+      // e poi "c'era hxg6"). Resta l'imprecisione, che e' la riga con il costo (segnalato
+      // leggendo un'analisi vera).
+      const alsoCostly = costly.find((loss) => loss.ply === gift.ply + 1);
+      if (!gift.seen && alsoCostly && gift.punish && alsoCostly.best === gift.punish) continue;
       const giftRow = row(gift.ply);
       giftRow.seekTo = gift.ply + 1;
       const reply = state.plies[gift.ply + 1];
