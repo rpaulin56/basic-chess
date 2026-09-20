@@ -829,12 +829,14 @@ export function mountApp(root: HTMLElement): void {
   let mateFen = '';
   /** Le frecce delle mosse buone, quando le chiedi: spariscono appena muovi. */
   let hintArrows: readonly { from: Key; to: Key; brush: string }[] = [];
+  /** I colori che il racconto usa per le sue frecce. */
+  type Brush = 'green' | 'red' | 'yellow' | 'blue';
   /**
    * Le frecce di una riga del racconto: in verde la mossa che c'era, in rosso quella
    * giocata. Toccando la riga si arriva alla posizione in cui si sceglieva, e la scelta
    * si vede invece di doverla immaginare (chiesto da chi gioca).
    */
-  let storyArrows: readonly { from: Key; to: Key; brush: string }[] = [];
+  let storyArrows: readonly { from: Key; to: Key; brush: Brush }[] = [];
   /** Le mosse di teoria nella posizione mostrata, in UCI. Vuoto = qui il libro tace. */
   let theoryMoves = new Set<string>();
   /**
@@ -1283,7 +1285,7 @@ export function mountApp(root: HTMLElement): void {
       joiner: string;
       parts: string[];
       /** Le frecce da mostrare arrivati li': verde la mossa buona, rossa quella giocata. */
-      arrows?: { from: Key; to: Key; brush: string }[];
+      arrows?: { from: Key; to: Key; brush: Brush }[];
       /**
        * Dove porta il tocco. Di solito la posizione PRIMA della mossa, quella in cui si
        * sceglieva; per un errore della Nonna quella DOPO, in cui toccava a te approfittarne.
@@ -1307,7 +1309,7 @@ export function mountApp(root: HTMLElement): void {
     const median = usualThinking(thinkTimes, timingCounts);
     const moment = timingMoment();
     /** Una mossa in SAN, letta nella posizione in cui si giocava, come freccia. */
-    const arrow = (fen: string, san: string, brush: 'green' | 'red') => {
+    const arrow = (fen: string, san: string, brush: Brush) => {
       try {
         const move = new Chess(fen).move(san);
         return { from: move.from as Key, to: move.to as Key, brush };
@@ -1316,12 +1318,12 @@ export function mountApp(root: HTMLElement): void {
       }
     };
     /** La mossa giocata a `ply`, come freccia. */
-    const played = (ply: number, brush: 'green' | 'red') => {
+    const played = (ply: number, brush: Brush) => {
       const move = state.plies[ply];
       return move ? { from: move.from as Key, to: move.to as Key, brush } : null;
     };
-    const withArrows = (target: { arrows?: { from: Key; to: Key; brush: string }[] }, ...found: ({ from: Key; to: Key; brush: string } | null)[]) => {
-      const list = found.filter((item): item is { from: Key; to: Key; brush: string } => item !== null);
+    const withArrows = (target: { arrows?: { from: Key; to: Key; brush: Brush }[] }, ...found: ({ from: Key; to: Key; brush: Brush } | null)[]) => {
+      const list = found.filter((item): item is { from: Key; to: Key; brush: Brush } => item !== null);
       if (list.length > 0) target.arrows = list;
     };
 
@@ -1348,6 +1350,14 @@ export function mountApp(root: HTMLElement): void {
         kept && replacement !== undefined && rethink.drop !== null && replacement.drop > rethink.drop + 1;
       if (worse) before.length = Math.round(rethink.drop ?? 0) >= 1 ? 1 : 0;
       const target = row(rethink.ply);
+      // Il ripensamento non e' un errore corretto: puo' essere andata anche peggio. Quindi
+      // niente verde e rosso, che darebbero un giudizio che non c'e': in giallo la mossa
+      // ritirata, in blu quella rimasta in partita (deciso parlandone).
+      withArrows(
+        target,
+        arrow(state.plies[rethink.ply]?.fenBefore ?? '', rethink.san, 'yellow'),
+        played(rethink.ply, 'blue'),
+      );
       target.head = `${moveLabel(rethink.number, humanColor)} ${toFigurine(rethink.san)}${note(before)}`;
       target.joiner = ', ';
       target.parts.unshift(
