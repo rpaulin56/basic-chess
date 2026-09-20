@@ -1377,10 +1377,16 @@ export function mountApp(root: HTMLElement): void {
         : '';
       const piece = loss.lostPiece
         ? ` · ${t(loss.lostPiece.kind === 'lost' ? 'storyLostPiece' : 'storyMissedPiece', {
+            // Cavallo e Alfiere valgono uguale, e quale dei due manchi dipende dalla
+            // variante che il motore ha visto: a quella profondita' il nome puo' sbagliare,
+            // il valore no. Si dice "un pezzo". Torre e Regina, che valgono cinque e nove,
+            // sono decise dal conto e tengono il loro nome (deciso parlandone).
             what:
               loss.lostPiece.piece === 'exchange'
                 ? t('lossExchange')
-                : t(`missed${loss.lostPiece.piece.toUpperCase()}` as 'missedN'),
+                : loss.lostPiece.piece === 'n' || loss.lostPiece.piece === 'b'
+                  ? t('missedPiece')
+                  : t(`missed${loss.lostPiece.piece.toUpperCase()}` as 'missedR'),
           })}`
         : '';
       const lossRow = row(loss.ply);
