@@ -3864,6 +3864,9 @@ export function mountApp(root: HTMLElement): void {
     stashGame();
     const resumed = truncateHere(state);
     clearTutor();
+    // Le frecce raccontavano la partita di prima: qui ne comincia un'altra, e la scelta
+    // e' di nuovo aperta (segnalato giocando).
+    storyArrows = [];
     state = resumed;
     lastWhitePercent = null;
     evaluation = null;
