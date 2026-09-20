@@ -97,6 +97,7 @@ export const fr: Record<keyof typeof it, string> = {
   whyTitleWon: 'Quelques moments à revoir',
   whyUnitsTitle: `Que sont les points${NB}?`,
   storyLoss: '{verdict} (-{drop} points{note})',
+  storyCheap: 'Ça ne t’a presque rien coûté',
   storyLostPiece: 'tu pouvais y perdre {what}',
   storyLostPieceWith: 'tu pouvais y perdre {what}, sur {move}',
   storyMissedPiece: 'tu laisses filer {what}',

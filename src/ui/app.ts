@@ -108,6 +108,14 @@ const MISTAKE_DROP = 18;
 const INACCURACY_DROP = 10;
 
 /**
+ * Sopra questa aspettativa la partita e' in mano a chi muove, e il materiale smette di
+ * essere una notizia: si semplifica, si restituisce la qualita' per cambiare le Donne,
+ * si da' un pedone per aprire una colonna. Tutte cose giuste che nessuno deve sentirsi
+ * rimproverare (deciso parlandone, su una partita vinta con due Torri in piu').
+ */
+const DECIDED_PERCENT = 80;
+
+/**
  * Quanto la mossa migliore deve battere la seconda perche' trovarla sia un merito.
  *
  * Quindici punti di aspettativa: sotto, le alternative erano abbastanza buone da
@@ -1386,10 +1394,21 @@ export function mountApp(root: HTMLElement): void {
     // fra le tre peggiori: e' l'unico posto dove dirlo.
     const costly = [...worst];
     if (moment && !costly.some((loss) => loss.ply === moment.move.ply)) costly.push(moment.move);
-    // E ogni mossa che ha lasciato andare un pezzo, anche sotto le soglie: e' la cosa che
-    // si vede sulla scacchiera, e il racconto non puo' tacerla.
+    // E le mosse che hanno lasciato andare del materiale, anche sotto le soglie: e' la cosa
+    // che si vede sulla scacchiera, e il racconto non puo' tacerla.
+    //
+    // Ma solo finche' la partita e' CONTESA. Con due Torri in piu' restituirne una per
+    // semplificare e' tecnica, non un'imprecisione, e segnalarla insegna il contrario di
+    // quello che si vuole insegnare (segnalato leggendo una partita vinta).
     for (const loss of losses) {
-      if (loss.lostPiece && inPlay(loss) && Math.round(loss.drop) >= 1 && !costly.some((c) => c.ply === loss.ply)) {
+      if (
+        loss.lostPiece &&
+        inPlay(loss) &&
+        loss.before <= DECIDED_PERCENT &&
+        loss.before >= 100 - DECIDED_PERCENT &&
+        Math.round(loss.drop) >= 1 &&
+        !costly.some((c) => c.ply === loss.ply)
+      ) {
         costly.push(loss);
       }
     }
@@ -1416,8 +1435,14 @@ export function mountApp(root: HTMLElement): void {
           })}`
         : '';
       const lossRow = row(loss.ply);
+      // Sotto la soglia la mossa NON e' un'imprecisione: la riga c'e' solo per il materiale,
+      // e chiamarla imprecisione dava un nome di gravita' a una mossa che non ce l'ha.
       lossRow.parts.push(
-        t('storyLoss', { verdict: lossVerdict(loss), drop: Math.round(loss.drop), note }) + piece + better,
+        (loss.drop >= INACCURACY_DROP
+          ? t('storyLoss', { verdict: lossVerdict(loss), drop: Math.round(loss.drop), note })
+          : t('storyCheap')) +
+          piece +
+          better,
       );
       const fenBefore = state.plies[loss.ply]?.fenBefore;
       withArrows(

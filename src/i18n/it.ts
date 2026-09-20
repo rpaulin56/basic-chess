@@ -74,6 +74,7 @@ export const it = {
   whyTitleWon: 'Qualche momento da rivedere',
   whyUnitsTitle: 'Che cosa sono i punti?',
   storyLoss: '{verdict} (-{drop} punti{note})',
+  storyCheap: 'Non ti è costata quasi niente',
   storyLostPiece: 'ci potevi rimettere {what}',
   storyLostPieceWith: 'ci potevi rimettere {what}, con {move}',
   storyMissedPiece: 'ti sfugge {what}',
