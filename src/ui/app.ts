@@ -1448,7 +1448,14 @@ export function mountApp(root: HTMLElement): void {
     // cosa sola da raccontare.
     for (const kind of ['hint', 'answer'] as const) {
       const plies = new Set(helpLog.filter((event) => event.kind === kind).map((event) => event.ply));
-      for (const ply of plies) row(ply).parts.push(t(kind === 'hint' ? 'storyHint' : 'storyAnswer'));
+      for (const ply of plies) {
+        const helpRow = row(ply);
+        helpRow.parts.push(t(kind === 'hint' ? 'storyHint' : 'storyAnswer'));
+        // Quali mosse la Nonna avesse mostrato non e' scritto da nessuna parte, e rifarle
+        // vorrebbe dire rianalizzare la posizione. Quindi una freccia sola, blu: cosa hai
+        // giocato dopo aver chiesto, senza dire se era fra quelle (deciso parlandone).
+        withArrows(helpRow, played(ply, 'blue'));
+      }
     }
 
     if (rows.size === 0) return null;
