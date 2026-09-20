@@ -330,6 +330,8 @@ export const it = {
   planCorner: 'Questo finale si vince sempre: il matto si dà in un angolo. Spingi il Re avversario verso {square}, aiutandoti con il tuo Re.',
   planBishopCorner: 'Questo finale si vince sempre, ma il matto si dà solo in un angolo del colore del tuo alfiere. Spingi il Re avversario verso {square}.',
   recapStudy: 'In questa partita hai studiato l’apertura.',
+  recapBar: 'Hai giocato con la barra della valutazione.',
+  storyBar: 'con la barra della valutazione',
   whyRethinkPoints: '-{drop} punti',
   whyRethinkHasty: 'forse è stata la fretta: {time} contro una media di {usual}',
   hintManyOpen: 'Qui va bene quasi tutto: la posizione non si decide adesso, e non c’è una mossa da trovare.',

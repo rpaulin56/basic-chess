@@ -319,6 +319,8 @@ interface SavedGame {
   rethinks?: Rethink[];
   /** Vero se la modalita' studio e' stata usata in questa partita. */
   studied?: boolean;
+  /** Vero se hai giocato almeno una mossa con la barra accesa (vedi `barUsed`). */
+  barUsed?: boolean;
   /** Dove sono stati chiesti gli aiuti (vedi `HelpEvent`). */
   help?: HelpEvent[];
 }
@@ -805,6 +807,14 @@ export function mountApp(root: HTMLElement): void {
    * le altre, e fra sei mesi e' un'informazione che serve.
    */
   let studied = false;
+  /**
+   * Vero se almeno una tua mossa e' stata giocata con la barra accesa.
+   *
+   * La barra e' un aiuto come gli altri e va dichiarata dove si dichiarano gli aiuti:
+   * nel riepilogo e nel PGN. Non basta che sia accesa adesso, perche' si puo' spegnere
+   * a meta' partita; e accenderla a partita finita, per rivedere l'analisi, non conta.
+   */
+  let barUsed = false;
   let studyArrows: readonly { from: Key; to: Key; brush: string }[] = [];
   /**
    * La fotografia del matto: acceso quando il consiglio trova un matto in due o piu'.
@@ -1106,7 +1116,8 @@ export function mountApp(root: HTMLElement): void {
       hintsUsed === 0 &&
       answersSeen === 0 &&
       takeBacks === 0 &&
-      !studied;
+      !studied &&
+      !barUsed;
     if (recapPanel.hidden) return;
     const list = document.createElement('ul');
     for (const entry of mistakeLog) {
@@ -1128,6 +1139,7 @@ export function mountApp(root: HTMLElement): void {
     if (hintsUsed > 0) recapEl.append(text(helpLine('recapHints', 'hint', hintsUsed), 'recap-hints'));
     if (answersSeen > 0) recapEl.append(text(helpLine('recapAnswers', 'answer', answersSeen), 'recap-hints'));
     if (studied) recapEl.append(text(t('recapStudy'), 'recap-hints'));
+    if (barUsed) recapEl.append(text(t('recapBar'), 'recap-hints'));
     if (takeBacks > 0) {
       recapEl.append(text(t('recapTakeBacks', { count: takeBacks }), 'recap-hints'));
     }
@@ -1411,6 +1423,7 @@ export function mountApp(root: HTMLElement): void {
     const median = usualThinking(thinkTimes, timingCounts);
     if (median !== null) parts.push(t('storyAverage', { time: duration(median) }));
     if (studied) parts.push(t('storyStudied'));
+    if (barUsed) parts.push(t('storyBar'));
     if (hintsUsed > 0) parts.push(t(hintsUsed === 1 ? 'storyHintsOne' : 'storyHints', { count: hintsUsed }));
     if (answersSeen > 0) {
       parts.push(t(answersSeen === 1 ? 'storyAnswersOne' : 'storyAnswers', { count: answersSeen }));
@@ -2877,6 +2890,7 @@ export function mountApp(root: HTMLElement): void {
         takebackLimit,
         rethinks,
         studied,
+        barUsed,
         hints: hintsUsed,
         takeBacks,
         answers: answersSeen,
@@ -3624,6 +3638,7 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function commit(from: Square, to: Square, promotion?: Promotion): void {
+    if (showBar && positionAt(state).turn() === humanColor) barUsed = true;
     // Alla tua prima mossa "Riprendi la partita di prima" sparisce: con lui se ne va anche
     // la copia, che altrimenti restava salvata senza che nessuno potesse piu' usarla.
     if (positionAt(state).turn() === humanColor) {
@@ -3734,6 +3749,7 @@ export function mountApp(root: HTMLElement): void {
       for (const key of restored.endgamesAnnounced) endgamesAnnounced.add(key);
       rethinks.push(...restored.rethinks);
       studied = restored.studied;
+      barUsed = restored.barUsed;
       // Dopo `clearTutor`, che ha preso il limite scelto per le partite nuove: questa non
       // e' nuova, e vale la regola con cui era cominciata.
       takebackLimit = restored.takebackLimit;
@@ -4424,6 +4440,8 @@ export function mountApp(root: HTMLElement): void {
       // Una partita studiata si dichiara: dentro c'e' anche quello che hai provato, non
       // solo quello che hai giocato.
       ...(studied ? { Study: '1' } : {}),
+      // La barra e' un aiuto: chi rilegge la partita deve sapere se c'era.
+      ...(barUsed ? { EvalBar: '1' } : {}),
       ...(answersSeen > 0 ? { Answers: String(answersSeen) } : {}),
       // Quando la Nonna ti fermava: cambia molto il senso degli errori rimasti.
       Stops: stops,
@@ -5410,6 +5428,7 @@ export function mountApp(root: HTMLElement): void {
     studyArrows = [];
     studyDests = undefined;
     studied = false;
+    barUsed = false;
     mating = false;
     mateArrows = [];
     mateGhosts = [];
@@ -5902,6 +5921,7 @@ interface LoadedGame {
   takebackLimit: number | null;
   rethinks: Rethink[];
   studied: boolean;
+  barUsed: boolean;
   hints: number;
   takeBacks: number;
   answers: number;
@@ -5960,6 +5980,7 @@ function loadFrom(saved: SavedGame): LoadedGame | null {
           : DEFAULT_TAKEBACK_LIMIT,
       rethinks: Array.isArray(saved.rethinks) ? saved.rethinks : [],
       studied: saved.studied === true,
+      barUsed: saved.barUsed === true,
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
       takeBacks: typeof saved.takeBacks === 'number' ? saved.takeBacks : 0,
       answers: typeof saved.answers === 'number' ? saved.answers : 0,

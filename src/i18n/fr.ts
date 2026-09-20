@@ -344,6 +344,8 @@ export const fr: Record<keyof typeof it, string> = {
   planCorner: `Cette finale se gagne toujours${NB}: le mat se donne dans un coin. Pousse le Roi adverse vers {square}, en t’aidant de ton Roi.`,
   planBishopCorner: 'Cette finale se gagne toujours, mais le mat ne se donne que dans un coin de la couleur de ton fou. Pousse le Roi adverse vers {square}.',
   recapStudy: 'Dans cette partie, tu as étudié l’ouverture.',
+  recapBar: 'Tu as joué avec la barre d’évaluation.',
+  storyBar: 'avec la barre d’évaluation',
   whyRethinkPoints: '-{drop} points',
   whyRethinkHasty: `c’est peut-être la précipitation${NB}: {time} contre une moyenne de {usual}`,
   hintManyOpen: `Ici, presque tout va${NB}: la position ne se décide pas maintenant, et il n’y a pas de coup à trouver.`,

@@ -331,6 +331,8 @@ export const en: Record<keyof typeof it, string> = {
   planCorner: 'This ending is always a win: mate is given in a corner. Drive the enemy King towards {square}, helped by your own King.',
   planBishopCorner: 'This ending is always a win, but mate can only be given in a corner of your bishop’s colour. Drive the enemy King towards {square}.',
   recapStudy: 'In this game you studied the opening.',
+  recapBar: 'You played with the evaluation bar on.',
+  storyBar: 'with the evaluation bar',
   whyRethinkPoints: '-{drop} points',
   whyRethinkHasty: 'perhaps it was haste: {time} against an average of {usual}',
   hintManyOpen: 'Almost anything works here: this position is not decided now, and there is no move to find.',
