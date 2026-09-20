@@ -666,8 +666,13 @@ export function pieceGiven(
   bestLine: readonly string[],
   fenAfterMistake: string,
   refutation: readonly string[],
+  /** La mossa giocata, in UCI: se e' proprio la migliore non c'e' niente da confrontare. */
+  playedMove?: string,
 ): PieceGiven | null {
   if (bestLine.length === 0 || refutation.length === 0) return null;
+  // Giocata la migliore, il confronto e' con se stessi: due varianti diverse della stessa
+  // mossa facevano comparire un pezzo perso dal nulla ("8...Bxc3, c'era Bxc3").
+  if (playedMove !== undefined && bestLine[0] === playedMove) return null;
   const { points, net, played } = againstBest(fenBefore, bestLine, fenAfterMistake, refutation);
   if (points < 2) return null;
   // Perso o mancato: si guarda il saldo di chi ha mosso prima e dopo. Se dopo non e'

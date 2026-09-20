@@ -50,7 +50,7 @@ import { ThinkClock, type ThinkTime } from '../tutor/thinkClock.js';
 import { hastiest, usualThinking } from '../tutor/timing.js';
 import { buildHint, HINT_MARGIN } from '../tutor/hint.js';
 import { orientPosition } from '../tutor/orientation.js';
-import { moveNumberOf } from '../core/game.js';
+import { moveNumberOf, type Ply } from '../core/game.js';
 import type { Key } from 'chessground/types';
 import { createBoardView, type BoardView, type Ghost } from './boardView.js';
 import { matePicture } from '../tutor/matePicture.js';
@@ -1859,6 +1859,7 @@ export function mountApp(root: HTMLElement): void {
           verdict.bestLine,
           state.plies[ply]!.fenAfter,
           analyses[ply + 1]!.lines[0]?.pv ?? [],
+          uciOf(state.plies[ply]!),
         ),
         drawnByChecks(state.plies[ply]!.fenBefore, verdict.bestLine, verdict.winPercentBefore),
       );
@@ -2818,7 +2819,13 @@ export function mountApp(root: HTMLElement): void {
       verdict.bestMove,
       verdict.winPercentBefore,
       gap,
-      pieceGiven(pending.fenBefore, verdict.bestLine, pending.fenAfter, after.lines[0]?.pv ?? []),
+      pieceGiven(
+        pending.fenBefore,
+        verdict.bestLine,
+        pending.fenAfter,
+        after.lines[0]?.pv ?? [],
+        uciOf(state.plies[state.plies.length - 1]!),
+      ),
       drawnByChecks(pending.fenBefore, verdict.bestLine, verdict.winPercentBefore),
     );
     if (stopsOn(verdict)) {
@@ -5531,6 +5538,11 @@ export function mountApp(root: HTMLElement): void {
       cursor += direction;
     }
     return Math.max(0, Math.min(state.plies.length, cursor));
+  }
+
+  /** Una semi-mossa giocata, in UCI: come la scrive il motore. */
+  function uciOf(ply: Ply): string {
+    return `${ply.from}${ply.to}${ply.promotion ?? ''}`;
   }
 
   /** Chi muove dopo `cursor` semi-mosse, senza ricostruire la posizione. */
