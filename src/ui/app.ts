@@ -829,6 +829,12 @@ export function mountApp(root: HTMLElement): void {
   let mateFen = '';
   /** Le frecce delle mosse buone, quando le chiedi: spariscono appena muovi. */
   let hintArrows: readonly { from: Key; to: Key; brush: string }[] = [];
+  /**
+   * Le frecce di una riga del racconto: in verde la mossa che c'era, in rosso quella
+   * giocata. Toccando la riga si arriva alla posizione in cui si sceglieva, e la scelta
+   * si vede invece di doverla immaginare (chiesto da chi gioca).
+   */
+  let storyArrows: readonly { from: Key; to: Key; brush: string }[] = [];
   /** Le mosse di teoria nella posizione mostrata, in UCI. Vuoto = qui il libro tace. */
   let theoryMoves = new Set<string>();
   /**
@@ -1276,6 +1282,8 @@ export function mountApp(root: HTMLElement): void {
       /** Tra testa e parti: ", " dopo un ripensamento ("…, cambiata in d5"), " — " altrimenti. */
       joiner: string;
       parts: string[];
+      /** Le frecce da mostrare arrivati li': verde la mossa buona, rossa quella giocata. */
+      arrows?: { from: Key; to: Key; brush: string }[];
       /**
        * Dove porta il tocco. Di solito la posizione PRIMA della mossa, quella in cui si
        * sceglieva; per un errore della Nonna quella DOPO, in cui toccava a te approfittarne.
@@ -1298,6 +1306,24 @@ export function mountApp(root: HTMLElement): void {
     };
     const median = usualThinking(thinkTimes, timingCounts);
     const moment = timingMoment();
+    /** Una mossa in SAN, letta nella posizione in cui si giocava, come freccia. */
+    const arrow = (fen: string, san: string, brush: 'green' | 'red') => {
+      try {
+        const move = new Chess(fen).move(san);
+        return { from: move.from as Key, to: move.to as Key, brush };
+      } catch {
+        return null;
+      }
+    };
+    /** La mossa giocata a `ply`, come freccia. */
+    const played = (ply: number, brush: 'green' | 'red') => {
+      const move = state.plies[ply];
+      return move ? { from: move.from as Key, to: move.to as Key, brush } : null;
+    };
+    const withArrows = (target: { arrows?: { from: Key; to: Key; brush: string }[] }, ...found: ({ from: Key; to: Key; brush: string } | null)[]) => {
+      const list = found.filter((item): item is { from: Key; to: Key; brush: string } => item !== null);
+      if (list.length > 0) target.arrows = list;
+    };
 
     // I ripensamenti: la testa e' la mossa RIPRESA, con il suo costo e la fretta; poi
     // quella giocata al suo posto. Comprendono gli errori segnalati e annullati.
@@ -1350,12 +1376,22 @@ export function mountApp(root: HTMLElement): void {
         ? ` · ${t(loss.perpetual ? 'whyBetterPerpetual' : 'whyBetter', { san: toFigurine(loss.best) })}`
         : '';
       const piece = loss.lostPiece
-        ? ` · ${t('storyLostPiece', {
-            what: loss.lostPiece === 'exchange' ? t('lossExchange') : t(`missed${loss.lostPiece.toUpperCase()}` as 'missedN'),
+        ? ` · ${t(loss.lostPiece.kind === 'lost' ? 'storyLostPiece' : 'storyMissedPiece', {
+            what:
+              loss.lostPiece.piece === 'exchange'
+                ? t('lossExchange')
+                : t(`missed${loss.lostPiece.piece.toUpperCase()}` as 'missedN'),
           })}`
         : '';
-      row(loss.ply).parts.push(
+      const lossRow = row(loss.ply);
+      lossRow.parts.push(
         t('storyLoss', { verdict: lossVerdict(loss), drop: Math.round(loss.drop), note }) + piece + better,
+      );
+      const fenBefore = state.plies[loss.ply]?.fenBefore;
+      withArrows(
+        lossRow,
+        fenBefore && loss.best ? arrow(fenBefore, loss.best, 'green') : null,
+        played(loss.ply, 'red'),
       );
     }
 
@@ -1370,6 +1406,18 @@ export function mountApp(root: HTMLElement): void {
       const giftRow = row(gift.ply);
       giftRow.seekTo = gift.ply + 1;
       const reply = state.plies[gift.ply + 1];
+      const giftFen = state.plies[gift.ply]?.fenAfter;
+      withArrows(
+        giftRow,
+        // Vista: in verde la tua mossa, che l'ha punita. Non vista: in verde quella che
+        // c'era, in rosso quella giocata.
+        gift.seen
+          ? played(gift.ply + 1, 'green')
+          : giftFen && gift.punish
+            ? arrow(giftFen, gift.punish, 'green')
+            : null,
+        gift.seen ? null : played(gift.ply + 1, 'red'),
+      );
       giftRow.parts.push(
         gift.seen
           ? reply
@@ -1403,6 +1451,10 @@ export function mountApp(root: HTMLElement): void {
       // Alla posizione PRIMA della mossa: quella in cui si doveva scegliere.
       const go = (): void => {
         seek(Math.min(entry.seekTo ?? entry.ply, state.plies.length));
+        if (entry.arrows) {
+          storyArrows = entry.arrows;
+          renderBoard();
+        }
         revealBoard();
       };
       item.addEventListener('click', go);
@@ -2924,7 +2976,7 @@ export function mountApp(root: HTMLElement): void {
       board.renderPosition(
         currentFen(state),
         orientation,
-        [],
+        storyArrows.map((arrow) => ({ orig: arrow.from as Square, dest: arrow.to as Square, brush: arrow.brush as Arrow['brush'] })),
         lastPly ? [lastPly.from as Key, lastPly.to as Key] : undefined,
       );
     }
@@ -2938,7 +2990,7 @@ export function mountApp(root: HTMLElement): void {
         humanColor,
         true,
         tutorMark(),
-        [...studyArrows, ...hintArrows, ...mateArrows],
+        [...studyArrows, ...hintArrows, ...mateArrows, ...storyArrows],
         studyDests,
         mateGhosts,
       );
@@ -3843,7 +3895,19 @@ export function mountApp(root: HTMLElement): void {
       // all'analisi, o cominciare da qui una partita nuova. I perdoni non c'entrano piu'.
       const over = finished();
       if (over) {
-        statusEl.append(text(t('rewindFinished', { number, total }), 'rewind-text'));
+        // "Posizione prima di 5… ♛c6" invece di "mossa 5 di 49": dice a che scelta si sta
+        // guardando, che e' il motivo per cui ci si e' arrivati (chiesto da chi gioca).
+        const next = state.plies[state.cursor];
+        statusEl.append(
+          text(
+            next
+              ? t('rewindBefore', {
+                  move: `${moveLabel(moveNumberOf(state, state.cursor), next.color)} ${toFigurine(next.san)}`,
+                })
+              : t('rewindFinished', { number, total }),
+            'rewind-text',
+          ),
+        );
         const actions = document.createElement('span');
         actions.className = 'rewind-actions';
         const back = document.createElement('button');
@@ -5471,6 +5535,8 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function seek(cursor: number): void {
+    // Le frecce parlano di UNA riga del racconto: appena ci si sposta non valgono piu'.
+    storyArrows = [];
     /*
      * Mentre la Nonna aspetta una decisione la partita non si sposta.
      *

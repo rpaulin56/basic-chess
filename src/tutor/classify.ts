@@ -643,7 +643,15 @@ export function perpetualIn(fenBefore: string, bestLine: readonly string[]): boo
 }
 
 /** Che cosa ha lasciato andare una mossa, detto con un nome: un pezzo o la qualita'. */
-export type PieceGiven = 'n' | 'b' | 'r' | 'q' | 'exchange';
+export type PieceGiven = {
+  readonly piece: 'n' | 'b' | 'r' | 'q' | 'exchange';
+  /**
+   * 'lost' se il materiale se ne va davvero, 'missed' se invece era da PRENDERE e non
+   * si e' preso: "ci perdi un Cavallo" detto a chi non ha catturato un Cavallo che stava
+   * li' da prendere e' falso, e chi gioca lo sente subito (segnalato leggendo un'analisi).
+   */
+  readonly kind: 'lost' | 'missed';
+};
 
 /**
  * Il pezzo (non il pedone) che la mossa giocata ha lasciato andare e la MIGLIORE no.
@@ -660,11 +668,16 @@ export function pieceGiven(
   refutation: readonly string[],
 ): PieceGiven | null {
   if (bestLine.length === 0 || refutation.length === 0) return null;
-  const { points, net } = againstBest(fenBefore, bestLine, fenAfterMistake, refutation);
+  const { points, net, played } = againstBest(fenBefore, bestLine, fenAfterMistake, refutation);
   if (points < 2) return null;
+  // Perso o mancato: si guarda il saldo di chi ha mosso prima e dopo. Se dopo non e'
+  // sceso, il materiale non se n'e' andato — era da prendere e non si e' preso.
+  const mover = new Chess(fenBefore).turn();
+  const start = materialBalance(new Chess(fenBefore), mover);
+  const kind = played.balance < start ? 'lost' : 'missed';
   // Torre per pezzo leggero: la qualita', col suo nome.
-  if (net.r > 0 && net.n + net.b < 0 && Math.abs(points - 2) < 1.5) return 'exchange';
+  if (net.r > 0 && net.n + net.b < 0 && Math.abs(points - 2) < 1.5) return { piece: 'exchange', kind };
   const heaviest = (['q', 'r', 'b', 'n'] as const).find((type) => net[type] > 0) ?? null;
   if (heaviest === null || Math.abs(points - VALUE[heaviest]!) >= RECOVERY_THAT_COUNTS) return null;
-  return heaviest;
+  return { piece: heaviest, kind };
 }
