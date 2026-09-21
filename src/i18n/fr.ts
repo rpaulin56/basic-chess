@@ -100,6 +100,7 @@ export const fr: Record<keyof typeof it, string> = {
   storyCheap: 'Ça ne t’a presque rien coûté',
   storyLostPiece: 'tu pouvais y perdre {what}',
   storyLostPieceWith: 'tu pouvais y perdre {what}, sur {move}',
+  storyLostPieceDone: `tu y as perdu {what}${NB}: {move}`,
   storyMissedPiece: 'tu laisses filer {what}',
   storyRethink: 'remplacé par {newSan}{after}',
   storyRethinkOpen: 'puis remplacé',

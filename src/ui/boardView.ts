@@ -1,3 +1,4 @@
+import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
 import type { DrawShape } from 'chessground/draw';
@@ -210,9 +211,24 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
     },
 
     renderPosition(fen, orientation, arrows, lastMove) {
+      // Lo scacco va detto ogni volta, come fa `render`: chessground lo ricorda finche'
+      // non glielo si cambia, e la posizione finale — Re sotto scacco — lasciava il suo
+      // disco rosso su tutte le posizioni passate aperte dal racconto (segnalato con due
+      // screenshot: "il famigerato disco rosso").
+      let check = false;
+      let turnColor: 'white' | 'black' = 'white';
+      try {
+        const chess = new Chess(fen);
+        check = chess.inCheck();
+        turnColor = chess.turn() === 'w' ? 'white' : 'black';
+      } catch {
+        // Posizione illeggibile: niente scacco da mostrare.
+      }
       api.set({
         fen,
         orientation,
+        turnColor,
+        check,
         lastMove: lastMove ? [lastMove[0], lastMove[1]] : [],
         movable: { free: false, dests: new Map<Key, Key[]>(), showDests: false },
       });

@@ -79,6 +79,7 @@ export const en: Record<keyof typeof it, string> = {
   storyCheap: 'It cost you next to nothing',
   storyLostPiece: 'it could have cost you {what}',
   storyLostPieceWith: 'it could have cost you {what}, to {move}',
+  storyLostPieceDone: 'it cost you {what}: {move}',
   storyMissedPiece: 'it lets {what} get away',
   storyRethink: 'changed to {newSan}{after}',
   storyRethinkOpen: 'then changed',

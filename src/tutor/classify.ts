@@ -642,6 +642,20 @@ export function perpetualIn(fenBefore: string, bestLine: readonly string[]): boo
   return run >= 2;
 }
 
+/** Vero se la mossa, in UCI, cattura qualcosa nella posizione data. */
+function capturesAt(fen: string, uci: string): boolean {
+  try {
+    const move = new Chess(fen).move({
+      from: uci.slice(0, 2),
+      to: uci.slice(2, 4),
+      ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
+    });
+    return move.captured !== undefined;
+  } catch {
+    return false;
+  }
+}
+
 /** Che cosa ha lasciato andare una mossa, detto con un nome: un pezzo o la qualita'. */
 export type PieceGiven = {
   readonly piece: 'n' | 'b' | 'r' | 'q' | 'exchange';
@@ -680,6 +694,11 @@ export function pieceGiven(
   const mover = new Chess(fenBefore).turn();
   const start = materialBalance(new Chess(fenBefore), mover);
   const kind = played.balance < start ? 'lost' : 'missed';
+  // "Ti sfugge" solo se il pezzo era li' da PRENDERE: la mossa migliore e' una cattura.
+  // Un guadagno che matura in fondo a una variante lunga dipende da quanto a fondo ha
+  // guardato il motore, e in partita guarda poco: "ti sfugge una Torre, c'era a5" era un
+  // artefatto che a profondita' piena spariva (segnalato leggendo un'analisi vera).
+  if (kind === 'missed' && !capturesAt(fenBefore, bestLine[0]!)) return null;
   // Torre per pezzo leggero: la qualita', col suo nome.
   if (net.r > 0 && net.n + net.b < 0 && Math.abs(points - 2) < 1.5) return { piece: 'exchange', kind };
   const heaviest = (['q', 'r', 'b', 'n'] as const).find((type) => net[type] > 0) ?? null;

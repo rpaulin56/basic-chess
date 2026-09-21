@@ -24,9 +24,18 @@ describe('obviousMove', () => {
     ).toBe(false);
   });
 
-  it('una cattura che non riprende niente resta una scelta', () => {
+  // Cambiato di proposito: prendere il pezzo che si e' appena mosso non e' una mossa da
+  // trovare. Il complimento "c'era una sola mossa buona e l'hai trovata" per axb6 dopo b6
+  // non era un merito (segnalato leggendo un'analisi vera).
+  it("prendere il pezzo appena mosso non e' un merito", () => {
     expect(
       obviousMove('rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', 'e4', 'd5', { to: 'd5', san: 'd5' }),
+    ).toBe(true);
+  });
+
+  it('una cattura altrove resta una scelta', () => {
+    expect(
+      obviousMove('rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', 'e4', 'd5', { to: 'c6', san: 'Nc6' }),
     ).toBe(false);
   });
 });

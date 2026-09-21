@@ -1452,7 +1452,12 @@ export function mountApp(root: HTMLElement): void {
       );
     }
 
-    for (const move of goodMoves()) row(move.ply).parts.push(t('storyGood'));
+    for (const move of goodMoves()) {
+      const goodRow = row(move.ply);
+      goodRow.parts.push(t('storyGood'));
+      // La mossa trovata, in verde: e' quella di cui si parla.
+      withArrows(goodRow, played(move.ply, 'green'));
+    }
     // La patta proposta dalla Nonna, sulla mossa che le e' seguita: e' li' che si poteva
     // chiudere. Se la partita e' finita patta proprio li', non c'e' niente da ricordare.
     for (const proposal of drawProposals) {
@@ -1739,9 +1744,13 @@ export function mountApp(root: HTMLElement): void {
   }
 
   /** Come si dice il materiale di questa riga: perso o sfuggito, con o senza la mossa. */
-  function materialKey(loss: MoveLoss): 'storyLostPieceWith' | 'storyLostPiece' | 'storyMissedPiece' {
+  function materialKey(
+    loss: MoveLoss,
+  ): 'storyLostPieceWith' | 'storyLostPieceDone' | 'storyLostPiece' | 'storyMissedPiece' {
     if (loss.lostPiece?.kind !== 'lost') return 'storyMissedPiece';
-    return loss.risk ? 'storyLostPieceWith' : 'storyLostPiece';
+    if (!loss.risk) return 'storyLostPiece';
+    // Se la Nonna l'ha giocata davvero non e' un rischio scampato: e' andata cosi'.
+    return state.plies[loss.ply + 1]?.san === loss.risk ? 'storyLostPieceDone' : 'storyLostPieceWith';
   }
 
   function inPlay(loss: MoveLoss): boolean {

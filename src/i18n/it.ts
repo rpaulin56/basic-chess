@@ -77,6 +77,7 @@ export const it = {
   storyCheap: 'Non ti è costata quasi niente',
   storyLostPiece: 'ci potevi rimettere {what}',
   storyLostPieceWith: 'ci potevi rimettere {what}, con {move}',
+  storyLostPieceDone: 'ci hai rimesso {what}: {move}',
   storyMissedPiece: 'ti sfugge {what}',
   storyRethink: 'cambiata in {newSan}{after}',
   storyRethinkOpen: 'poi cambiata',

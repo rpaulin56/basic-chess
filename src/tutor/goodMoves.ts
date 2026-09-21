@@ -29,7 +29,9 @@ export function obviousMove(
   const moves = chess.moves({ verbose: true });
   if (moves.length <= FORCED_MAX_MOVES) return true;
   const played = moves.find((move) => move.from === from && move.to === to);
-  const recapture =
-    played?.captured !== undefined && previous !== undefined && previous.to === to && previous.san.includes('x');
+  // Prendere il pezzo che si e' appena mosso: la ripresa, ma anche il pedone che avanza
+  // fin sotto i tuoi pezzi. Non e' una mossa da trovare, e' la prima che si vede
+  // ("qui c'era una sola mossa buona e l'hai trovata" per axb6 dopo b6 non era un merito).
+  const recapture = played?.captured !== undefined && previous !== undefined && previous.to === to;
   return recapture;
 }
