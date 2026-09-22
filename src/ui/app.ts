@@ -5965,6 +5965,11 @@ export function mountApp(root: HTMLElement): void {
     retryAt = null;
     review = null;
     preview = null;
+    // Anche le frecce del racconto e l'ipotesi aperta: parlano della partita che finisce
+    // qui, e restavano disegnate sulla scacchiera di quella nuova (segnalato giocando).
+    storyArrows = [];
+    storyFocus = null;
+    stopHypo();
     forcedLine = null;
     // Anche il riepilogo: appartiene alla partita, non alla sessione. Senza questo
     // gli errori di una partita comparivano nel riepilogo di quella successiva.
