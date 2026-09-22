@@ -869,7 +869,7 @@ export function mountApp(root: HTMLElement): void {
    * Niente di cio' che succede qui entra nella partita, nel PGN o nei conteggi.
    */
   let hypo: {
-    steps: { fen: string; lastMove: [Key, Key]; san: string; label: string }[];
+    steps: { fen: string; lastMove: [Key, Key] | undefined; san: string; label: string }[];
     index: number;
     /** Arrivati in fondo: le tue continuazioni migliori (verdi) e quella giocata davvero (blu). */
     arrows: { from: Key; to: Key; brush: Brush }[];
@@ -1620,7 +1620,7 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function stopHypo(): void {
-    if (hypoTimer !== null) window.clearInterval(hypoTimer);
+    if (hypoTimer !== null) window.clearTimeout(hypoTimer);
     hypoTimer = null;
     hypo = null;
   }
@@ -1641,7 +1641,7 @@ export function mountApp(root: HTMLElement): void {
     const chess = new Chess(focus.fen);
     const push = (uci: string): boolean => {
       try {
-        const number = moveNumberOf(state, focus.ply + steps.length);
+        const number = moveNumberOf(state, focus.ply + steps.length - 1);
         const color = chess.turn();
         const move = chess.move({
           from: uci.slice(0, 2),
@@ -1649,13 +1649,15 @@ export function mountApp(root: HTMLElement): void {
           ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
         });
         const label =
-          color === 'w' || steps.length === 0 ? `${moveLabel(number, color)} ${toFigurine(move.san)}` : toFigurine(move.san);
+          color === 'w' || steps.length === 1 ? `${moveLabel(number, color)} ${toFigurine(move.san)}` : toFigurine(move.san);
         steps.push({ fen: chess.fen(), lastMove: [move.from as Key, move.to as Key], san: move.san, label });
         return true;
       } catch {
         return false;
       }
     };
+    // Il primo passo e' la posizione di partenza, ferma un attimo: la tua mossa arriva dopo.
+    steps.push({ fen: focus.fen, lastMove: undefined, san: '', label: '' });
     if (!push(focus.played)) return;
     let arrows: { from: Key; to: Key; brush: Brush }[] = [];
     for (let guard = 0; guard < 6 && !chess.isGameOver(); guard++) {
@@ -1670,7 +1672,7 @@ export function mountApp(root: HTMLElement): void {
       const last = steps[steps.length - 1]!;
       const onlyMove = chess.moves().length === 1;
       const recapture =
-        best.pv[0]?.slice(2, 4) === last.lastMove[1] &&
+        best.pv[0]?.slice(2, 4) === last.lastMove?.[1] &&
         last.san.includes('x') &&
         (mine.lines.length < 2 || winPercentOf(best) - winPercentOf(mine.lines[1]!) >= MISTAKE_DROP);
       if ((onlyMove || recapture) && best.pv[0]) {
@@ -1686,28 +1688,31 @@ export function mountApp(root: HTMLElement): void {
         .slice(0, STORY_GOOD_ARROWS)
         .map((uci) => ({ from: uci.slice(0, 2) as Key, to: uci.slice(2, 4) as Key, brush: 'green' as const }));
       // In blu la mossa giocata davvero, se la partita e' passata proprio di qui.
-      const followed = steps.every((step, index) => state.plies[focus.ply + index]?.san === step.san);
-      const actual = followed ? state.plies[focus.ply + steps.length] : undefined;
+      const played = steps.slice(1);
+      const followed = played.every((step, index) => state.plies[focus.ply + index]?.san === step.san);
+      const actual = followed ? state.plies[focus.ply + played.length] : undefined;
       if (actual) arrows.push({ from: actual.from as Key, to: actual.to as Key, brush: 'blue' });
       break;
     }
     if (storyFocus !== focus) return;
-    hypo = { steps, index: 0, arrows, done: steps.length === 1 };
+    hypo = { steps, index: 0, arrows, done: false };
     renderBoard();
     renderStatus();
-    // Un passo ogni novecento millisecondi: abbastanza lento da seguire il pezzo.
-    hypoTimer = window.setInterval(() => {
+    // La tua mossa dopo 0,6 secondi, poi un passo ogni 0,9: abbastanza lento da seguire il
+    // pezzo, e la prima non si fa aspettare (chiesto provando).
+    const advance = (): void => {
       if (!hypo) return;
       if (hypo.index >= hypo.steps.length - 1) {
         hypo = { ...hypo, done: true };
-        if (hypoTimer !== null) window.clearInterval(hypoTimer);
         hypoTimer = null;
       } else {
         hypo = { ...hypo, index: hypo.index + 1 };
+        hypoTimer = window.setTimeout(advance, 900);
       }
       renderBoard();
       renderStatus();
-    }, 900);
+    };
+    hypoTimer = window.setTimeout(advance, 600);
   }
 
   /** "In media hai pensato 17 secondi a mossa · 3 consigli · 2 ripensamenti su 5." */
@@ -4175,7 +4180,10 @@ export function mountApp(root: HTMLElement): void {
       const over = finished();
       if (over && hypo) {
         // L'ipotesi si dichiara: la scacchiera mostra mosse che nella partita non ci sono.
-        const shown = hypo.steps.slice(0, hypo.index + 1).map((step) => step.label).join(' ');
+        const shown = hypo.steps
+          .slice(1, hypo.index + 1)
+          .map((step) => step.label)
+          .join(' ');
         statusEl.append(text(t(hypo.done ? 'hypoDone' : 'hypoPlaying', { line: shown }), 'rewind-text hypo-text'));
         const actions = document.createElement('span');
         actions.className = 'rewind-actions';
