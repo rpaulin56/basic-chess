@@ -4487,6 +4487,19 @@ export function mountApp(root: HTMLElement): void {
     return forWinner >= 57 ? win.winner : null;
   }
 
+  /**
+   * L'aspettativa del Bianco nella posizione dopo `cursor` semi-mosse, dai costi registrati:
+   * se tocca a te e' il "prima" della tua mossa, altrimenti il "dopo" di quella appena fatta.
+   */
+  function reviewedWhite(cursor: number): number | null {
+    const mine = (percent: number): number => (humanColor === 'w' ? percent : 100 - percent);
+    const before = losses.find((loss) => loss.ply === cursor);
+    if (before) return mine(before.before);
+    const after = losses.find((loss) => loss.ply === cursor - 1);
+    if (after) return mine(Math.max(0, after.before - after.drop));
+    return null;
+  }
+
   function renderEvalBar(): void {
     // Mentre la Nonna mostra le conseguenze dal vivo, la barra c'e' e si muove: prima
     // dell'errore e dopo. E' la cosa che si deve vedere, anche a chi di solito la spegne.
@@ -4507,6 +4520,19 @@ export function mountApp(root: HTMLElement): void {
       barEl.className = orientation === 'white' ? 'eval-bar light' : 'eval-bar dark';
       fillEl.style.height = `${Math.round(mine)}%`;
       return;
+    }
+    // A partita finita, guardando le mosse, la barra c'e' sempre: e' l'analisi, e la
+    // domanda "come stavo qui?" e' proprio quella a cui risponde (chiesto giocando). Il
+    // valore viene dai costi gia' calcolati: ogni posizione e' prima o dopo una tua mossa.
+    if (finished() && state.cursor < state.plies.length) {
+      const known = reviewedWhite(state.cursor);
+      if (known !== null) {
+        barEl.hidden = false;
+        const mine = orientation === 'white' ? known : 100 - known;
+        barEl.className = orientation === 'white' ? 'eval-bar light' : 'eval-bar dark';
+        fillEl.style.height = `${Math.round(mine)}%`;
+        return;
+      }
     }
     barEl.hidden = !showBar;
     if (!showBar) return;
