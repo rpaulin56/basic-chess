@@ -40,7 +40,6 @@ import { winPercentOf } from '../engine/winProb.js';
 import type { AnalyseOptions, Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
 import { type Arrow, type Consequence, classifyAgainstBest, perpetualIn, type PieceGiven } from '../tutor/classify.js';
-import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
 import { arrowMoves, bookLoaded, bookMoves, brushFor } from '../openings/book.js';
 import { localizeOpening } from '../openings/familyNames.js';
@@ -551,8 +550,6 @@ export function mountApp(root: HTMLElement): void {
   let review: {
     verdict: MistakeVerdict;
     consequence: Consequence | null;
-    /** Perche' la posizione peggiora: solo per l'errore strategico. */
-    positional: readonly Explanation[];
     /** La confutazione INTERA prevista dal motore, non troncata al diagramma. */
     refutation: readonly string[];
     betterSans: readonly string[] | null;
@@ -3210,18 +3207,6 @@ export function mountApp(root: HTMLElement): void {
         verdict,
         consequence,
         refutation,
-        // Le ragioni posizionali si calcolano confrontando la posizione PRIMA
-        // dell'errore con quella futura in cui la conseguenza si manifesta: e'
-        // il confronto che mostra cosa ha causato la mossa.
-        positional:
-          consequence?.category === 'strategico'
-            ? explainPositional(
-                pending.fenBefore,
-                futureFen(pending.fenAfter, consequence.line),
-                // Chi ha sbagliato e' l'utente: il tutor giudica solo le sue mosse.
-                humanColor,
-              )
-            : [],
         betterSans: null,
         fact: materialFact(pending.fenBefore, uciOf(state.plies[state.plies.length - 1]!), verdict.bestMove),
         missedChance: afterOpponentError,

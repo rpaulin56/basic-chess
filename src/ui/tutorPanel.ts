@@ -1,6 +1,5 @@
 import { kindOf, type MistakeVerdict } from '../tutor/detect.js';
 import type { Consequence } from '../tutor/classify.js';
-import type { Explanation } from '../tutor/positional.js';
 import { t } from '../i18n/index.js';
 import { toFigurine } from '../core/notation.js';
 import type { MaterialFact } from '../tutor/materialFact.js';
@@ -42,12 +41,6 @@ export interface TutorPanelState {
    * o quella che c'era e non si e' fatta. Tutto il resto non si dice con precisione.
    */
   readonly fact: MaterialFact | null;
-  /**
-   * Perche' la posizione peggiora, quando non c'e' materiale da mostrare. Vuoto se le
-   * euristiche non hanno trovato niente da dire: e' un esito legittimo, e tacere e'
-   * meglio che inventare.
-   */
-  readonly positional: readonly Explanation[];
   /** Vero mentre il diagramma delle conseguenze e' sulla scacchiera. */
   readonly previewing: boolean;
   /**
@@ -109,7 +102,7 @@ export function renderTutorPanel(
   }
   container.hidden = false;
 
-  const { verdict, consequence, betterSans, positional, previewing, missedChance } = state;
+  const { verdict, consequence, betterSans, previewing, missedChance } = state;
   const severity = verdict.severity as 'blunder' | 'mistake' | 'inaccuracy';
   container.className = `panel tutor tutor-${severity}`;
 
@@ -152,8 +145,6 @@ export function renderTutorPanel(
     const what = t(MISSED_LABEL[state.fact.piece]);
     const move = toFigurine(state.fact.move);
     lines.push(t(state.fact.kind === 'lost' ? 'factLost' : 'factMissed', { what, move }));
-  } else if (positional.length > 0) {
-    for (const explanation of positional) lines.push(t(explanation.key, explanation.params));
   } else {
     lines.push(t('factWorse'));
   }
