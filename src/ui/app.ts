@@ -39,7 +39,7 @@ import { chooseBotMove } from '../bot/play.js';
 import { winPercentOf } from '../engine/winProb.js';
 import type { AnalyseOptions, Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
-import { transportArrows, type Arrow, type Consequence, classifyAgainstBest, perpetualIn, type PieceGiven } from '../tutor/classify.js';
+import { type Arrow, type Consequence, classifyAgainstBest, perpetualIn, type PieceGiven } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
 import { arrowMoves, bookLoaded, bookMoves, brushFor } from '../openings/book.js';
@@ -581,6 +581,15 @@ export function mountApp(root: HTMLElement): void {
     fenAfterMistake: string;
     fenBeforeMistake: string;
     mistakeMove: readonly [string, string];
+    /**
+     * Dove ci si ferma: dopo la risposta della Nonna, o piu' avanti solo se le tue mosse
+     * sono obbligate. Dal vivo non si racconta la variante intera (piano di settembre
+     * 2026): due passi e la barra, poi decidi tu se rifare o proseguire.
+     */
+    stopAt: number;
+    /** L'aspettativa del Bianco prima e dopo l'errore, per la barra. */
+    whiteBefore: number;
+    whiteAfter: number;
   } | null = null;
   /** Il passo automatico della riproduzione; null quando e' ferma. */
   let previewTimer: number | null = null;
@@ -1120,6 +1129,9 @@ export function mountApp(root: HTMLElement): void {
           fenAfterMistake: review.fenAfterMistake,
           fenBeforeMistake: review.fenBeforeMistake,
           mistakeMove: review.mistakeMove,
+          stopAt: liveStop(review.fenAfterMistake, review.consequence.line),
+          whiteBefore: humanColor === 'w' ? review.verdict.winPercentBefore : 100 - review.verdict.winPercentBefore,
+          whiteAfter: humanColor === 'w' ? review.verdict.winPercentAfter : 100 - review.verdict.winPercentAfter,
         };
         startPreviewAnimation();
         refresh();
@@ -2797,24 +2809,51 @@ export function mountApp(root: HTMLElement): void {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       // All'apertura la posizione finale; a chi chiede di RIVEDERE, l'inizio: da li'
       // scorre lui con le frecce, al suo passo.
-      preview = { ...preview, index: replay ? -1 : preview.consequence.manifestAt };
+      preview = { ...preview, index: replay ? -1 : preview.stopAt };
       return;
     }
-    previewTimer = window.setInterval(() => {
-      if (!preview || preview.index >= preview.consequence.manifestAt) {
-        stopPreviewAnimation();
-        return;
-      }
+    // La tua mossa dopo 0,6 secondi, poi un passo ogni 0,9: come nell'ipotesi del racconto.
+    const advance = (): void => {
+      previewTimer = null;
+      if (!preview || preview.index >= preview.stopAt) return;
       preview = { ...preview, index: preview.index + 1 };
-      if (preview.index >= preview.consequence.manifestAt) stopPreviewAnimation();
+      if (preview.index < preview.stopAt) previewTimer = window.setTimeout(advance, 900);
       refresh();
-    }, 1000);
+    };
+    previewTimer = window.setTimeout(advance, 600);
   }
 
   function stopPreviewAnimation(): void {
     if (previewTimer === null) return;
-    window.clearInterval(previewTimer);
+    window.clearTimeout(previewTimer);
     previewTimer = null;
+  }
+
+  /**
+   * Dove si ferma la riproduzione dal vivo, in semi-mosse della confutazione: dopo la
+   * risposta della Nonna; e se la tua mossa seguente e' l'unica possibile (compresa
+   * l'unica parata a uno scacco), si va avanti di un'altra coppia.
+   */
+  function liveStop(fenAfterMistake: string, line: readonly string[]): number {
+    let stop = Math.min(1, line.length);
+    const chess = new Chess(fenAfterMistake);
+    try {
+      for (let i = 0; i < line.length; i++) {
+        const uci = line[i]!;
+        chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}) });
+        const applied = i + 1;
+        if (applied < stop) continue;
+        // Tocca a te dopo un numero dispari di semi-mosse: obbligata o no?
+        if (applied % 2 === 1 && chess.moves().length === 1 && applied + 2 <= line.length) {
+          stop = applied + 2;
+          continue;
+        }
+        if (applied >= stop) break;
+      }
+    } catch {
+      // Variante illeggibile: ci si ferma dove si era arrivati.
+    }
+    return stop;
   }
 
   /** Posizione raggiunta dopo `index` semi-mosse della confutazione (-1: prima dell'errore). */
@@ -2839,16 +2878,10 @@ export function mountApp(root: HTMLElement): void {
   function renderPreview(): void {
     if (!preview) return;
     const { fen, lastMove } = previewPosition(preview.index);
-    // Le frecce mostrate sono quelle delle semi-mosse GIA' avvenute: scorrendo lo
-    // slider il percorso si costruisce sotto gli occhi invece di comparire tutto
-    // insieme alla fine.
-    const arrows =
-      preview.index < 0
-        ? []
-        : preview.index === preview.consequence.manifestAt
-        ? preview.consequence.arrows
-        : transportArrows(preview.fenAfterMistake, preview.consequence.line.slice(0, preview.index));
-    board.renderPosition(fen, orientation, arrows, lastMove as [never, never] | undefined);
+    // Dal vivo niente frecce: le mosse si vedono muovere, e le "migliori" a questo punto
+    // sarebbero comunque insufficienti (piano di settembre 2026). La barra si muove.
+    board.renderPosition(fen, orientation, [], lastMove as [never, never] | undefined);
+    renderEvalBar();
   }
 
   function renderPreviewControls(): void {
@@ -2858,7 +2891,7 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     previewEl.hidden = false;
-    const total = preview.consequence.manifestAt;
+    const total = preview.stopAt;
     const stepPossible = (delta: number): boolean => {
       const next = (preview?.index ?? 0) + delta;
       return next >= -1 && next <= total;
@@ -4455,6 +4488,16 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function renderEvalBar(): void {
+    // Mentre la Nonna mostra le conseguenze dal vivo, la barra c'e' e si muove: prima
+    // dell'errore e dopo. E' la cosa che si deve vedere, anche a chi di solito la spegne.
+    if (preview && !hypo) {
+      barEl.hidden = false;
+      const known = preview.index < 0 ? preview.whiteBefore : preview.whiteAfter;
+      const mine = orientation === 'white' ? known : 100 - known;
+      barEl.className = orientation === 'white' ? 'eval-bar light' : 'eval-bar dark';
+      fillEl.style.height = `${Math.round(mine)}%`;
+      return;
+    }
     // Nell'ipotesi la barra c'e' sempre: e' l'unico giudice onesto di "sto ancora peggio o
     // no" mentre si provano mosse che nella partita non ci sono (piano di settembre 2026).
     if (hypo) {
@@ -6006,7 +6049,7 @@ export function mountApp(root: HTMLElement): void {
     // naturale su PC, e prima spostava la partita sotto il verdetto.
     if (preview && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
       const next = preview.index + (event.key === 'ArrowLeft' ? -1 : 1);
-      if (next >= -1 && next <= preview.consequence.manifestAt) {
+      if (next >= -1 && next <= preview.stopAt) {
         stopPreviewAnimation();
         preview = { ...preview, index: next };
         refresh();
