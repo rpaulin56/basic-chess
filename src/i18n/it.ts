@@ -242,7 +242,6 @@ export const it = {
   catMissedBehind: 'Alla fine dello scambio ti trovi con {what} in meno.',
   catMissedLess: 'Alla fine dello scambio hai {what} in meno di quanto potevi avere.',
   missedP: 'un pedone',
-  missedPiece: 'un pezzo',
   missedN: 'un Cavallo',
   missedB: 'un Alfiere',
   missedR: 'una Torre',

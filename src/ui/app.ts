@@ -39,7 +39,7 @@ import { chooseBotMove } from '../bot/play.js';
 import { winPercentOf } from '../engine/winProb.js';
 import type { AnalyseOptions, Analysis, EngineLine } from '../engine/types.js';
 import { detectMistake, isImportant, type MistakeVerdict } from '../tutor/detect.js';
-import { transportArrows, type Arrow, type Consequence, classifyAgainstBest, pieceGiven, perpetualIn, type PieceGiven } from '../tutor/classify.js';
+import { transportArrows, type Arrow, type Consequence, classifyAgainstBest, perpetualIn, type PieceGiven } from '../tutor/classify.js';
 import { explainPositional, type Explanation } from '../tutor/positional.js';
 import { findContinuations, findOpening, type Opening } from '../openings/openings.js';
 import { arrowMoves, bookLoaded, bookMoves, brushFor } from '../openings/book.js';
@@ -51,6 +51,7 @@ import { hastiest, usualThinking } from '../tutor/timing.js';
 import { buildHint, HINT_MARGIN } from '../tutor/hint.js';
 import { orientPosition } from '../tutor/orientation.js';
 import { moveNumberOf, type Ply } from '../core/game.js';
+import { materialFact, type MaterialFact } from '../tutor/materialFact.js';
 import type { Key } from 'chessground/types';
 import { createBoardView, type BoardView, type Ghost } from './boardView.js';
 import { matePicture } from '../tutor/matePicture.js';
@@ -1422,16 +1423,13 @@ export function mountApp(root: HTMLElement): void {
         ? ` · ${t(materialKey(loss), {
             // Con che mossa te lo prendeva: il conto suppone la sua risposta migliore.
             move: loss.risk ? toFigurine(loss.risk) : '',
-            // Cavallo e Alfiere valgono uguale, e quale dei due manchi dipende dalla
-            // variante che il motore ha visto: a quella profondita' il nome puo' sbagliare,
-            // il valore no. Si dice "un pezzo". Torre e Regina, che valgono cinque e nove,
-            // sono decise dal conto e tengono il loro nome (deciso parlandone).
+            // Il nome del pezzo torna preciso: il fatto viene dal conto statico, che vede la
+            // cattura sulla scacchiera e non una previsione. "Un pezzo" serviva quando il
+            // nome dipendeva dalla profondita' dell'analisi.
             what:
               loss.lostPiece.piece === 'exchange'
                 ? t('lossExchange')
-                : loss.lostPiece.piece === 'n' || loss.lostPiece.piece === 'b'
-                  ? t('missedPiece')
-                  : t(`missed${loss.lostPiece.piece.toUpperCase()}` as 'missedR'),
+                : t(`missed${loss.lostPiece.piece.toUpperCase()}` as 'missedR'),
           })}`
         : '';
       const lossRow = row(loss.ply);
@@ -1945,14 +1943,7 @@ export function mountApp(root: HTMLElement): void {
         verdict.bestMove,
         verdict.winPercentBefore,
         first && second ? winPercentOf(first) - winPercentOf(second) : 0,
-        pieceGiven(
-          state.plies[ply]!.fenBefore,
-          verdict.bestLine,
-          state.plies[ply]!.fenAfter,
-          analyses[ply + 1]!.lines[0]?.pv ?? [],
-          uciOf(state.plies[ply]!),
-        ),
-        sanOf(state.plies[ply]!.fenAfter, analyses[ply + 1]!.lines[0]?.pv[0]),
+        materialFact(state.plies[ply]!.fenBefore, uciOf(state.plies[ply]!), verdict.bestMove),
         drawnByChecks(state.plies[ply]!.fenBefore, verdict.bestLine, verdict.winPercentBefore),
       );
     }
@@ -2911,14 +2902,7 @@ export function mountApp(root: HTMLElement): void {
       verdict.bestMove,
       verdict.winPercentBefore,
       gap,
-      pieceGiven(
-        pending.fenBefore,
-        verdict.bestLine,
-        pending.fenAfter,
-        after.lines[0]?.pv ?? [],
-        uciOf(state.plies[state.plies.length - 1]!),
-      ),
-      sanOf(pending.fenAfter, after.lines[0]?.pv[0]),
+      materialFact(pending.fenBefore, uciOf(state.plies[state.plies.length - 1]!), verdict.bestMove),
       drawnByChecks(pending.fenBefore, verdict.bestLine, verdict.winPercentBefore),
     );
     if (stopsOn(verdict)) {
@@ -3386,12 +3370,19 @@ export function mountApp(root: HTMLElement): void {
     bestMove: string | null,
     before: number,
     gap: number,
-    lostPiece: PieceGiven | null,
-    risk: string | null | undefined,
+    /**
+     * Il fatto sul materiale, dal conto statico (vedi `materialFact`). Un tempo veniva dalla
+     * coda di una variante del motore: rianalizzate quattro partite a profondita' 14 e 20,
+     * dodici affermazioni su quattordici cadevano. Quelle statiche, nessuna.
+     */
+    fact: MaterialFact | null,
     perpetual = false,
   ): void {
     const san = state.plies[ply]?.san;
     if (!san) return;
+    const lostPiece: PieceGiven | null =
+      fact && fact.piece !== 'p' ? { piece: fact.piece, kind: fact.kind } : null;
+    const risk = lostPiece?.kind === 'lost' ? fact!.move : null;
     const entry: MoveLoss = {
       ply,
       number: moveNumberOf(state, ply),
@@ -3401,7 +3392,7 @@ export function mountApp(root: HTMLElement): void {
       gap,
       best: (bestMove ? sanAt(ply, bestMove) : null) ?? '',
       ...(lostPiece ? { lostPiece } : {}),
-      ...(lostPiece && lostPiece.kind === 'lost' && risk ? { risk } : {}),
+      ...(risk ? { risk } : {}),
       ...(perpetual ? { perpetual } : {}),
     };
     const existing = losses.findIndex((loss) => loss.ply === ply);

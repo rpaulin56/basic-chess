@@ -642,20 +642,6 @@ export function perpetualIn(fenBefore: string, bestLine: readonly string[]): boo
   return run >= 2;
 }
 
-/** Vero se la mossa, in UCI, cattura qualcosa nella posizione data. */
-function capturesAt(fen: string, uci: string): boolean {
-  try {
-    const move = new Chess(fen).move({
-      from: uci.slice(0, 2),
-      to: uci.slice(2, 4),
-      ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
-    });
-    return move.captured !== undefined;
-  } catch {
-    return false;
-  }
-}
-
 /** Che cosa ha lasciato andare una mossa, detto con un nome: un pezzo o la qualita'. */
 export type PieceGiven = {
   readonly piece: 'n' | 'b' | 'r' | 'q' | 'exchange';
@@ -667,41 +653,3 @@ export type PieceGiven = {
   readonly kind: 'lost' | 'missed';
 };
 
-/**
- * Il pezzo (non il pedone) che la mossa giocata ha lasciato andare e la MIGLIORE no.
- *
- * Il confronto con la migliore e' tutto. Contare solo cio' che si perde dopo la mossa
- * diceva "ci perdi un Alfiere" per 15...Bxe4, che l'Alfiere lo prendeva prima di
- * perderlo (un cambio alla pari), e per 37...a6, con un Cavallo gia' perso due mosse
- * prima e perso anche con la mossa migliore. Segnalati leggendo una partita vera.
- */
-export function pieceGiven(
-  fenBefore: string,
-  bestLine: readonly string[],
-  fenAfterMistake: string,
-  refutation: readonly string[],
-  /** La mossa giocata, in UCI: se e' proprio la migliore non c'e' niente da confrontare. */
-  playedMove?: string,
-): PieceGiven | null {
-  if (bestLine.length === 0 || refutation.length === 0) return null;
-  // Giocata la migliore, il confronto e' con se stessi: due varianti diverse della stessa
-  // mossa facevano comparire un pezzo perso dal nulla ("8...Bxc3, c'era Bxc3").
-  if (playedMove !== undefined && bestLine[0] === playedMove) return null;
-  const { points, net, played } = againstBest(fenBefore, bestLine, fenAfterMistake, refutation);
-  if (points < 2) return null;
-  // Perso o mancato: si guarda il saldo di chi ha mosso prima e dopo. Se dopo non e'
-  // sceso, il materiale non se n'e' andato — era da prendere e non si e' preso.
-  const mover = new Chess(fenBefore).turn();
-  const start = materialBalance(new Chess(fenBefore), mover);
-  const kind = played.balance < start ? 'lost' : 'missed';
-  // "Ti sfugge" solo se il pezzo era li' da PRENDERE: la mossa migliore e' una cattura.
-  // Un guadagno che matura in fondo a una variante lunga dipende da quanto a fondo ha
-  // guardato il motore, e in partita guarda poco: "ti sfugge una Torre, c'era a5" era un
-  // artefatto che a profondita' piena spariva (segnalato leggendo un'analisi vera).
-  if (kind === 'missed' && !capturesAt(fenBefore, bestLine[0]!)) return null;
-  // Torre per pezzo leggero: la qualita', col suo nome.
-  if (net.r > 0 && net.n + net.b < 0 && Math.abs(points - 2) < 1.5) return { piece: 'exchange', kind };
-  const heaviest = (['q', 'r', 'b', 'n'] as const).find((type) => net[type] > 0) ?? null;
-  if (heaviest === null || Math.abs(points - VALUE[heaviest]!) >= RECOVERY_THAT_COUNTS) return null;
-  return { piece: heaviest, kind };
-}

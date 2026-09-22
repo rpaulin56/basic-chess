@@ -243,7 +243,6 @@ export const en: Record<keyof typeof it, string> = {
   catMissedBehind: 'At the end of the exchange you are {what} down.',
   catMissedLess: 'At the end of the exchange you have {what} less than you could have had.',
   missedP: 'a pawn',
-  missedPiece: 'a piece',
   missedN: 'a knight',
   missedB: 'a bishop',
   missedR: 'a rook',

@@ -259,7 +259,6 @@ export const fr: Record<keyof typeof it, string> = {
   catMissedBehind: 'À la fin de l’échange, tu te retrouves avec {what} de moins.',
   catMissedLess: 'À la fin de l’échange, tu as {what} de moins que ce que tu pouvais avoir.',
   missedP: 'un pion',
-  missedPiece: 'une pièce',
   missedN: 'un Cavalier',
   missedB: 'un Fou',
   missedR: 'une Tour',

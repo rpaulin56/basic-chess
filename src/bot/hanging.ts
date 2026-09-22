@@ -1,7 +1,4 @@
-import { Chess } from 'chess.js';
-
-/** Quanto vale ogni pezzo, in pedoni. Il Re non si conta: non si perde, si perde la partita. */
-const VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+import { afterMove, bestGrab } from '../core/material.js';
 
 /**
  * Sopra questa perdita (in pedoni) la mossa e' un regalo e non una mossa peggiore.
@@ -27,35 +24,8 @@ export const GIVEAWAY = 2;
  * a quella profondita' non fa.
  */
 export function giveaway(fen: string, uci: string): number {
-  let chess;
-  try {
-    chess = new Chess(fen);
-    chess.move({
-      from: uci.slice(0, 2),
-      to: uci.slice(2, 4),
-      ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
-    });
-  } catch {
-    // Posizione o mossa che non si possono leggere: qui non si giudica, si lascia passare.
-    return 0;
-  }
-  let worst = 0;
-  for (const capture of chess.moves({ verbose: true })) {
-    if (!capture.captured) continue;
-    const won = VALUE[capture.captured] ?? 0;
-    if (won <= worst) continue;
-    const after = new Chess(chess.fen());
-    after.move({ from: capture.from, to: capture.to, ...(capture.promotion ? { promotion: capture.promotion } : {}) });
-    // Se possiamo riprendere su quella casa, il conto e' lo scambio, non la cattura.
-    const back = after
-      .moves({ verbose: true })
-      .filter((move) => move.to === capture.to && move.captured)
-      .map((move) => VALUE[move.piece] ?? 0)
-      .sort((a, b) => a - b)[0];
-    const net = back === undefined ? won : won - (VALUE[capture.piece] ?? 0);
-    if (net > worst) worst = net;
-  }
-  return worst;
+  const after = afterMove(fen, uci);
+  return after ? (bestGrab(after)?.net ?? 0) : 0;
 }
 
 /**
