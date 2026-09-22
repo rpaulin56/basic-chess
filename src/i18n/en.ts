@@ -146,7 +146,7 @@ export const en: Record<keyof typeof it, string> = {
   rewindBefore: 'Game over. Position before {move}.',
   hypoShow: 'Show the consequences',
   hypoPlaying: 'What if: {line}',
-  hypoDone: 'What if: {line}. Your move: the best ones are in green.',
+  hypoDone: 'What if: {line}. Your move: the best ones are in green, but you can try any you like.',
   hypoBack: 'Back to the game',
   rewindBackAnalysis: 'Back to the final analysis',
   rewindNewGameHere: 'Play a new game starting from here',

@@ -145,7 +145,7 @@ export const it = {
   rewindBefore: 'Partita finita. Posizione prima di {move}.',
   hypoShow: 'Mostra le conseguenze',
   hypoPlaying: 'Ipotesi: {line}',
-  hypoDone: 'Ipotesi: {line}. Tocca a te: in verde le mosse migliori.',
+  hypoDone: 'Ipotesi: {line}. Tocca a te: in verde le mosse migliori, ma puoi provare quella che vuoi.',
   hypoBack: 'Torna alla partita',
   rewindBackAnalysis: 'Torna all’analisi finale',
   rewindNewGameHere: 'Gioca una nuova partita partendo da qui',

@@ -162,7 +162,7 @@ export const fr: Record<keyof typeof it, string> = {
   rewindBefore: 'Partie terminée. Position avant {move}.',
   hypoShow: 'Montrer les conséquences',
   hypoPlaying: `Hypothèse${NB}: {line}`,
-  hypoDone: `Hypothèse${NB}: {line}. À toi${NB}: les meilleurs coups sont en vert.`,
+  hypoDone: `Hypothèse${NB}: {line}. À toi${NB}: les meilleurs coups sont en vert, mais tu peux essayer celui que tu veux.`,
   hypoBack: 'Revenir à la partie',
   rewindBackAnalysis: 'Revenir à l’analyse finale',
   rewindNewGameHere: 'Jouer une nouvelle partie à partir d’ici',

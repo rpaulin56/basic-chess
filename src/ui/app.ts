@@ -874,6 +874,8 @@ export function mountApp(root: HTMLElement): void {
     /** Arrivati in fondo: le tue continuazioni migliori (verdi) e quella giocata davvero (blu). */
     arrows: { from: Key; to: Key; brush: Brush }[];
     done: boolean;
+    /** Come sta il Bianco nell'ultima posizione valutata, per la barra. */
+    white: number | null;
   } | null = null;
   let hypoTimer: number | null = null;
   /** Le mosse di teoria nella posizione mostrata, in UCI. Vuoto = qui il libro tace. */
@@ -1619,6 +1621,103 @@ export function mountApp(root: HTMLElement): void {
     renderBoard();
   }
 
+  /** Le mosse legali di chi ha il tratto, nel formato della scacchiera. */
+  function destsOf(fen: string): Map<Key, Key[]> {
+    const dests = new Map<Key, Key[]>();
+    try {
+      for (const move of new Chess(fen).moves({ verbose: true })) {
+        const list = dests.get(move.from as Key) ?? [];
+        list.push(move.to as Key);
+        dests.set(move.from as Key, list);
+      }
+    } catch {
+      // Posizione illeggibile: niente da muovere.
+    }
+    return dests;
+  }
+
+  /** Le continuazioni migliori, in verde: quelle che valgono quasi quanto la prima. */
+  function greensOf(analysis: Analysis): { from: Key; to: Key; brush: Brush }[] {
+    const first = analysis.lines[0];
+    if (!first) return [];
+    const top = winPercentOf(first);
+    return analysis.lines
+      .filter((line) => top - winPercentOf(line) <= HINT_MARGIN)
+      .map((line) => line.pv[0])
+      .filter((uci): uci is string => !!uci)
+      .slice(0, STORY_GOOD_ARROWS)
+      .map((uci) => ({ from: uci.slice(0, 2) as Key, to: uci.slice(2, 4) as Key, brush: 'green' as const }));
+  }
+
+  /** L'aspettativa del Bianco, da un'analisi fatta col tratto a `turn`. */
+  function whiteOf(analysis: Analysis, turn: 'w' | 'b'): number | null {
+    const first = analysis.lines[0];
+    if (!first) return null;
+    const forMover = winPercentOf(first);
+    return turn === 'w' ? forMover : 100 - forMover;
+  }
+
+  /**
+   * Una mossa provata nell'ipotesi: si gioca, la Nonna risponde con la sua migliore, e ci
+   * si ferma di nuovo con le tue continuazioni in verde.
+   *
+   * E' il "e se invece avessi giocato questa?" del piano di settembre 2026: chi non e'
+   * convinto prova la sua contro-mossa, e la barra dice come va. Si puo' andare avanti
+   * quanto si vuole; si esce con "Torna alla partita". Niente di tutto questo tocca la
+   * partita. Stockfish a profondita' fissa risponde sempre allo stesso modo.
+   */
+  async function exploreMove(from: string, to: string): Promise<void> {
+    if (!hypo || !hypo.done) return;
+    const current = hypo;
+    const chess = new Chess(current.steps[current.index]!.fen);
+    let move;
+    try {
+      // Promozione a Donna: nell'ipotesi non si chiede, e' quasi sempre la scelta giusta.
+      move = chess.move({ from, to, promotion: 'q' });
+    } catch {
+      renderBoard();
+      return;
+    }
+    // Il numero di mossa viene dalla posizione stessa: nell'ipotesi la partita non c'entra.
+    const label = (san: string, color: 'w' | 'b', fen: string): string =>
+      color === 'w' ? `${fen.split(' ')[5]}. ${toFigurine(san)}` : toFigurine(san);
+    const steps = [...current.steps.slice(0, current.index + 1)];
+    steps.push({ fen: chess.fen(), lastMove: [move.from as Key, move.to as Key], san: move.san, label: label(move.san, move.color, move.before) });
+    hypo = { ...current, steps, index: steps.length - 1, arrows: [], done: false };
+    renderBoard();
+    renderStatus();
+    const token = hypo;
+    if (!chess.isGameOver()) {
+      const reply = await analyseFully(chess.fen(), { depth: HINT_DEPTH, multiPV: 1 });
+      if (hypo !== token) return;
+      const uci = reply?.lines[0]?.pv[0];
+      if (uci) {
+        try {
+          const answer = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}) });
+          steps.push({ fen: chess.fen(), lastMove: [answer.from as Key, answer.to as Key], san: answer.san, label: label(answer.san, answer.color, answer.before) });
+        } catch {
+          // Mossa del motore illeggibile: ci si ferma dove si e'.
+        }
+      }
+    }
+    let arrows: { from: Key; to: Key; brush: Brush }[] = [];
+    let white = token.white;
+    if (!chess.isGameOver()) {
+      const mine = await analyseFully(chess.fen(), { depth: HINT_DEPTH, multiPV: HINT_MULTIPV });
+      if (hypo !== token) return;
+      if (mine) {
+        arrows = greensOf(mine);
+        white = whiteOf(mine, chess.turn());
+      }
+    } else {
+      const over = chess.isCheckmate() ? (chess.turn() === 'w' ? 0 : 100) : 50;
+      white = over;
+    }
+    hypo = { ...token, steps, index: steps.length - 1, arrows, done: true, white };
+    renderBoard();
+    renderStatus();
+  }
+
   function stopHypo(): void {
     if (hypoTimer !== null) window.clearTimeout(hypoTimer);
     hypoTimer = null;
@@ -1639,6 +1738,7 @@ export function mountApp(root: HTMLElement): void {
     stopHypo();
     const steps: NonNullable<typeof hypo>['steps'] = [];
     const chess = new Chess(focus.fen);
+    let white: number | null = null;
     const push = (uci: string): boolean => {
       try {
         const number = moveNumberOf(state, focus.ply + steps.length - 1);
@@ -1680,13 +1780,8 @@ export function mountApp(root: HTMLElement): void {
         continue;
       }
       // Una scelta vera: qui ci si ferma, con le tue continuazioni migliori.
-      const top = winPercentOf(best);
-      arrows = mine.lines
-        .filter((line) => top - winPercentOf(line) <= HINT_MARGIN)
-        .map((line) => line.pv[0])
-        .filter((uci): uci is string => !!uci)
-        .slice(0, STORY_GOOD_ARROWS)
-        .map((uci) => ({ from: uci.slice(0, 2) as Key, to: uci.slice(2, 4) as Key, brush: 'green' as const }));
+      arrows = greensOf(mine);
+      white = whiteOf(mine, chess.turn());
       // In blu la mossa giocata davvero, se la partita e' passata proprio di qui.
       const played = steps.slice(1);
       const followed = played.every((step, index) => state.plies[focus.ply + index]?.san === step.san);
@@ -1695,7 +1790,7 @@ export function mountApp(root: HTMLElement): void {
       break;
     }
     if (storyFocus !== focus) return;
-    hypo = { steps, index: 0, arrows, done: false };
+    hypo = { steps, index: 0, arrows, done: false, white };
     renderBoard();
     renderStatus();
     // La tua mossa dopo 0,6 secondi, poi un passo ogni 0,9: abbastanza lento da seguire il
@@ -3234,7 +3329,9 @@ export function mountApp(root: HTMLElement): void {
             }))
           : [],
         step.lastMove,
+        hypo.done && hypo.index === hypo.steps.length - 1 ? destsOf(step.fen) : undefined,
       );
+      renderEvalBar();
       return;
     }
     if (preview) renderPreview();
@@ -3863,6 +3960,11 @@ export function mountApp(root: HTMLElement): void {
 
   // --- mosse -------------------------------------------------------------
   function handleUserMove(from: string, to: string): void {
+    // Nell'ipotesi la mossa non tocca la partita: si prova, e la Nonna risponde.
+    if (hypo) {
+      void exploreMove(from, to);
+      return;
+    }
     const origin = from as Square;
     const target = to as Square;
 
@@ -4195,6 +4297,8 @@ export function mountApp(root: HTMLElement): void {
           stopHypo();
           renderBoard();
           renderStatus();
+          // La barra torna a come l'hai scelta: nell'ipotesi era accesa d'ufficio.
+          renderEvalBar();
         });
         actions.append(leave);
         statusEl.append(actions);
@@ -4351,6 +4455,16 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function renderEvalBar(): void {
+    // Nell'ipotesi la barra c'e' sempre: e' l'unico giudice onesto di "sto ancora peggio o
+    // no" mentre si provano mosse che nella partita non ci sono (piano di settembre 2026).
+    if (hypo) {
+      barEl.hidden = false;
+      const known = hypo.white ?? lastWhitePercent ?? 50;
+      const mine = orientation === 'white' ? known : 100 - known;
+      barEl.className = orientation === 'white' ? 'eval-bar light' : 'eval-bar dark';
+      fillEl.style.height = `${Math.round(mine)}%`;
+      return;
+    }
     barEl.hidden = !showBar;
     if (!showBar) return;
     const over = state.cursor === state.plies.length ? gameOver(state) : null;

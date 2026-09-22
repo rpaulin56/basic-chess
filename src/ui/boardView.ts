@@ -81,6 +81,8 @@ export interface BoardView {
     orientation: 'white' | 'black',
     arrows: readonly Arrow[],
     lastMove?: readonly [Key, Key],
+    /** Le mosse che si possono fare, per chi ha il tratto: solo per le ipotesi da esplorare. */
+    dests?: Map<Key, Key[]>,
   ): void;
   destroy(): void;
 }
@@ -210,7 +212,7 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
       api.setAutoShapes(ghosts.map((ghost) => ({ orig: ghost.square, piece: { role: ghost.role, color: ghost.color } })));
     },
 
-    renderPosition(fen, orientation, arrows, lastMove) {
+    renderPosition(fen, orientation, arrows, lastMove, dests) {
       // Lo scacco va detto ogni volta, come fa `render`: chessground lo ricorda finche'
       // non glielo si cambia, e la posizione finale — Re sotto scacco — lasciava il suo
       // disco rosso su tutte le posizioni passate aperte dal racconto (segnalato con due
@@ -230,7 +232,9 @@ export function createBoardView(container: HTMLElement, onMove: MoveHandler): Bo
         turnColor,
         check,
         lastMove: lastMove ? [lastMove[0], lastMove[1]] : [],
-        movable: { free: false, dests: new Map<Key, Key[]>(), showDests: false },
+        movable: dests
+          ? { free: false, color: turnColor, dests, showDests: true }
+          : { free: false, dests: new Map<Key, Key[]>(), showDests: false },
       });
       keepBounds();
       api.setAutoShapes([]);
