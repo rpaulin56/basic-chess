@@ -859,6 +859,23 @@ export function mountApp(root: HTMLElement): void {
    * si vede invece di doverla immaginare (chiesto da chi gioca).
    */
   let storyArrows: readonly { from: Key; to: Key; brush: Brush }[] = [];
+  /** La riga del racconto aperta, se e' un errore: da li' si possono chiedere le conseguenze. */
+  let storyFocus: { fen: string; played: string; ply: number } | null = null;
+  /**
+   * Un'IPOTESI sulla scacchiera: le conseguenze di un errore, giocate un passo alla volta.
+   *
+   * E' una posizione che nella partita non c'e' mai stata, e deve essere impossibile
+   * scambiarla per quella vera: la scacchiera ha una cornice sua e la didascalia lo dice.
+   * Niente di cio' che succede qui entra nella partita, nel PGN o nei conteggi.
+   */
+  let hypo: {
+    steps: { fen: string; lastMove: [Key, Key]; san: string; label: string }[];
+    index: number;
+    /** Arrivati in fondo: le tue continuazioni migliori (verdi) e quella giocata davvero (blu). */
+    arrows: { from: Key; to: Key; brush: Brush }[];
+    done: boolean;
+  } | null = null;
+  let hypoTimer: number | null = null;
   /** Le mosse di teoria nella posizione mostrata, in UCI. Vuoto = qui il libro tace. */
   let theoryMoves = new Set<string>();
   /**
@@ -1447,7 +1464,7 @@ export function mountApp(root: HTMLElement): void {
       // Sotto la soglia la mossa NON e' un'imprecisione: la riga c'e' solo per il materiale,
       // e chiamarla imprecisione dava un nome di gravita' a una mossa che non ce l'ha.
       lossRow.parts.push(
-        (loss.drop >= INACCURACY_DROP
+        (Math.round(loss.drop) >= INACCURACY_DROP
           ? t('storyLoss', { verdict: lossVerdict(loss), drop: Math.round(loss.drop), note })
           : t('storyCheap')) +
           piece +
@@ -1554,7 +1571,11 @@ export function mountApp(root: HTMLElement): void {
         if (entry.arrows) {
           storyArrows = entry.arrows;
           renderBoard();
-          if (entry.goodFrom) void showGoodMoves(entry.arrows, entry.goodFrom);
+          if (entry.goodFrom) {
+            storyFocus = { ...entry.goodFrom, ply: entry.seekTo ?? entry.ply };
+            renderStatus();
+            void showGoodMoves(entry.arrows, entry.goodFrom);
+          }
         }
         revealBoard();
       };
@@ -1596,6 +1617,97 @@ export function mountApp(root: HTMLElement): void {
       ...shown.filter((arrow) => arrow.brush !== 'green'),
     ];
     renderBoard();
+  }
+
+  function stopHypo(): void {
+    if (hypoTimer !== null) window.clearInterval(hypoTimer);
+    hypoTimer = null;
+    hypo = null;
+  }
+
+  /**
+   * Le conseguenze di un errore, come IPOTESI: la tua mossa, la miglior risposta, e avanti
+   * finche' le tue mosse sono obbligate; ci si ferma quando tocca a te con una scelta vera.
+   *
+   * Sostituisce, nel racconto, l'animazione della variante intera: una sola linea ha senso
+   * solo quando le mosse sono forzate, e qui ci si ferma esattamente dove smettono di
+   * esserlo (piano "dire meno, mostrare meglio", settembre 2026). Obbligata vuol dire:
+   * unica mossa legale (compresa l'unica parata a uno scacco), o la ripresa del pezzo
+   * appena preso quando ogni alternativa costa almeno un errore.
+   */
+  async function playConsequences(focus: { fen: string; played: string; ply: number }): Promise<void> {
+    stopHypo();
+    const steps: NonNullable<typeof hypo>['steps'] = [];
+    const chess = new Chess(focus.fen);
+    const push = (uci: string): boolean => {
+      try {
+        const number = moveNumberOf(state, focus.ply + steps.length);
+        const color = chess.turn();
+        const move = chess.move({
+          from: uci.slice(0, 2),
+          to: uci.slice(2, 4),
+          ...(uci.length > 4 ? { promotion: uci.slice(4) } : {}),
+        });
+        const label =
+          color === 'w' || steps.length === 0 ? `${moveLabel(number, color)} ${toFigurine(move.san)}` : toFigurine(move.san);
+        steps.push({ fen: chess.fen(), lastMove: [move.from as Key, move.to as Key], san: move.san, label });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    if (!push(focus.played)) return;
+    let arrows: { from: Key; to: Key; brush: Brush }[] = [];
+    for (let guard = 0; guard < 6 && !chess.isGameOver(); guard++) {
+      // La miglior risposta dell'avversaria.
+      const reply = await analyseFully(chess.fen(), { depth: HINT_DEPTH, multiPV: 1 });
+      const replyMove = reply?.lines[0]?.pv[0];
+      if (storyFocus !== focus || !replyMove || !push(replyMove) || chess.isGameOver()) break;
+      // Tocca a te: obbligata o scelta?
+      const mine = await analyseFully(chess.fen(), { depth: HINT_DEPTH, multiPV: HINT_MULTIPV });
+      if (storyFocus !== focus || !mine || mine.lines.length === 0) break;
+      const best = mine.lines[0]!;
+      const last = steps[steps.length - 1]!;
+      const onlyMove = chess.moves().length === 1;
+      const recapture =
+        best.pv[0]?.slice(2, 4) === last.lastMove[1] &&
+        last.san.includes('x') &&
+        (mine.lines.length < 2 || winPercentOf(best) - winPercentOf(mine.lines[1]!) >= MISTAKE_DROP);
+      if ((onlyMove || recapture) && best.pv[0]) {
+        push(best.pv[0]);
+        continue;
+      }
+      // Una scelta vera: qui ci si ferma, con le tue continuazioni migliori.
+      const top = winPercentOf(best);
+      arrows = mine.lines
+        .filter((line) => top - winPercentOf(line) <= HINT_MARGIN)
+        .map((line) => line.pv[0])
+        .filter((uci): uci is string => !!uci)
+        .slice(0, STORY_GOOD_ARROWS)
+        .map((uci) => ({ from: uci.slice(0, 2) as Key, to: uci.slice(2, 4) as Key, brush: 'green' as const }));
+      // In blu la mossa giocata davvero, se la partita e' passata proprio di qui.
+      const followed = steps.every((step, index) => state.plies[focus.ply + index]?.san === step.san);
+      const actual = followed ? state.plies[focus.ply + steps.length] : undefined;
+      if (actual) arrows.push({ from: actual.from as Key, to: actual.to as Key, brush: 'blue' });
+      break;
+    }
+    if (storyFocus !== focus) return;
+    hypo = { steps, index: 0, arrows, done: steps.length === 1 };
+    renderBoard();
+    renderStatus();
+    // Un passo ogni novecento millisecondi: abbastanza lento da seguire il pezzo.
+    hypoTimer = window.setInterval(() => {
+      if (!hypo) return;
+      if (hypo.index >= hypo.steps.length - 1) {
+        hypo = { ...hypo, done: true };
+        if (hypoTimer !== null) window.clearInterval(hypoTimer);
+        hypoTimer = null;
+      } else {
+        hypo = { ...hypo, index: hypo.index + 1 };
+      }
+      renderBoard();
+      renderStatus();
+    }, 900);
   }
 
   /** "In media hai pensato 17 secondi a mossa · 3 consigli · 2 ripensamenti su 5." */
@@ -1782,7 +1894,9 @@ export function mountApp(root: HTMLElement): void {
     if (loss.before >= 65 && after < 50) {
       return humanWon() ? t('whyVerdictWinRisked') : t('whyVerdictWinSlipped');
     }
-    return loss.drop >= MISTAKE_DROP ? t('whyVerdictMistake') : t('whyVerdictInaccuracy');
+    // Sul numero ARROTONDATO, lo stesso che si legge accanto: "Un'imprecisione (-18 punti)"
+    // con la soglia dell'errore a 18 si contraddiceva da solo (il valore vero era 17,6).
+    return Math.round(loss.drop) >= MISTAKE_DROP ? t('whyVerdictMistake') : t('whyVerdictInaccuracy');
   }
 
   /** Come si dice il materiale di questa riga: perso o sfuggito, con o senza la mossa. */
@@ -1801,7 +1915,7 @@ export function mountApp(root: HTMLElement): void {
 
   /** Le tre mosse piu' costose, in ordine di partita e non di gravita'. */
   function worstMoves(): MoveLoss[] {
-    const mine = losses.filter((loss) => inPlay(loss) && loss.drop >= INACCURACY_DROP);
+    const mine = losses.filter((loss) => inPlay(loss) && Math.round(loss.drop) >= INACCURACY_DROP);
     return [...mine]
       .sort((a, b) => b.drop - a.drop)
       .slice(0, 3)
@@ -3101,6 +3215,23 @@ export function mountApp(root: HTMLElement): void {
    * vizioso.
    */
   function renderBoard(): void {
+    boardWrap.classList.toggle('hypothetical', hypo !== null);
+    if (hypo) {
+      const step = hypo.steps[hypo.index]!;
+      board.renderPosition(
+        step.fen,
+        orientation,
+        hypo.done
+          ? hypo.arrows.map((arrow) => ({
+              orig: arrow.from as Square,
+              dest: arrow.to as Square,
+              brush: arrow.brush as Arrow['brush'],
+            }))
+          : [],
+        step.lastMove,
+      );
+      return;
+    }
     if (preview) renderPreview();
     else if (bestView) board.renderPosition(bestView.fen, orientation, bestView.arrows);
     // A partita finita — matto, stallo, abbandono, patta concordata — la scacchiera e' in
@@ -4042,6 +4173,25 @@ export function mountApp(root: HTMLElement): void {
       // A partita finita si dice che e' finita, e le due cose che si possono fare: tornare
       // all'analisi, o cominciare da qui una partita nuova. I perdoni non c'entrano piu'.
       const over = finished();
+      if (over && hypo) {
+        // L'ipotesi si dichiara: la scacchiera mostra mosse che nella partita non ci sono.
+        const shown = hypo.steps.slice(0, hypo.index + 1).map((step) => step.label).join(' ');
+        statusEl.append(text(t(hypo.done ? 'hypoDone' : 'hypoPlaying', { line: shown }), 'rewind-text hypo-text'));
+        const actions = document.createElement('span');
+        actions.className = 'rewind-actions';
+        const leave = document.createElement('button');
+        leave.type = 'button';
+        leave.className = 'rewind-back';
+        leave.textContent = t('hypoBack');
+        leave.addEventListener('click', () => {
+          stopHypo();
+          renderBoard();
+          renderStatus();
+        });
+        actions.append(leave);
+        statusEl.append(actions);
+        return;
+      }
       if (over) {
         // "Posizione prima di 5… ♛c6" invece di "mossa 5 di 49": dice a che scelta si sta
         // guardando, che e' il motivo per cui ci si e' arrivati (chiesto da chi gioca).
@@ -4071,6 +4221,16 @@ export function mountApp(root: HTMLElement): void {
         fresh.className = 'rewind-back';
         fresh.textContent = t('rewindNewGameHere');
         fresh.addEventListener('click', startFromHere);
+        // Dalla riga di un errore: le conseguenze, un passo alla volta.
+        if (storyFocus && storyFocus.ply === state.cursor) {
+          const focus = storyFocus;
+          const consequences = document.createElement('button');
+          consequences.type = 'button';
+          consequences.className = 'rewind-back';
+          consequences.textContent = t('hypoShow');
+          consequences.addEventListener('click', () => void playConsequences(focus));
+          actions.append(consequences);
+        }
         actions.append(back, fresh);
         statusEl.append(actions);
         return;
@@ -5690,6 +5850,8 @@ export function mountApp(root: HTMLElement): void {
   function seek(cursor: number): void {
     // Le frecce parlano di UNA riga del racconto: appena ci si sposta non valgono piu'.
     storyArrows = [];
+    storyFocus = null;
+    stopHypo();
     /*
      * Mentre la Nonna aspetta una decisione la partita non si sposta.
      *

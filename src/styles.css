@@ -154,6 +154,10 @@ header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.2px;
    avvisi della Nonna, perche' e' un'informazione sullo stato e non un errore. */
 .status.rewind { color: var(--accent); display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; }
 .rewind-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; width: 100%; }
+/* Un'ipotesi sulla scacchiera: una posizione che nella partita non c'e' stata. La cornice
+   la separa dalla partita vera senza toccare i colori delle case e delle frecce. */
+.board-wrap.hypothetical { outline: 3px dashed var(--hypo, #b8860b); outline-offset: 4px; }
+.hypo-text { font-weight: 600; }
 .rewind-back {
   font: inherit;
   font-size: 14px;
