@@ -553,6 +553,8 @@ export function mountApp(root: HTMLElement): void {
     /** La confutazione INTERA prevista dal motore, non troncata al diagramma. */
     refutation: readonly string[];
     betterSans: readonly string[] | null;
+    /** Il fatto sul materiale, se ce n'e' uno certo (vedi `materialFact`). */
+    fact: MaterialFact | null;
     /** L'avversario aveva appena sbagliato e non se n'e' approfittato. */
     missedChance: boolean;
     /** Posizione da cui parte la confutazione: serve a ricostruire il diagramma. */
@@ -2932,6 +2934,7 @@ export function mountApp(root: HTMLElement): void {
               )
             : [],
         betterSans: null,
+        fact: materialFact(pending.fenBefore, uciOf(state.plies[state.plies.length - 1]!), verdict.bestMove),
         missedChance: afterOpponentError,
         fenAfterMistake: pending.fenAfter,
         fenBeforeMistake: pending.fenBefore,
@@ -2945,7 +2948,8 @@ export function mountApp(root: HTMLElement): void {
         color: humanColor,
         san: state.plies[state.plies.length - 1]?.san ?? '?',
         severity: verdict.severity,
-        category: consequence?.category ?? null,
+        // "Svista" solo per il pezzo in presa certo; il resto e' la gravita' (vedi il tutor).
+        category: review.fact?.kind === 'lost' ? 'banale' : null,
         drop: verdict.drop,
         corrected: false,
       });
@@ -6054,11 +6058,6 @@ const RECAP_SEVERITY: Record<string, string> = {
   mistake: 'tutorMistake',
   inaccuracy: 'tutorInaccuracy',
 };
-const RECAP_CATEGORY: Record<string, string> = {
-  banale: 'headBanale',
-  tattico: 'headTattico',
-  strategico: 'headStrategico',
-};
 
 /** `corrected` null: la decisione non e' ancora stata presa, e allora lo stato non si scrive. */
 function recapLine(entry: MistakeEntry, corrected: boolean | null): string {
@@ -6066,8 +6065,11 @@ function recapLine(entry: MistakeEntry, corrected: boolean | null): string {
   const params = {
     number,
     san: toFigurine(entry.san),
-    kind: entry.category ? t(RECAP_CATEGORY[entry.category] ?? 'headStrategico') : '—',
-    severity: t(RECAP_SEVERITY[entry.severity] ?? 'tutorMistake'),
+    // "Svista" quando un pezzo e' rimasto in presa per certo; altrimenti la gravita'. Le
+    // vecchie etichette "tattico" e "strategico" dei salvataggi precedenti non si dicono
+    // piu': venivano da una previsione (settembre 2026).
+    severity:
+      entry.category === 'banale' ? t('headBanale') : t(RECAP_SEVERITY[entry.severity] ?? 'tutorMistake'),
     what: `-${Math.round(entry.drop)}`,
   };
   return corrected === null

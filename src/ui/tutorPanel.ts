@@ -1,7 +1,9 @@
 import { kindOf, type MistakeVerdict } from '../tutor/detect.js';
-import type { Consequence, LostPiece } from '../tutor/classify.js';
+import type { Consequence } from '../tutor/classify.js';
 import type { Explanation } from '../tutor/positional.js';
 import { t } from '../i18n/index.js';
+import { toFigurine } from '../core/notation.js';
+import type { MaterialFact } from '../tutor/materialFact.js';
 
 /**
  * Il pannello del tutor.
@@ -35,6 +37,11 @@ export interface TutorPanelState {
    * non le chiede: mostrarle subito toglierebbe il senso di cercarle.
    */
   readonly betterSans: readonly string[] | null;
+  /**
+   * Il fatto sul materiale, se ce n'e' uno CERTO: la cattura che l'avversaria fa subito,
+   * o quella che c'era e non si e' fatta. Tutto il resto non si dice con precisione.
+   */
+  readonly fact: MaterialFact | null;
   /**
    * Perche' la posizione peggiora, quando non c'e' materiale da mostrare. Vuoto se le
    * euristiche non hanno trovato niente da dire: e' un esito legittimo, e tacere e'
@@ -90,20 +97,6 @@ const STAY_LABEL = {
  * leggere. Ogni categoria ha il suo nome completo, e la gravita' diventa
  * un'etichetta accanto quando serve.
  */
-const HEADING_LABEL = {
-  banale: 'headBanale',
-  tattico: 'headTattico',
-  strategico: 'headStrategico',
-} as const;
-
-const PIECE_LABEL = {
-  p: 'pieceP',
-  n: 'pieceN',
-  b: 'pieceB',
-  r: 'pieceR',
-  q: 'pieceQ',
-} as const;
-
 export function renderTutorPanel(
   container: HTMLElement,
   state: TutorPanelState | null,
@@ -120,15 +113,14 @@ export function renderTutorPanel(
   const severity = verdict.severity as 'blunder' | 'mistake' | 'inaccuracy';
   container.className = `panel tutor tutor-${severity}`;
 
-  // Titolo: il nome della categoria ("Svista", "Errore tattico", "Errore
-  // strategico"). Se la classificazione non e' riuscita si ripiega sulla gravita'.
-  // L'etichetta accanto compare solo quando l'errore e' grave: dirlo sempre la
-  // renderebbe rumore.
+  // Titolo: "Svista" quando un pezzo resta in presa per certo, altrimenti la gravita'
+  // misurata dal motore. "Errore tattico" ed "Errore strategico" venivano dalla coda della
+  // variante, come le frasi sotto, e con la stessa incertezza (settembre 2026). L'etichetta
+  // accanto compare solo quando l'errore e' grave: dirlo sempre la renderebbe rumore.
   const heading = document.createElement('h2');
-  heading.textContent = consequence
-    ? t(HEADING_LABEL[consequence.category])
-    : t(SEVERITY_LABEL[severity]);
-  if (consequence && severity === 'blunder') {
+  const blunderByFact = state.fact?.kind === 'lost';
+  heading.textContent = blunderByFact ? t('headBanale') : t(SEVERITY_LABEL[severity]);
+  if (blunderByFact && severity === 'blunder') {
     const tag = document.createElement('span');
     tag.className = 'tutor-tag';
     tag.textContent = t('severeTag');
@@ -147,11 +139,23 @@ export function renderTutorPanel(
   // "perdi il tuo pedone passato" si legge come una contraddizione: il saldo e' pari
   // (un pedone per un pedone) ma il pezzo che contava se n'e' andato, e la seconda
   // frase lo dice meglio da sola.
-  if (consequence?.category === 'strategico' && positional.length > 0) {
+  //
+  // Dal settembre 2026 si dice con precisione solo cio' che e' CERTO (piano "dire meno,
+  // mostrare meglio"): il matto, che il motore annuncia senza incertezza, e il fatto sul
+  // materiale che si vede con una cattura. Le frasi di prima ("tra tre mosse perdi
+  // l'Alfiere", "alla fine dello scambio ti trovi con un Cavallo in meno") venivano dalla
+  // coda di una variante, e rianalizzando partite vere cambiavano con la profondita'.
+  // Quello che non e' certo si mostra con "Mostra le conseguenze", non si racconta.
+  if (consequence && consequence.matesIn !== null) {
+    lines.push(consequence.matesIn <= 1 ? t('mateNow') : t('mateIn', { moves: consequence.matesIn }));
+  } else if (state.fact) {
+    const what = t(MISSED_LABEL[state.fact.piece]);
+    const move = toFigurine(state.fact.move);
+    lines.push(t(state.fact.kind === 'lost' ? 'factLost' : 'factMissed', { what, move }));
+  } else if (positional.length > 0) {
     for (const explanation of positional) lines.push(t(explanation.key, explanation.params));
-  } else if (consequence) {
-    lines.push(describe(consequence));
-    if (consequence.category === 'strategico') lines.push(t('posNothing'));
+  } else {
+    lines.push(t('factWorse'));
   }
   // Dove eri e dove finisci, detto a parole e SEMPRE: una sola frase fra sei.
   //
@@ -223,40 +227,6 @@ export function renderTutorPanel(
   container.append(buttons);
 }
 
-/** La frase che spiega la categoria. E' il testo che l'utente legge per primo. */
-function describe(consequence: Consequence): string {
-  // Il matto viene prima di qualunque conto sul materiale: a chi viene mattato non
-  // interessa quale pedone ha perso per strada.
-  if (consequence.matesIn !== null) {
-    return consequence.matesIn <= 1 ? t('mateNow') : t('mateIn', { moves: consequence.matesIn });
-  }
-  // L'occasione mancata: lungo la confutazione non si perde niente, ma alla fine dello
-  // scambio manca quello che la mossa migliore teneva. Frase dell'autore.
-  if (consequence.missed) {
-    const missed = consequence.missed;
-    const what = missed.piece ? t(MISSED_LABEL[missed.piece]) : equivalent(missed.points);
-    return t(missed.behind ? 'catMissedBehind' : 'catMissedLess', { what });
-  }
-  const moves = Math.ceil(consequence.manifestAt / 2);
-  // "perdi la qualita'" e "perdi il pedone passato in c6" reggono la stessa frase;
-  // solo il saldo nudo ("l'equivalente di due pedoni") ha bisogno di una forma sua.
-  const named = consequence.lossKind !== 'count';
-  const what =
-    consequence.lossKind === 'named'
-      ? nameLost(consequence.lost)
-      : consequence.lossKind === 'exchange'
-        ? t('lossExchange')
-        : equivalent(consequence.materialLoss);
-  switch (consequence.category) {
-    case 'banale':
-      return t(named ? 'catBanaleText' : 'catBanaleCount', { what });
-    case 'tattico':
-      return t(named ? 'catTatticoText' : 'catTatticoCount', { moves, what });
-    case 'strategico':
-      return t('catStrategicoText');
-  }
-}
-
 /** Il pezzo che manca alla fine dello scambio, con l'articolo indeterminativo. */
 const MISSED_LABEL = {
   p: 'missedP',
@@ -265,23 +235,6 @@ const MISSED_LABEL = {
   r: 'missedR',
   q: 'missedQ',
 } as const;
-
-/** "il pedone passato in c6", "la torre in a8 e il cavallo in f6". */
-function nameLost(lost: readonly LostPiece[]): string {
-  return lost
-    .map((piece) =>
-      t('pieceAt', {
-        piece: t(piece.passed ? 'piecePassed' : PIECE_LABEL[piece.type]),
-        square: piece.square,
-      }),
-    )
-    .join(t('pieceAnd'));
-}
-
-/** Ripiego quando la perdita e' il saldo di uno scambio e non un pezzo identificabile. */
-function equivalent(pawns: number): string {
-  return pawns === 1 ? t('equivalentOne') : t('equivalentMany', { count: pawns });
-}
 
 function action(label: string, onClick: () => void, className = '', title = ''): HTMLElement {
   const button = document.createElement('button');
