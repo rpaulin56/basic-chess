@@ -228,6 +228,9 @@ const FLAT_MOVES = 12;
  */
 const MAX_GOOD_ARROWS = 5;
 
+/** Quante mosse migliori mostra una riga del racconto, accanto alla mossa giocata. */
+const STORY_GOOD_ARROWS = 3;
+
 /**
  * La ricerca del matto per la fotografia.
  *
@@ -1306,6 +1309,12 @@ export function mountApp(root: HTMLElement): void {
       /** Le frecce da mostrare arrivati li': verde la mossa buona, rossa quella giocata. */
       arrows?: { from: Key; to: Key; brush: Brush }[];
       /**
+       * Dove cercare le mosse "chiaramente migliori" quando si tocca la riga: la posizione
+       * in cui si sceglieva e la mossa giocata. Si calcolano al tocco, con lo stesso
+       * criterio delle mosse buone chieste dal vivo, e sostituiscono la verde singola.
+       */
+      goodFrom?: { fen: string; played: string };
+      /**
        * Dove porta il tocco. Di solito la posizione PRIMA della mossa, quella in cui si
        * sceglieva; per un errore della Nonna quella DOPO, in cui toccava a te approfittarne.
        */
@@ -1445,6 +1454,8 @@ export function mountApp(root: HTMLElement): void {
           better,
       );
       const fenBefore = state.plies[loss.ply]?.fenBefore;
+      const lossPly = state.plies[loss.ply];
+      if (fenBefore && lossPly) lossRow.goodFrom = { fen: fenBefore, played: uciOf(lossPly) };
       withArrows(
         lossRow,
         fenBefore && loss.best ? arrow(fenBefore, loss.best, 'green') : null,
@@ -1479,6 +1490,8 @@ export function mountApp(root: HTMLElement): void {
       giftRow.seekTo = gift.ply + 1;
       const reply = state.plies[gift.ply + 1];
       const giftFen = state.plies[gift.ply]?.fenAfter;
+      // Non colto: le mosse che la punivano, cercate come per un tuo errore.
+      if (!gift.seen && giftFen && reply) giftRow.goodFrom = { fen: giftFen, played: uciOf(reply) };
       withArrows(
         giftRow,
         // Vista: in verde la tua mossa, che l'ha punita. Non vista: in verde quella che
@@ -1541,6 +1554,7 @@ export function mountApp(root: HTMLElement): void {
         if (entry.arrows) {
           storyArrows = entry.arrows;
           renderBoard();
+          if (entry.goodFrom) void showGoodMoves(entry.arrows, entry.goodFrom);
         }
         revealBoard();
       };
@@ -1554,6 +1568,34 @@ export function mountApp(root: HTMLElement): void {
       list.append(item);
     }
     return list;
+  }
+
+  /**
+   * Le mosse chiaramente migliori di quella giocata, al posto della verde singola.
+   *
+   * "Chiaramente migliori" come per le mosse buone chieste dal vivo: tutte quelle che
+   * valgono quasi quanto la migliore (vedi HINT_MARGIN), fino a tre. Tre e non cinque: qui
+   * si confrontano con la rossa, e troppe verdi la nascondono. Si calcolano al tocco, e se
+   * nel frattempo si e' toccata un'altra riga non si disegnano.
+   */
+  async function showGoodMoves(
+    shown: readonly { from: Key; to: Key; brush: Brush }[],
+    from: { fen: string; played: string },
+  ): Promise<void> {
+    const analysis = await analyseFully(from.fen, { depth: HINT_DEPTH, multiPV: HINT_MULTIPV });
+    if (storyArrows !== shown || !analysis || analysis.lines.length === 0) return;
+    const top = winPercentOf(analysis.lines[0]!);
+    const good = analysis.lines
+      .filter((line) => top - winPercentOf(line) <= HINT_MARGIN)
+      .map((line) => line.pv[0])
+      .filter((uci): uci is string => !!uci && uci.slice(0, 4) !== from.played.slice(0, 4))
+      .slice(0, STORY_GOOD_ARROWS);
+    if (good.length === 0) return;
+    storyArrows = [
+      ...good.map((uci) => ({ from: uci.slice(0, 2) as Key, to: uci.slice(2, 4) as Key, brush: 'green' as const })),
+      ...shown.filter((arrow) => arrow.brush !== 'green'),
+    ];
+    renderBoard();
   }
 
   /** "In media hai pensato 17 secondi a mossa · 3 consigli · 2 ripensamenti su 5." */
