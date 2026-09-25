@@ -34,6 +34,8 @@ export interface OfferView {
 export interface OfferHandlers {
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
+  /** Dall'abbandono, quando la partita non e' persa: guarda dove e' andata storta. */
+  readonly onReview?: () => void;
 }
 
 const RESIGN_TEXT: Record<ResignVerdict, string> = {
@@ -100,6 +102,9 @@ export function renderOfferPanel(
       action(t('resignConfirm'), handlers.onConfirm, justified ? 'primary' : ''),
       action(t('resignCancel'), handlers.onCancel, justified ? '' : 'primary'),
     );
+    // Finche' la partita non e' persa, la domanda vera di chi vuole abbandonare non e'
+    // "smetto?" ma "dove ho sbagliato?": qui c'e' la risposta, senza chiudere la partita.
+    if (!justified && handlers.onReview) actions.append(action(t('askReview'), handlers.onReview));
   } else {
     const verdict = view.draw ?? 'balanced';
     container.append(paragraph(t(DRAW_TEXT[verdict])));

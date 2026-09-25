@@ -108,6 +108,13 @@ const MISTAKE_DROP = 18;
 const INACCURACY_DROP = 10;
 
 /**
+ * Sotto questa aspettativa si sta "davvero peggio", ed e' li' che compare l'offerta di
+ * guardare dove e' andata storta. Piu' in alto la domanda non nasce, e l'offerta sarebbe
+ * un invito a controllare a ogni mossa.
+ */
+const BEHIND_PERCENT = 35;
+
+/**
  * Sopra questa aspettativa la partita e' in mano a chi muove, e il materiale smette di
  * essere una notizia: si semplifica, si restituisce la qualita' per cambiare le Donne,
  * si da' un pedone per aprire una colonna. Tutte cose giuste che nessuno deve sentirsi
@@ -332,6 +339,8 @@ interface SavedGame {
   studied?: boolean;
   /** Vero se hai giocato almeno una mossa con la barra accesa (vedi `barUsed`). */
   barUsed?: boolean;
+  /** Quante volte hai guardato l'analisi a partita in corso (vedi `midReview`). */
+  reviews?: number;
   /** Dove sono stati chiesti gli aiuti (vedi `HelpEvent`). */
   help?: HelpEvent[];
 }
@@ -342,7 +351,7 @@ interface SavedGame {
  */
 interface HelpEvent {
   readonly ply: number;
-  readonly kind: 'hint' | 'answer';
+  readonly kind: 'hint' | 'answer' | 'review';
 }
 
 /**
@@ -836,6 +845,17 @@ export function mountApp(root: HTMLElement): void {
    */
   let studied = false;
   /**
+   * Vero mentre guardi, a partita in corso, dove e' andata storta finora.
+   *
+   * Nasce da una domanda vera di chi gioca: "mi trovo in svantaggio e vorrei capire dove
+   * ho sbagliato, senza abbandonare". Costa poco perche' i costi delle tue mosse sono gia'
+   * calcolati durante la partita; conta come aiuto, perche' sapere dove NON hai sbagliato
+   * dice anche dove guardare adesso.
+   */
+  let midReview = false;
+  /** Quante volte hai guardato l'analisi a partita in corso. */
+  let reviews = 0;
+  /**
    * Vero se almeno una tua mossa e' stata giocata con la barra accesa.
    *
    * La barra e' un aiuto come gli altri e va dichiarata dove si dichiarano gli aiuti:
@@ -1215,8 +1235,66 @@ export function mountApp(root: HTMLElement): void {
    * E' un'offerta e non un verdetto automatico: chi ha appena perso decide lui se ha
    * voglia di sentirselo dire.
    */
+  /** Le tue mosse che sono state veri errori: il metro dell'analisi a partita in corso. */
+  function mistakesSoFar(): MoveLoss[] {
+    return losses
+      .filter((loss) => inPlay(loss) && Math.round(loss.drop) >= MISTAKE_DROP)
+      .sort((a, b) => a.ply - b.ply);
+  }
+
+  /** Vero se ha senso offrirti l'analisi adesso: stai davvero peggio e c'e' una partita. */
+  function worthReviewing(): boolean {
+    if (state.plies.length < 6 || finished()) return false;
+    // Dai costi gia' registrati e non dalla barra: quella, se e' spenta, non calcola
+    // niente, e l'offerta non sarebbe mai comparsa proprio a chi gioca senza aiuti.
+    const white = reviewedWhite(state.plies.length);
+    if (white === null) return false;
+    const mine = humanColor === 'w' ? white : 100 - white;
+    return mine < BEHIND_PERCENT;
+  }
+
+  function openMidReview(): void {
+    if (!midReview) {
+      reviews++;
+      helpLog.push({ ply: state.plies.length, kind: 'review' });
+    }
+    midReview = true;
+    hint = null;
+    offer = null;
+    saveGame();
+    refresh();
+    whyEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function closeMidReview(): void {
+    midReview = false;
+    storyArrows = [];
+    storyFocus = null;
+    stopHypo();
+    seek(state.plies.length);
+  }
+
   function renderPostMortem(): void {
     whyEl.replaceChildren();
+    // A partita in corso: solo gli errori veri, e un modo per chiudere e tornare a giocare.
+    if (midReview && !finished()) {
+      whyEl.hidden = false;
+      const box = document.createElement('div');
+      box.className = 'why';
+      box.append(text(t('midTitle'), 'why-title'));
+      const mistakes = mistakesSoFar();
+      if (mistakes.length === 0) box.append(text(t('midNothing'), 'why-note'));
+      const story = storyRows(mistakes, true);
+      if (story) box.append(story);
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'why-ask ghost';
+      close.textContent = t('midClose');
+      close.addEventListener('click', closeMidReview);
+      box.append(close);
+      whyEl.append(box);
+      return;
+    }
     whyEl.hidden = !finished() || postMortem === 'hidden';
     if (whyEl.hidden) return;
     // La partita non porta i nostri appunti: l'analisi si rifa' da capo, lo si dice, e
@@ -1327,7 +1405,7 @@ export function mountApp(root: HTMLElement): void {
    * Le righe della storia: una per mossa, in ordine di partita, e ognuna porta alla sua
    * posizione con un tocco (chiesto: "senza doverla cercare nell'elenco mosse").
    */
-  function storyRows(worst: readonly MoveLoss[]): HTMLElement | null {
+  function storyRows(worst: readonly MoveLoss[], onlyMistakes = false): HTMLElement | null {
     interface Row {
       ply: number;
       head: string;
@@ -1389,9 +1467,12 @@ export function mountApp(root: HTMLElement): void {
       }
     };
 
+    // A partita in corso si raccontano SOLO i tuoi errori: ripensamenti, regali della
+    // Nonna, aiuti e mosse buone sono il bilancio di una partita, e il bilancio si fa alla
+    // fine. Qui serve rispondere a una domanda sola: dove e' andata storta.
     // I ripensamenti: la testa e' la mossa RIPRESA, con il suo costo e la fretta; poi
     // quella giocata al suo posto. Comprendono gli errori segnalati e annullati.
-    for (const rethink of rethinks) {
+    for (const rethink of onlyMistakes ? [] : rethinks) {
       const note = (notes: string[]): string => (notes.length ? ` (${notes.join('; ')})` : '');
       const before: string[] = [];
       if (rethink.drop !== null && Math.round(rethink.drop) >= 1) {
@@ -1491,7 +1572,7 @@ export function mountApp(root: HTMLElement): void {
       );
     }
 
-    for (const move of goodMoves()) {
+    for (const move of onlyMistakes ? [] : goodMoves()) {
       const goodRow = row(move.ply);
       goodRow.parts.push(t('storyGood'));
       // La mossa trovata, in verde: e' quella di cui si parla.
@@ -1499,11 +1580,11 @@ export function mountApp(root: HTMLElement): void {
     }
     // La patta proposta dalla Nonna, sulla mossa che le e' seguita: e' li' che si poteva
     // chiudere. Se la partita e' finita patta proprio li', non c'e' niente da ricordare.
-    for (const proposal of drawProposals) {
+    for (const proposal of onlyMistakes ? [] : drawProposals) {
       if (proposal.ply >= state.plies.length) continue;
       row(proposal.ply).parts.push(t('storyDrawProposed'));
     }
-    for (const gift of [...gifts].sort((a, b) => a.ply - b.ply).slice(0, 3)) {
+    for (const gift of onlyMistakes ? [] : [...gifts].sort((a, b) => a.ply - b.ply).slice(0, 3)) {
       // Il regalo non colto e l'imprecisione che lo segue sono LO STESSO momento: due righe
       // dicevano due volte la stessa cosa e portavano allo stesso diagramma ("avevi hxg6+"
       // e poi "c'era hxg6"). Resta l'imprecisione, che e' la riga con il costo (segnalato
@@ -1543,7 +1624,7 @@ export function mountApp(root: HTMLElement): void {
     }
     // Gli aiuti, uno per tipo per mossa: due consigli nella stessa posizione sono una
     // cosa sola da raccontare.
-    for (const kind of ['hint', 'answer'] as const) {
+    for (const kind of onlyMistakes ? [] : (['hint', 'answer'] as const)) {
       const plies = new Set(helpLog.filter((event) => event.kind === kind).map((event) => event.ply));
       for (const ply of plies) {
         const helpRow = row(ply);
@@ -1826,6 +1907,7 @@ export function mountApp(root: HTMLElement): void {
     if (median !== null) parts.push(t('storyAverage', { time: duration(median) }));
     if (studied) parts.push(t('storyStudied'));
     if (barUsed) parts.push(t('storyBar'));
+    if (reviews > 0) parts.push(t(reviews === 1 ? 'storyReviewsOne' : 'storyReviews', { count: reviews }));
     if (hintsUsed > 0) parts.push(t(hintsUsed === 1 ? 'storyHintsOne' : 'storyHints', { count: hintsUsed }));
     if (answersSeen > 0) {
       parts.push(t(answersSeen === 1 ? 'storyAnswersOne' : 'storyAnswers', { count: answersSeen }));
@@ -2377,6 +2459,7 @@ export function mountApp(root: HTMLElement): void {
 
   function renderOffer(): void {
     renderOfferPanel(offerEl, offer, {
+      onReview: openMidReview,
       onConfirm: () => {
         // La patta proposta dalla Nonna, accettata.
         if (offer?.proposed) {
@@ -2501,6 +2584,7 @@ export function mountApp(root: HTMLElement): void {
         renderHint();
         renderBoard();
       },
+      onReview: openMidReview,
       onAccept: () => {
         const choice = hint?.choice;
         hint = null;
@@ -3311,6 +3395,7 @@ export function mountApp(root: HTMLElement): void {
         rethinks,
         studied,
         barUsed,
+        reviews,
         hints: hintsUsed,
         takeBacks,
         answers: answersSeen,
@@ -4203,6 +4288,7 @@ export function mountApp(root: HTMLElement): void {
       rethinks.push(...restored.rethinks);
       studied = restored.studied;
       barUsed = restored.barUsed;
+      reviews = restored.reviews;
       // Dopo `clearTutor`, che ha preso il limite scelto per le partite nuove: questa non
       // e' nuova, e vale la regola con cui era cominciata.
       takebackLimit = restored.takebackLimit;
@@ -4480,9 +4566,11 @@ export function mountApp(root: HTMLElement): void {
     const mine = (percent: number): number => (humanColor === 'w' ? percent : 100 - percent);
     const before = losses.find((loss) => loss.ply === cursor);
     if (before) return mine(before.before);
-    const after = losses.find((loss) => loss.ply === cursor - 1);
-    if (after) return mine(Math.max(0, after.before - after.drop));
-    return null;
+    // Altrimenti l'ultima tua mossa prima di qui: dopo la sua risposta la valutazione non
+    // e' quella esatta, ma e' l'unica che abbiamo senza rianalizzare, e basta a dire
+    // "stai peggio". Vale anche a partita in corso, per l'offerta di guardare l'analisi.
+    const last = [...losses].filter((loss) => loss.ply < cursor).sort((a, b) => b.ply - a.ply)[0];
+    return last ? mine(Math.max(0, last.before - last.drop)) : null;
   }
 
   function renderEvalBar(): void {
@@ -4687,6 +4775,7 @@ export function mountApp(root: HTMLElement): void {
               orientation: [],
               revealed: false,
               choice,
+              canReview: worthReviewing(),
             };
             renderHint();
             renderControls();
@@ -4990,6 +5079,8 @@ export function mountApp(root: HTMLElement): void {
       ...(studied ? { Study: '1' } : {}),
       // La barra e' un aiuto: chi rilegge la partita deve sapere se c'era.
       ...(barUsed ? { EvalBar: '1' } : {}),
+      // E anche l'analisi guardata a partita in corso.
+      ...(reviews > 0 ? { Reviews: String(reviews) } : {}),
       ...(answersSeen > 0 ? { Answers: String(answersSeen) } : {}),
       // Quando la Nonna ti fermava: cambia molto il senso degli errori rimasti.
       Stops: stops,
@@ -5982,6 +6073,8 @@ export function mountApp(root: HTMLElement): void {
     studyDests = undefined;
     studied = false;
     barUsed = false;
+    reviews = 0;
+    midReview = false;
     mating = false;
     mateArrows = [];
     mateGhosts = [];
@@ -6482,6 +6575,7 @@ interface LoadedGame {
   rethinks: Rethink[];
   studied: boolean;
   barUsed: boolean;
+  reviews: number;
   hints: number;
   takeBacks: number;
   answers: number;
@@ -6560,6 +6654,7 @@ function loadFrom(saved: SavedGame): LoadedGame | null {
       rethinks: Array.isArray(saved.rethinks) ? saved.rethinks : [],
       studied: saved.studied === true,
       barUsed: saved.barUsed === true,
+      reviews: typeof saved.reviews === 'number' ? saved.reviews : 0,
       hints: typeof saved.hints === 'number' ? saved.hints : 0,
       takeBacks: typeof saved.takeBacks === 'number' ? saved.takeBacks : 0,
       answers: typeof saved.answers === 'number' ? saved.answers : 0,

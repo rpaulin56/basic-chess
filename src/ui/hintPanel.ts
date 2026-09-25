@@ -36,6 +36,13 @@ export interface HintView {
    * aiuti si contano, e chi preme per curiosita' non deve pagarne uno senza saperlo.
    */
   readonly choice?: 'theory' | 'hint' | 'mate';
+  /**
+   * Vero se da qui si puo' anche chiedere "dove e' andata storta finora".
+   *
+   * Compare solo quando stai davvero peggio: e' li' che uno se lo chiede, e offrirlo
+   * sempre lo trasformerebbe in una lista della spesa da consultare a ogni mossa.
+   */
+  readonly canReview?: boolean;
 }
 
 export interface HintHandlers {
@@ -43,6 +50,8 @@ export interface HintHandlers {
   readonly onClose: () => void;
   /** Dalla scelta: accetta l'aiuto proposto. */
   readonly onAccept: () => void;
+  /** Dalla scelta: guarda dove e' andata storta la partita finora. */
+  readonly onReview: () => void;
 }
 
 export function renderHintPanel(
@@ -62,10 +71,9 @@ export function renderHintPanel(
     container.append(paragraph(t(`askIntro_${view.choice}`)));
     const choiceActions = document.createElement('div');
     choiceActions.className = 'tutor-actions';
-    choiceActions.append(
-      action(t(`askAccept_${view.choice}`), handlers.onAccept, 'primary'),
-      action(t('hintClose'), handlers.onClose),
-    );
+    choiceActions.append(action(t(`askAccept_${view.choice}`), handlers.onAccept, 'primary'));
+    if (view.canReview) choiceActions.append(action(t('askReview'), handlers.onReview));
+    choiceActions.append(action(t('hintClose'), handlers.onClose));
     container.append(choiceActions);
     return;
   }
