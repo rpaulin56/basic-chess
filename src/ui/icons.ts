@@ -167,9 +167,15 @@ const PATHS: Record<IconName, string> = {
   // che di cinque, e la scacchiera si legge come scacchiera invece che come griglia
   // grigia. Il motivo alternato e' l'unica cosa che serve — un tabellone a scacchi
   // dice "una partita" senza bisogno di pezzi sopra.
+  // Con un + in alto a destra, come "nuovo documento" o "nuova scheda": da sola la
+  // scacchierina diceva "scacchiera", e accanto alla matita di "Posizioni e partite"
+  // sembravano due icone per la stessa cosa. Il cerchio attorno al + e' scavato col
+  // colore dello sfondo (settembre 2026, scelta fra due prove).
   newGame:
-    '<path d="M3 3h18v18H3z" />' +
-    '<path class="sq" d="M3 3h6v6H3zM15 3h6v6h-6zM9 9h6v6H9zM3 15h6v6H3zM15 15h6v6h-6z" stroke="none"/>',
+    '<path d="M2 6h14v14H2z" />' +
+    '<path class="sq" d="M2 6h4.67v4.67H2zM11.33 6H16v4.67h-4.67zM6.67 10.67h4.67v4.67H6.67zM2 15.33h4.67V20H2zM11.33 15.33H16V20h-4.67z" stroke="none"/>' +
+    '<circle cx="18.5" cy="5.5" r="4.6" fill="var(--bg)" stroke="none" />' +
+    '<path d="M18.5 2.5v6M15.5 5.5h6" stroke-width="2" />',
   // Il mappamondo: la lingua. Tre elementi soli — il cerchio, l'equatore e un
   // meridiano — perche' a ventidue pixel un mappamondo con i continenti e' una
   // macchia. Non una bandiera: una bandiera dice UN PAESE, e l'inglese non e' il
