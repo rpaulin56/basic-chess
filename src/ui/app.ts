@@ -52,6 +52,7 @@ import { orientPosition } from '../tutor/orientation.js';
 import { moveNumberOf, type Ply } from '../core/game.js';
 import { materialFact, type MaterialFact } from '../tutor/materialFact.js';
 import type { Key } from 'chessground/types';
+import { openEditor } from './editor.js';
 import { createBoardView, type BoardView, type Ghost } from './boardView.js';
 import { matePicture } from '../tutor/matePicture.js';
 import { createIcon, type IconName } from './icons.js';
@@ -4700,6 +4701,11 @@ export function mountApp(root: HTMLElement): void {
       // partita, quando di partita non ce n'e'.
       group(
         menuButton('position', t('positionTitle'), false, [
+          // Prima voce: la cosa che si FA. Le altre portano posizioni dentro e fuori.
+          {
+            label: t('createPosition'),
+            run: () => openEditor(currentFen(state), orientation, { onPlay: beginFromFen }),
+          },
           { label: t('importPosition'), run: importPosition },
           {
             label: t('exportPgn'),
@@ -5801,6 +5807,21 @@ export function mountApp(root: HTMLElement): void {
    * scambia i colori come si fa fra persone, "gioca invece col Nero" prende l'altro
    * colore prima ancora di aver mosso, e "un'altra partita col Bianco" tiene lo stesso.
    */
+  /**
+   * Una partita nuova da una posizione costruita nell'editor, col colore scelto. Se tocca
+   * alla Nonna, muove lei: come quando si comincia col Nero.
+   */
+  function beginFromFen(fen: string, color: Color): void {
+    stashGame();
+    humanColor = color;
+    orientation = color === 'w' ? 'white' : 'black';
+    state = newGame(fen);
+    lastWhitePercent = null;
+    evaluation = null;
+    clearTutor();
+    refresh();
+  }
+
   function beginGame(color: Color): void {
     // Il salvavita: la partita che si sta lasciando resta recuperabile finche' non se
     // ne gioca un'altra.

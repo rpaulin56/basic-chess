@@ -911,3 +911,15 @@ select {
 @media (hover: none) and (pointer: coarse) {
   .touch-hint { display: block; }
 }
+
+/* L'editor di posizioni: la scacchiera, la tavolozza dei pezzi, i comandi. */
+.editor-dialog { max-width: min(96vw, 460px); }
+.editor-board { width: min(86vw, 420px); aspect-ratio: 1 / 1; margin: 0 auto 10px; }
+.editor-palette { position: static; display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.editor-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.editor-tool { flex: 1 1 0; min-width: 36px; height: 44px; padding: 2px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line, #ccc); border-radius: 6px; background: var(--panel, #fff); }
+.editor-tool.selected { outline: 3px solid var(--accent, #7a5a2f); outline-offset: -1px; background: var(--bg, #f6f4ef); }
+.editor-palette piece { position: static; display: block; width: 36px; height: 36px; pointer-events: none; }
+.editor-setups { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.editor-castling { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.editor-problem { color: #8a2a1a; font-weight: 600; margin: 6px 0; }
