@@ -359,7 +359,7 @@ export const it = {
   editorPiece_black_knight: 'Cavallo nero',
   editorPiece_black_pawn: 'Pedone nero',
   positionTitle: 'Posizioni e partite',
-  importPosition: 'Incolla una partita o una posizione',
+  importPosition: 'Incolla una partita o posizione',
   distractionTitle: 'Quanto vuoi concentrata la Nonna',
   distractionCareful: 'attenta',
   distractionSloppy: 'distratta',

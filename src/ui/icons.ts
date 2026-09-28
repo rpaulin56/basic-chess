@@ -241,10 +241,14 @@ const PATHS: Record<IconName, string> = {
   //
   // L'angolo ripiegato non e' decorazione: e' cio' che distingue un foglio da un
   // rettangolo con dentro delle righe.
+  // Una scacchiera con una matita sopra: dal settembre 2026 il menu comincia con "Crea
+  // una posizione", e la matita dice quella cosa. La scacchiera e' chiara, e la matita e'
+  // l'elemento principale, perche' "Nuova partita" e' gia' una scacchierina a scacchi e le
+  // due, piccole nella stessa barra, si confondevano (scelta fra tre prove).
   position:
-    '<path d="M6 3h7.5L19 8.5V21H6z" />' +
-    '<path d="M13.5 3v5.5H19" />' +
-    '<path d="M9 12.5h7M9 16h7M9 9h2.5" />',
+    '<path d="M2 6h16v16H2z" />' +
+    '<path d="M2 6h8v8H2zM10 14h8v8h-8z" fill="currentColor" stroke="none" opacity=".35" />' +
+    '<path d="M12 14 21 5l2 2-9 9-3.5 1z" />',
 };
 
 export function createIcon(name: IconName): SVGSVGElement {

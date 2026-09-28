@@ -360,7 +360,7 @@ export const en: Record<keyof typeof it, string> = {
   editorPiece_black_knight: 'Black Knight',
   editorPiece_black_pawn: 'Black pawn',
   positionTitle: 'Positions and games',
-  importPosition: 'Paste a game or a position',
+  importPosition: 'Paste a game or position',
   distractionTitle: 'How focused you want Grandma',
   distractionCareful: 'careful',
   distractionSloppy: 'distracted',
