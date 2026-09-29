@@ -109,19 +109,19 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
     return button;
   };
   for (const color of ['white', 'black'] as const) {
-    const row = document.createElement('div');
-    row.className = 'editor-row';
     for (const role of ROLES) {
       const piece = document.createElement('piece');
       piece.className = `${role} ${color}`;
-      row.append(tool(piece, { role, color }, t(`editorPiece_${color}_${role}`)));
+      palette.append(tool(piece, { role, color }, t(`editorPiece_${color}_${role}`)));
     }
-    palette.append(row);
   }
-  const actionsRow = document.createElement('div');
-  actionsRow.className = 'editor-row';
-  actionsRow.append(tool(t('editorErase'), 'erase', t('editorErase')));
-  palette.append(actionsRow);
+  // La gomma come un settimo "pezzo", alto due righe: una casa vuota. Un pulsantone con la
+  // scritta prendeva una riga intera ed era sproporzionato (segnalato provando).
+  const blank = document.createElement('span');
+  blank.className = 'editor-blank';
+  const eraser = tool(blank, 'erase', t('editorErase'));
+  eraser.classList.add('editor-eraser');
+  palette.append(eraser);
 
   const button = (label: string, onClick: () => void, className = ''): HTMLButtonElement => {
     const element = document.createElement('button');
@@ -142,32 +142,44 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
     button(t('editorStart'), () => {
       api.set({ fen: START });
       turn = 'w';
+      for (const radio of turnRadios) radio.checked = radio.value === 'w';
       refused.clear();
       update();
     }),
   );
 
-  const turnLine = document.createElement('label');
-  turnLine.className = 'choice';
-  const turnName = document.createElement('span');
+  // A chi tocca: due scelte con il loro colore, non un menu a tendina per due valori.
+  const turnLine = document.createElement('fieldset');
+  turnLine.className = 'editor-turn';
+  const turnName = document.createElement('legend');
   turnName.className = 'choice-name';
   turnName.textContent = t('editorTurn');
-  const turnSelect = document.createElement('select');
+  turnLine.append(turnName);
+  const turnRadios: HTMLInputElement[] = [];
   for (const [value, key] of [
     ['w', 'editorTurnWhite'],
     ['b', 'editorTurnBlack'],
   ] as const) {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = t(key);
-    option.selected = value === turn;
-    turnSelect.append(option);
+    const label = document.createElement('label');
+    label.className = 'editor-turn-choice';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'editor-turn';
+    radio.value = value;
+    radio.checked = value === turn;
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      turn = value;
+      update();
+    });
+    turnRadios.push(radio);
+    const swatch = document.createElement('span');
+    swatch.className = `editor-swatch ${value === 'w' ? 'white' : 'black'}`;
+    const name = document.createElement('span');
+    name.textContent = t(key);
+    label.append(radio, swatch, name);
+    turnLine.append(label);
   }
-  turnSelect.addEventListener('change', () => {
-    turn = turnSelect.value === 'b' ? 'b' : 'w';
-    update();
-  });
-  turnLine.append(turnName, turnSelect);
 
   const castling = document.createElement('div');
   castling.className = 'editor-castling';
@@ -177,7 +189,8 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
 
   const playWhite = button(t('editorPlayWhite'), () => play('w'), 'primary');
   const playBlack = button(t('editorPlayBlack'), () => play('b'), 'primary');
-  const cancel = button(t('settingsClose'), () => dialog.close());
+  // Chiudere non salva niente: e' un annullare, e si chiama cosi'.
+  const cancel = button(t('editorCancel'), () => dialog.close());
   const playRow = document.createElement('div');
   playRow.className = 'tutor-actions';
   playRow.append(playWhite, playBlack, cancel);

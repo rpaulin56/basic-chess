@@ -913,13 +913,22 @@ select {
 }
 
 /* L'editor di posizioni: la scacchiera, la tavolozza dei pezzi, i comandi. */
-.editor-dialog { max-width: min(96vw, 460px); }
-.editor-board { width: min(86vw, 420px); aspect-ratio: 1 / 1; margin: 0 auto 10px; }
-.editor-palette { position: static; display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.editor-dialog { width: min(96vw, 460px); max-width: min(96vw, 460px); box-sizing: border-box; }
+.editor-board { width: 100%; max-width: 420px; aspect-ratio: 1 / 1; margin: 0 auto 10px; box-sizing: border-box; }
+.editor-dialog { overflow-x: hidden; }
+.editor-palette { position: static; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 10px; }
+.editor-tool.editor-eraser { grid-column: 7; grid-row: 1 / span 2; height: auto; }
+.editor-blank { display: block; width: 26px; height: 26px; background: #fff; border: 1px solid var(--ink-soft, #888); border-radius: 3px; }
+.editor-turn { border: 0; padding: 0; margin: 0 0 8px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.editor-turn legend { padding: 0; margin-bottom: 4px; width: 100%; }
+.editor-turn-choice { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
+.editor-swatch { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--ink, #333); }
+.editor-swatch.white { background: #fff; }
+.editor-swatch.black { background: #222; }
 .editor-row { display: flex; gap: 4px; flex-wrap: wrap; }
-.editor-tool { flex: 1 1 0; min-width: 36px; height: 44px; padding: 2px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line, #ccc); border-radius: 6px; background: var(--panel, #fff); }
+.editor-tool { flex: 1 1 0; min-width: 0; height: 44px; padding: 2px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line, #ccc); border-radius: 6px; background: var(--panel, #fff); }
 .editor-tool.selected { outline: 3px solid var(--accent, #7a5a2f); outline-offset: -1px; background: var(--bg, #f6f4ef); }
-.editor-palette piece { position: static; display: block; width: 36px; height: 36px; pointer-events: none; }
+.editor-palette piece { position: static; display: block; width: min(36px, 100%); aspect-ratio: 1 / 1; height: auto; pointer-events: none; }
 .editor-setups { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .editor-castling { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
 .editor-problem { color: #8a2a1a; font-weight: 600; margin: 6px 0; }
