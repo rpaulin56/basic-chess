@@ -339,7 +339,7 @@ export const fr: Record<keyof typeof it, string> = {
   orientNothing: `Rien de particulier ne ressort. Alors pose-toi cette question${NB}: laquelle de tes pièces participe le moins, et comment la faire jouer${NB}?`,
   createPosition: 'Créer une position',
   editorTitle: 'Créer une position',
-  editorErase: 'Gomme',
+  editorErase: 'Retirer des pièces',
   editorEmpty: 'Échiquier vide',
   editorStart: 'Position initiale',
   editorTurn: 'Trait aux',

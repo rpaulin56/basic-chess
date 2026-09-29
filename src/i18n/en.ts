@@ -326,7 +326,7 @@ export const en: Record<keyof typeof it, string> = {
   orientNothing: 'No feature stands out. So ask yourself this: which of your pieces is taking the least part, and how can you get it playing?',
   createPosition: 'Set up a position',
   editorTitle: 'Set up a position',
-  editorErase: 'Eraser',
+  editorErase: 'Remove pieces',
   editorEmpty: 'Empty board',
   editorStart: 'Starting position',
   editorTurn: 'To move',

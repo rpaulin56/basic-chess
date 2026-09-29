@@ -325,7 +325,7 @@ export const it = {
   orientNothing: 'Non spicca nessuna caratteristica particolare. Domandati questo: quale dei tuoi pezzi sta partecipando di meno, e come puoi farlo giocare?',
   createPosition: 'Crea una posizione',
   editorTitle: 'Crea una posizione',
-  editorErase: 'Gomma',
+  editorErase: 'Elimina pezzi',
   editorEmpty: 'Scacchiera vuota',
   editorStart: 'Posizione iniziale',
   editorTurn: 'Tocca a',
