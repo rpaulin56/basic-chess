@@ -348,6 +348,8 @@ export const fr: Record<keyof typeof it, string> = {
   editorCancel: 'Annuler',
   editorPlayWhite: 'Continuer d’ici avec les Blancs',
   editorPlayBlack: 'Continuer d’ici avec les Noirs',
+  editorEnPassantWhite: 'Les Blancs peuvent prendre en passant en {square}',
+  editorEnPassantBlack: 'Les Noirs peuvent prendre en passant en {square}',
   castleWhiteShort: 'Les Blancs peuvent roquer côté roi',
   castleWhiteLong: 'Les Blancs peuvent roquer côté dame',
   castleBlackShort: 'Les Noirs peuvent roquer côté roi',

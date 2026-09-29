@@ -334,6 +334,8 @@ export const it = {
   editorCancel: 'Annulla',
   editorPlayWhite: 'Continua da qui col Bianco',
   editorPlayBlack: 'Continua da qui col Nero',
+  editorEnPassantWhite: 'Il Bianco può prendere en passant in {square}',
+  editorEnPassantBlack: 'Il Nero può prendere en passant in {square}',
   castleWhiteShort: 'Il Bianco può arroccare corto',
   castleWhiteLong: 'Il Bianco può arroccare lungo',
   castleBlackShort: 'Il Nero può arroccare corto',

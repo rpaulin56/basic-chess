@@ -43,6 +43,8 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
   const [placement = START, side = 'w'] = startFen.split(' ');
   let turn: 'w' | 'b' = side === 'b' ? 'b' : 'w';
   let brush: Brush = null;
+  /** La casa della presa en passant scelta; vale solo finche' la presa e' possibile. */
+  let enPassant: string | null = startFen.split(' ')[3]?.match(/^[a-h][36]$/) ? startFen.split(' ')[3]! : null;
   /** Le caselle d'arrocco tolte a mano: le altre restano spuntate quando sono possibili. */
   const refused = new Set<string>();
 
@@ -204,12 +206,42 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
     });
   }
 
+  /**
+   * Le case in cui chi ha il tratto potrebbe prendere en passant: un pedone avversario
+   * sulla quarta traversa della sua avanzata, con le due case dietro libere (da li' e'
+   * appena passato con la doppia spinta) e un pedone di chi muove accanto. Come
+   * l'arrocco, la scelta compare solo quando e' possibile: di solito una casa, a volte
+   * due. L'editor di Lichess propone sempre tutte e otto le case della traversa.
+   */
+  function possibleEnPassant(): string[] {
+    const us = turn === 'w' ? 'white' : 'black';
+    const them = turn === 'w' ? 'black' : 'white';
+    const [landing, target, origin] = turn === 'w' ? ['5', '6', '7'] : ['4', '3', '2'];
+    const files = 'abcdefgh';
+    const at = (file: string, rank: string) => api.state.pieces.get(`${file}${rank}` as Key);
+    const squares: string[] = [];
+    for (let i = 0; i < 8; i++) {
+      const file = files[i]!;
+      const pawn = at(file, landing);
+      if (pawn?.role !== 'pawn' || pawn.color !== them) continue;
+      if (at(file, target) || at(file, origin)) continue;
+      const beside = [files[i - 1], files[i + 1]].some((next) => {
+        if (!next) return false;
+        const piece = at(next, landing);
+        return piece?.role === 'pawn' && piece.color === us;
+      });
+      if (beside) squares.push(`${file}${target}`);
+    }
+    return squares;
+  }
+
   function fen(): string {
     const flags = possibleCastles()
       .filter((castle) => !refused.has(castle.flag))
       .map((castle) => castle.flag)
       .join('');
-    return `${api.getFen()} ${turn} ${flags || '-'} - 0 1`;
+    const ep = enPassant && possibleEnPassant().includes(enPassant) ? enPassant : '-';
+    return `${api.getFen()} ${turn} ${flags || '-'} ${ep} 0 1`;
   }
 
   /** Il primo problema della posizione, detto a parole; null se si puo' giocare. */
@@ -259,6 +291,22 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
       });
       const text = document.createElement('span');
       text.textContent = t(castle.label);
+      line.append(box, text);
+      castling.append(line);
+    }
+    // La presa en passant: spenta di default, e al piu' una alla volta.
+    for (const square of possibleEnPassant()) {
+      const line = document.createElement('label');
+      line.className = 'choice-check';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = enPassant === square;
+      box.addEventListener('change', () => {
+        enPassant = box.checked ? square : null;
+        update();
+      });
+      const text = document.createElement('span');
+      text.textContent = t(turn === 'w' ? 'editorEnPassantWhite' : 'editorEnPassantBlack', { square });
       line.append(box, text);
       castling.append(line);
     }

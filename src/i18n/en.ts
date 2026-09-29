@@ -335,6 +335,8 @@ export const en: Record<keyof typeof it, string> = {
   editorCancel: 'Cancel',
   editorPlayWhite: 'Continue from here as White',
   editorPlayBlack: 'Continue from here as Black',
+  editorEnPassantWhite: 'White can capture en passant on {square}',
+  editorEnPassantBlack: 'Black can capture en passant on {square}',
   castleWhiteShort: 'White can castle short',
   castleWhiteLong: 'White can castle long',
   castleBlackShort: 'Black can castle short',
