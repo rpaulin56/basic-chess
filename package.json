@@ -1,6 +1,6 @@
 {
   "name": "basic-chess",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "Scacchiera didattica con tutor: gioco contro bot calibrato e analisi degli errori",
   "private": true,
   "author": "Riccardo Paulin",
