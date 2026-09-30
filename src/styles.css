@@ -921,7 +921,13 @@ select {
 .editor-blank { display: block; width: 26px; height: 26px; background: #fff; border: 1px solid var(--ink-soft, #888); border-radius: 3px; }
 .editor-turn { border: 0; padding: 0; margin: 0 0 8px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
 .editor-turn legend { padding: 0; margin-bottom: 4px; width: 100%; }
-.editor-turn-choice { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
+/* Il tratto come due riquadri, come i pezzi della tavolozza: il pallino del radio accanto
+   al pallino del colore sembrava due volte la stessa cosa. Il radio resta, nascosto ma
+   raggiungibile da tastiera e lettori di schermo. */
+.editor-turn-choice { position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; padding: 6px 12px; border: 1px solid var(--line, #ccc); border-radius: 6px; background: var(--panel, #fff); }
+.editor-turn-choice input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.editor-turn-choice:has(input:checked) { outline: 3px solid var(--accent, #7a5a2f); outline-offset: -1px; background: var(--bg, #f6f4ef); }
+.editor-turn-choice:has(input:focus-visible) { box-shadow: 0 0 0 2px var(--accent, #7a5a2f); }
 .editor-swatch { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--ink, #333); }
 .editor-swatch.white { background: #fff; }
 .editor-swatch.black { background: #222; }
