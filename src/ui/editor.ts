@@ -2,6 +2,7 @@ import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Key, Role } from 'chessground/types';
 import { t } from '../i18n/index.js';
+import { createIcon } from './icons.js';
 
 /**
  * L'editor di posizioni: si mettono i pezzi, si dice a chi tocca, e si gioca da li'.
@@ -43,6 +44,8 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
   const [placement = START, side = 'w'] = startFen.split(' ');
   let turn: 'w' | 'b' = side === 'b' ? 'b' : 'w';
   let brush: Brush = null;
+  /** Come e' girata la scacchiera dell'editor: si puo' girare anche da qui dentro. */
+  let view = orientation;
   /** La casa della presa en passant scelta; vale solo finche' la presa e' possibile. */
   let enPassant: string | null = startFen.split(' ')[3]?.match(/^[a-h][36]$/) ? startFen.split(' ')[3]! : null;
   /** Le caselle d'arrocco tolte a mano: le altre restano spuntate quando sono possibili. */
@@ -85,11 +88,16 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
     update();
   }, true);
 
-  // La tavolozza: due file da sei, piu' la gomma e la mano per spostare.
-  const palette = document.createElement('div');
-  palette.className = 'editor-palette cg-wrap';
+  // La tavolozza: i pezzi di ciascun colore dal LORO lato della scacchiera, come su Lichess.
+  // Partendo da una scacchiera vuota e girata, era poco intuitivo capire dove andasse cosa
+  // (segnalato provando); cosi' la scacchiera si legge da sola, e girandola le file si
+  // scambiano con lei.
+  const paletteTop = document.createElement('div');
+  paletteTop.className = 'editor-palette cg-wrap';
+  const paletteBottom = document.createElement('div');
+  paletteBottom.className = 'editor-palette cg-wrap';
   const tools: HTMLButtonElement[] = [];
-  const tool = (content: HTMLElement | string, value: Brush, label: string): HTMLButtonElement => {
+  const tool = (content: Element | string, value: Brush, label: string): HTMLButtonElement => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'editor-tool';
@@ -110,20 +118,28 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
     tools.push(button);
     return button;
   };
+  const rows: Record<'white' | 'black', HTMLButtonElement[]> = { white: [], black: [] };
   for (const color of ['white', 'black'] as const) {
     for (const role of ROLES) {
       const piece = document.createElement('piece');
       piece.className = `${role} ${color}`;
-      palette.append(tool(piece, { role, color }, t(`editorPiece_${color}_${role}`)));
+      rows[color].push(tool(piece, { role, color }, t(`editorPiece_${color}_${role}`)));
     }
   }
-  // La gomma come un settimo "pezzo", alto due righe: una casa vuota. Un pulsantone con la
-  // scritta prendeva una riga intera ed era sproporzionato (segnalato provando).
-  const blank = document.createElement('span');
-  blank.className = 'editor-blank';
-  const eraser = tool(blank, 'erase', t('editorErase'));
+  // Elimina pezzi: un cestino piccolo, in fondo alla fila di sotto, sempre nello stesso
+  // posto. Prima era un pulsantone con la scritta, poi una casa vuota alta due righe.
+  const eraser = tool(createIcon('trash'), 'erase', t('editorErase'));
   eraser.classList.add('editor-eraser');
-  palette.append(eraser);
+  const spacer = document.createElement('span');
+  spacer.className = 'editor-spacer';
+  /** Le due file dal lato giusto: sopra il colore che sta in alto sulla scacchiera. */
+  const layout = (): void => {
+    const top = view === 'white' ? 'black' : 'white';
+    const bottom = top === 'white' ? 'black' : 'white';
+    paletteTop.replaceChildren(...rows[top], spacer);
+    paletteBottom.replaceChildren(...rows[bottom], eraser);
+  };
+  layout();
 
   const button = (label: string, onClick: () => void, className = ''): HTMLButtonElement => {
     const element = document.createElement('button');
@@ -136,7 +152,20 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
 
   const setups = document.createElement('div');
   setups.className = 'editor-setups';
+  // Girare la scacchiera anche da qui: con la stessa icona della barra.
+  const flip = document.createElement('button');
+  flip.type = 'button';
+  flip.className = 'editor-flip';
+  flip.title = t('flipBoard');
+  flip.setAttribute('aria-label', t('flipBoard'));
+  flip.append(createIcon('flip'));
+  flip.addEventListener('click', () => {
+    view = view === 'white' ? 'black' : 'white';
+    api.set({ orientation: view });
+    layout();
+  });
   setups.append(
+    flip,
     button(t('editorEmpty'), () => {
       api.set({ fen: EMPTY });
       update();
@@ -324,7 +353,7 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
     handlers.onPlay(position, color);
   }
 
-  dialog.append(title, boardEl, palette, setups, turnLine, castling, problem, playRow);
+  dialog.append(title, paletteTop, boardEl, paletteBottom, setups, turnLine, castling, problem, playRow);
   dialog.addEventListener('close', () => {
     api.destroy();
     dialog.remove();

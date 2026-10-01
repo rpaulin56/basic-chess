@@ -35,7 +35,8 @@ export type IconName =
   | 'replay'
   | 'eye'
   | 'book'
-  | 'arrows';
+  | 'arrows'
+  | 'trash';
 
 /**
  * Ogni icona e' il contenuto di un viewBox 24x24. Tratto e riempimento sono decisi
@@ -255,6 +256,12 @@ const PATHS: Record<IconName, string> = {
     '<path d="M2 6h16v16H2z" />' +
     '<path d="M2 6h8v8H2zM10 14h8v8h-8z" fill="currentColor" stroke="none" opacity=".35" />' +
     '<path d="M12 14 21 5l2 2-9 9-3.5 1z" />',
+  // Il cestino dell'editor: "elimina pezzi". Piccolo e a contorno, per non pesare quanto i
+  // pezzi accanto a lui.
+  trash:
+    '<path d="M5 7h14M10 7V4.5h4V7" />' +
+    '<path d="M6.5 7l1 13h9l1-13" />' +
+    '<path d="M10.5 11v5.5M13.5 11v5.5" />',
 };
 
 export function createIcon(name: IconName): SVGSVGElement {
