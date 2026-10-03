@@ -65,7 +65,7 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
     movable: { free: true, color: 'both', showDests: false },
     draggable: { deleteOnDropOff: true },
     premovable: { enabled: false },
-    highlight: { lastMove: false, check: false },
+    highlight: { lastMove: true, check: false },
     animation: { enabled: false },
     events: { change: () => update() },
   });
@@ -313,8 +313,16 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
     return null;
   }
 
+  /** La doppia spinta che rende possibile la presa en passant su `square`: da dove e dove. */
+  function doublePush(square: string): [Key, Key] {
+    const file = square[0]!;
+    // c6 (tratto al Bianco): il Nero e' andato da c7 a c5. c3: il Bianco da c2 a c4.
+    return square[1] === '6' ? [`${file}7` as Key, `${file}5` as Key] : [`${file}2` as Key, `${file}4` as Key];
+  }
+
   function update(): void {
-    const options: Record<'w' | 'b', HTMLElement[]> = { w: [], b: [] };
+    const castles: Record<'w' | 'b', HTMLElement[]> = { w: [], b: [] };
+    const lastMoves: HTMLElement[] = [];
     for (const castle of possibleCastles()) {
       const line = document.createElement('label');
       line.className = 'choice-check';
@@ -329,10 +337,16 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
       const text = document.createElement('span');
       text.textContent = t(castle.label);
       line.append(box, text);
-      options[castle.color === 'white' ? 'w' : 'b'].push(line);
+      castles[castle.color === 'white' ? 'w' : 'b'].push(line);
     }
-    // La presa en passant: spenta di default, e al piu' una alla volta.
-    for (const square of possibleEnPassant()) {
+    // L'en passant detto per quello che e': l'ULTIMA MOSSA di chi non ha il tratto, una doppia
+    // spinta. La presa ne e' solo la conseguenza, e un pedone alla volta e' quello appena
+    // mosso: le scelte sono esclusive, e sulla scacchiera la mossa si vede evidenziata come
+    // in partita (proposto da chi gioca).
+    const possible = possibleEnPassant();
+    if (enPassant && !possible.includes(enPassant)) enPassant = null;
+    api.set({ lastMove: enPassant ? doublePush(enPassant) : [] });
+    for (const square of possible) {
       const line = document.createElement('label');
       line.className = 'choice-check';
       const box = document.createElement('input');
@@ -343,20 +357,25 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
         update();
       });
       const text = document.createElement('span');
-      text.textContent = t('editorEnPassant', { square });
+      const [from, to] = doublePush(square);
+      text.textContent = `${from}–${to}`;
       line.append(box, text);
-      options[turn].push(line);
+      lastMoves.push(line);
     }
-    // Il titolo della colonna c'e' solo se c'e' qualcosa da scegliere sotto.
+    // Ogni colonna: gli arrocchi del suo colore e, per chi non ha il tratto, l'ultima mossa.
+    // I titoli compaiono solo se sotto c'e' qualcosa da scegliere.
+    const heading = (key: string): HTMLElement => {
+      const element = document.createElement('span');
+      element.className = 'editor-rights-title';
+      element.textContent = t(key);
+      return element;
+    };
+    const mover = turn === 'w' ? 'b' : 'w';
     for (const side of ['w', 'b'] as const) {
-      if (options[side].length === 0) {
-        rights[side].replaceChildren();
-        continue;
-      }
-      const heading = document.createElement('span');
-      heading.className = 'editor-rights-title';
-      heading.textContent = t(side === 'w' ? 'editorWhiteCan' : 'editorBlackCan');
-      rights[side].replaceChildren(heading, ...options[side]);
+      const parts: HTMLElement[] = [];
+      if (castles[side].length > 0) parts.push(heading('editorCastling'), ...castles[side]);
+      if (side === mover && lastMoves.length > 0) parts.push(heading('editorLastMove'), ...lastMoves);
+      rights[side].replaceChildren(...parts);
     }
     const issue = validate();
     problem.textContent = issue ?? '';
