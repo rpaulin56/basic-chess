@@ -70,3 +70,9 @@ grandmachess.com {
 www.grandmachess.com {
 	redir https://grandmachess.com{uri} permanent
 }
+
+# Vecchio indirizzo del progetto, con il record A ancora verso la VPS: rimanda anche lui
+# al nome canonico, per la stessa ragione del www.
+scacchi.riccardopaulin.com {
+	redir https://grandmachess.com{uri} permanent
+}

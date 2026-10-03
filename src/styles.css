@@ -922,8 +922,12 @@ select {
 .editor-palette { margin: 6px 0; }
 .editor-flip { display: inline-flex; align-items: center; justify-content: center; padding: 2px 8px; }
 .editor-flip svg { width: 20px; height: 20px; }
-.editor-turn { border: 0; padding: 0; margin: 0 0 8px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
-.editor-turn legend { padding: 0; margin-bottom: 4px; width: 100%; }
+.editor-sides { border: 0; padding: 0; margin: 0 0 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.editor-sides legend { padding: 0; margin-bottom: 4px; }
+.editor-side { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.editor-rights { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.editor-rights-title { font-size: 12px; font-weight: 600; color: var(--ink-soft, #666); margin-top: 2px; }
+.editor-rights .choice-check { margin: 0; }
 /* Il tratto come due riquadri, come i pezzi della tavolozza: il pallino del radio accanto
    al pallino del colore sembrava due volte la stessa cosa. Il radio resta, nascosto ma
    raggiungibile da tastiera e lettori di schermo. */

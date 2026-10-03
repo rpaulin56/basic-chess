@@ -34,10 +34,10 @@ const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
 
 /** Le quattro possibilita' d'arrocco: lettera del FEN, casa del Re e casa della Torre. */
 const CASTLES = [
-  { flag: 'K', king: 'e1', rook: 'h1', color: 'white', label: 'castleWhiteShort' },
-  { flag: 'Q', king: 'e1', rook: 'a1', color: 'white', label: 'castleWhiteLong' },
-  { flag: 'k', king: 'e8', rook: 'h8', color: 'black', label: 'castleBlackShort' },
-  { flag: 'q', king: 'e8', rook: 'a8', color: 'black', label: 'castleBlackLong' },
+  { flag: 'K', king: 'e1', rook: 'h1', color: 'white', label: 'editorCastleShort' },
+  { flag: 'Q', king: 'e1', rook: 'a1', color: 'white', label: 'editorCastleLong' },
+  { flag: 'k', king: 'e8', rook: 'h8', color: 'black', label: 'editorCastleShort' },
+  { flag: 'q', king: 'e8', rook: 'a8', color: 'black', label: 'editorCastleLong' },
 ] as const;
 
 export function openEditor(startFen: string, orientation: 'white' | 'black', handlers: EditorHandlers): void {
@@ -179,14 +179,21 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
     }),
   );
 
-  // A chi tocca: due scelte con il loro colore, non un menu a tendina per due valori.
+  // Due colonne, una per colore: in cima a chi tocca, sotto che cosa puo' fare ("Il Bianco
+  // puo': arroccare corto, arroccare lungo, prendere en passant in c6"). Le frasi lunghe una
+  // sotto l'altra ripetevano "Il Bianco puo'" a ogni riga (proposto da chi gioca).
   const turnLine = document.createElement('fieldset');
-  turnLine.className = 'editor-turn';
+  turnLine.className = 'editor-sides';
   const turnName = document.createElement('legend');
   turnName.className = 'choice-name';
   turnName.textContent = t('editorTurn');
   turnLine.append(turnName);
   const turnRadios: HTMLInputElement[] = [];
+  /** Le liste di "che cosa puo' fare", una per colonna. */
+  const rights: Record<'w' | 'b', HTMLElement> = {
+    w: document.createElement('div'),
+    b: document.createElement('div'),
+  };
   for (const [value, key] of [
     ['w', 'editorTurnWhite'],
     ['b', 'editorTurnBlack'],
@@ -209,11 +216,12 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
     const name = document.createElement('span');
     name.textContent = t(key);
     label.append(radio, swatch, name);
-    turnLine.append(label);
+    const column = document.createElement('div');
+    column.className = 'editor-side';
+    rights[value].className = 'editor-rights';
+    column.append(label, rights[value]);
+    turnLine.append(column);
   }
-
-  const castling = document.createElement('div');
-  castling.className = 'editor-castling';
 
   const problem = document.createElement('p');
   problem.className = 'editor-problem';
@@ -306,7 +314,7 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
   }
 
   function update(): void {
-    castling.replaceChildren();
+    const options: Record<'w' | 'b', HTMLElement[]> = { w: [], b: [] };
     for (const castle of possibleCastles()) {
       const line = document.createElement('label');
       line.className = 'choice-check';
@@ -321,7 +329,7 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
       const text = document.createElement('span');
       text.textContent = t(castle.label);
       line.append(box, text);
-      castling.append(line);
+      options[castle.color === 'white' ? 'w' : 'b'].push(line);
     }
     // La presa en passant: spenta di default, e al piu' una alla volta.
     for (const square of possibleEnPassant()) {
@@ -335,9 +343,20 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
         update();
       });
       const text = document.createElement('span');
-      text.textContent = t(turn === 'w' ? 'editorEnPassantWhite' : 'editorEnPassantBlack', { square });
+      text.textContent = t('editorEnPassant', { square });
       line.append(box, text);
-      castling.append(line);
+      options[turn].push(line);
+    }
+    // Il titolo della colonna c'e' solo se c'e' qualcosa da scegliere sotto.
+    for (const side of ['w', 'b'] as const) {
+      if (options[side].length === 0) {
+        rights[side].replaceChildren();
+        continue;
+      }
+      const heading = document.createElement('span');
+      heading.className = 'editor-rights-title';
+      heading.textContent = t(side === 'w' ? 'editorWhiteCan' : 'editorBlackCan');
+      rights[side].replaceChildren(heading, ...options[side]);
     }
     const issue = validate();
     problem.textContent = issue ?? '';
@@ -353,7 +372,7 @@ export function openEditor(startFen: string, orientation: 'white' | 'black', han
     handlers.onPlay(position, color);
   }
 
-  dialog.append(title, paletteTop, boardEl, paletteBottom, setups, turnLine, castling, problem, playRow);
+  dialog.append(title, paletteTop, boardEl, paletteBottom, setups, turnLine, problem, playRow);
   dialog.addEventListener('close', () => {
     api.destroy();
     dialog.remove();
