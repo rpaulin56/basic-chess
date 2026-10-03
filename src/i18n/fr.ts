@@ -347,7 +347,7 @@ export const fr: Record<keyof typeof it, string> = {
   editorTurnBlack: 'Noirs',
   editorCastleShort: 'O-O',
   editorCastleLong: 'O-O-O',
-  editorCastling: `Roques${NB}:`,
+  editorCastling: `Roques autorisés${NB}:`,
   editorLastMove: `Dernier coup${NB}:`,
   editorCancel: 'Annuler',
   editorPlayWhite: 'Continuer d’ici avec les Blancs',

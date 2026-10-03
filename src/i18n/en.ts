@@ -334,7 +334,7 @@ export const en: Record<keyof typeof it, string> = {
   editorTurnBlack: 'Black',
   editorCastleShort: 'O-O',
   editorCastleLong: 'O-O-O',
-  editorCastling: 'Castling:',
+  editorCastling: 'Castling allowed:',
   editorLastMove: 'Last move:',
   editorCancel: 'Cancel',
   editorPlayWhite: 'Continue from here as White',

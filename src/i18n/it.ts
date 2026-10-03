@@ -333,7 +333,7 @@ export const it = {
   editorTurnBlack: 'Nero',
   editorCastleShort: 'O-O',
   editorCastleLong: 'O-O-O',
-  editorCastling: 'Arrocchi:',
+  editorCastling: 'Arrocchi ammessi:',
   editorLastMove: 'Ultima mossa:',
   editorCancel: 'Annulla',
   editorPlayWhite: 'Continua da qui col Bianco',
